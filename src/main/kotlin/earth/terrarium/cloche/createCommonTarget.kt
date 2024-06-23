@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
@@ -9,17 +11,25 @@ import net.msrandom.minecraftcodev.mixins.dependency.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ModuleDependency
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetContainer
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KProperty1
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.isAccessible
 
 private val commonSourceSet = KotlinCompile::class.memberProperties
     .first { it.name == "commonSourceSet" }
-    .apply { isAccessible = true }
+    .apply { isAccessible = true } as KProperty1<KotlinCompile, ConfigurableFileCollection>
+
+private val multiPlatformEnabled = KotlinCompile::class.memberProperties
+    .first { it.name == "multiPlatformEnabled" }
+    .apply { isAccessible = true } as KProperty1<KotlinCompile, Property<Boolean>>
 
 fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTarget>) {
     val cloche = extension<ClocheExtension>()
@@ -59,6 +69,7 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
         compilation.process(sourceSet)
 
         project.dependencies.addProvider(sourceSet.implementationConfigurationName, dependencyProvider)
+        project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:multiplatform-annotations:1.0.0")
 
         for (edge in edges) {
             val edgeDependant = sourceSets.findByName(sourceSetName(edge, name)) ?: run {
@@ -78,11 +89,13 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
 
                 kotlinSourceSet.dependsOn(kotlin.sourceSets.getByName(sourceSet.name))
 
-                /*tasks.named(edgeDependant.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
-                    it.multiPlatformEnabled.set(true)
-                    (commonSourceSet.get(it) as ConfigurableFileCollection).from(sourceSet.allSource)
-                }*/
+                tasks.named(edgeDependant.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
+                    multiPlatformEnabled.get(it).set(true)
+                    commonSourceSet.get(it).from(sourceSet.allSource)
+                }
             }
+
+            project.dependencies.add(edgeDependant.annotationProcessorConfigurationName, "net.msrandom:multiplatform-processor:1.0.7")
 
             project.extend(edgeDependant.mixinsConfigurationName, sourceSet.mixinsConfigurationName)
         }
