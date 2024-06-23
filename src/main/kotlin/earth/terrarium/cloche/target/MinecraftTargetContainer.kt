@@ -19,12 +19,14 @@ open class MinecraftTargetContainer @Inject constructor(
 ) {
     init {
         apply {
-            registerBinding(FabricTarget::class.java, FabricTarget::class.java)
-            registerBinding(ForgeTarget::class.java, ForgeTarget::class.java)
-            registerBinding(QuiltTarget::class.java, QuiltTarget::class.java)
+            addTargetType<FabricTarget>()
+            addTargetType<ForgeTarget>()
+            addTargetType<NeoForgeTarget>()
+            addTargetType<QuiltTarget>()
         }
     }
 
+    @Suppress("MemberVisibilityCanBePrivate")
     fun <T : MinecraftTarget> addTargetType(type: Class<T>) = registerBinding(type, type)
 
     @JvmSynthetic

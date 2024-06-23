@@ -1,65 +1,42 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
-import net.msrandom.minecraftcodev.accesswidener.dependency.accessWidenersConfigurationName
-import net.msrandom.minecraftcodev.forge.dependency.patchesConfigurationName
-import net.msrandom.minecraftcodev.mixins.dependency.mixinsConfigurationName
+import net.msrandom.minecraftcodev.decompiler.dependency.withSources
 import net.msrandom.minecraftcodev.remapper.dependency.mappingsConfigurationName
-import org.apache.commons.lang3.StringUtils
+import net.msrandom.minecraftcodev.remapper.dependency.remapped
+import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
+import org.gradle.api.artifacts.ModuleDependency
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
-import org.jetbrains.kotlin.gradle.plugin.HasKotlinDependencies
-import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmCompilation
 import javax.inject.Inject
 
-abstract class TargetCompilation @Inject constructor(private val name: String) : Compilation {
-    val sourceSetName: String
-        get() {
-            validate()
-
-            return sourceSet?.name ?: kotlinSourceSet?.name ?: kotlinCompilation!!.defaultSourceSetName
+abstract class TargetCompilation @Inject constructor(private val name: String, private val baseDependency: Provider<ModuleDependency>, val create: () -> Boolean) : RunnableCompilationInternal {
+    override val dependency: Provider<ModuleDependency>
+        get() = baseDependency.map {
+            mixin(accessWiden(it.remapped(mappingsConfiguration = sourceSet.mappingsConfigurationName), this), this).withSources
         }
 
-    private var sourceSet: SourceSet? = null
-    private var kotlinSourceSet: KotlinSourceSet? = null
-    private var kotlinCompilation: KotlinJvmCompilation? = null
+    final override lateinit var sourceSet: SourceSet
+        private set
 
-    val mappingsConfigurationName get() = map(SourceSet::mappingsConfigurationName, HasKotlinDependencies::mappingsConfigurationName)
-    val accessWidenersConfigurationName get() = map(SourceSet::accessWidenersConfigurationName, HasKotlinDependencies::accessWidenersConfigurationName)
-    val mixinsConfigurationName get() = map(SourceSet::mixinsConfigurationName, HasKotlinDependencies::mixinsConfigurationName)
-    val patchesConfigurationName get() = map(SourceSet::patchesConfigurationName, HasKotlinDependencies::patchesConfigurationName)
+    override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
+    override val runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
 
-    val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
+    override val createSourceSet: Boolean
+        get() = create()
 
-    internal fun process(sourceSet: SourceSet?, kotlinSourceSet: KotlinSourceSet?, kotlinCompilation: KotlinJvmCompilation?) {
+    override fun process(sourceSet: SourceSet) {
         this.sourceSet = sourceSet
-        this.kotlinSourceSet = kotlinSourceSet
-        this.kotlinCompilation = kotlinCompilation
-
-        validate()
     }
-
-    private fun validate() = require(listOfNotNull(sourceSet, kotlinSourceSet, kotlinCompilation).size == 1) { "Either sourceSet or kotlinSourceSet or kotlinCompilation or has to be specified." }
 
     override fun dependencies(action: Action<ClocheDependencyHandler>) {
         dependencySetupActions.add(action)
     }
 
-    override fun getName() = name
-
-    private fun <T> map(sourceSetMapper: SourceSet.() -> T, kotlinMapper: HasKotlinDependencies.() -> T): T {
-        validate()
-
-        sourceSet?.let {
-            return it.sourceSetMapper()
-        }
-
-        kotlinSourceSet?.let {
-            return it.kotlinMapper()
-        }
-
-        return kotlinCompilation!!.kotlinMapper()
+    override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) {
+        runSetupActions.add(action)
     }
+
+    override fun getName() = name
 }

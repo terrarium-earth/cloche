@@ -1,208 +1,123 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.ClocheTarget
-import earth.terrarium.cloche.target.CommonTarget
+import earth.terrarium.cloche.target.*
+import net.msrandom.extensions.JvmClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.core.dependency.minecraft
+import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
+import net.msrandom.minecraftcodev.includes.MinecraftCodevIncludesPlugin
+import net.msrandom.minecraftcodev.intersection.MinecraftCodevIntersectionPlugin
 import net.msrandom.minecraftcodev.mixins.MinecraftCodevMixinsPlugin
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
-import net.msrandom.minecraftcodev.remapper.dependency.mappingsConfigurationName
-import org.apache.commons.lang3.StringUtils
+import net.msrandom.minecraftcodev.runs.MinecraftCodevRunsPlugin
+import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.internal.project.ProjectInternal
+import org.gradle.api.attributes.Attribute
 import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.plugins.JavaPlugin
-import org.gradle.api.plugins.JavaPluginExtension
-import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.configurationcache.extensions.serviceOf
-import org.gradle.internal.instantiation.InstantiatorFactory
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+
+fun Project.extend(base: String, dependency: String) = project.configurations.findByName(dependency)?.let {
+    project.configurations.findByName(base)?.extendsFrom(it)
+}
 
 class ClochePlugin : Plugin<Project> {
-    private fun useKotlin(cloche: ClocheExtension, project: Project) =
-        cloche.useKotlinMultiplatform.getOrElse(project.plugins.hasPlugin(KOTLIN_MULTIPLATFORM))
-
-    private fun addTarget(cloche: ClocheExtension, project: Project, target: ClocheTarget, common: Boolean) {
-        val kotlin = useKotlin(cloche, project)
-
-        val targetCompilations = target.compilations
-
+    private fun addTarget(cloche: ClocheExtension, project: Project, target: MinecraftTarget) {
         target.minecraftVersion.convention(cloche.minecraftVersion)
 
         for (mappingAction in cloche.mappingActions) {
             target.mappings(mappingAction)
         }
 
-        if (kotlin) {
-            project.plugins.apply(KOTLIN_MULTIPLATFORM)
-
-            val multiplatform = project.extensions.getByType(KotlinMultiplatformExtension::class.java)
-
-            if (common) {
-                for ((_, compilation) in targetCompilations) {
-                    val sourceSet = multiplatform.sourceSets.maybeCreate("${target.name}${StringUtils.capitalize(compilation.name)}")
-
-                    compilation.process(null, sourceSet, null)
-
-                    val dependencyHandler = ClocheDependencyHandler(
-                        project,
-                        target.remapNamespace,
-                        sourceSet.mappingsConfigurationName,
-                        sourceSet.apiConfigurationName,
-                        sourceSet.implementationConfigurationName,
-                        sourceSet.runtimeOnlyConfigurationName,
-                        sourceSet.compileOnlyConfigurationName
-                    )
-
-                    for (action in compilation.dependencySetupActions) {
-                        action.execute(dependencyHandler)
-                    }
-                }
-            } else {
-                multiplatform.jvm(target.name) {
-                    for ((_, compilation) in targetCompilations) {
-                        val kotlinCompilation = compilations.maybeCreate(compilation.name)
-
-                        compilation.process(null, null, kotlinCompilation)
-
-                        val dependencyHandler = ClocheDependencyHandler(
-                            project,
-                            target.remapNamespace,
-                            kotlinCompilation.mappingsConfigurationName,
-                            kotlinCompilation.apiConfigurationName,
-                            kotlinCompilation.implementationConfigurationName,
-                            kotlinCompilation.runtimeOnlyConfigurationName,
-                            kotlinCompilation.compileOnlyConfigurationName
-                        )
-
-                        for (action in compilation.dependencySetupActions) {
-                            action.execute(dependencyHandler)
-                        }
-                    }
-                }
-            }
-        } else {
-            project.plugins.apply(JavaPlugin::class.java)
-            project.plugins.apply(JavaLibraryPlugin::class.java)
-            project.plugins.apply(ApplicationPlugin::class.java)
-
-            val java = project.extensions.getByType(JavaPluginExtension::class.java)
-            val sourceSets = project.extensions.getByType(SourceSetContainer::class.java)
-
-            for ((_, compilation) in targetCompilations) {
-                val sourceSetName = when {
-                    target.name == ClocheExtension::common.name -> compilation.name
-                    compilation.name == KotlinCompilation.MAIN_COMPILATION_NAME -> target.name
-                    else -> "${target.name}${StringUtils.capitalize(compilation.name)}"
-                }
-
-                val sourceSet = sourceSets.maybeCreate(sourceSetName)
-
-                compilation.process(sourceSet, null, null)
-
-                java.registerFeature(sourceSetName) {
-                    it.withJavadocJar()
-                    it.withSourcesJar()
-
-                    it.usingSourceSet(sourceSet)
-                }
-
-                val dependencyHandler = ClocheDependencyHandler(
-                    project,
-                    target.remapNamespace,
-                    compilation.mappingsConfigurationName,
-                    sourceSet.apiConfigurationName,
-                    sourceSet.implementationConfigurationName,
-                    sourceSet.runtimeOnlyConfigurationName,
-                    sourceSet.compileOnlyConfigurationName
-                )
-
-                for (action in compilation.dependencySetupActions) {
-                    action.execute(dependencyHandler)
-                }
-            }
-        }
-    }
-
-    private fun addDependencies(cloche: ClocheExtension, project: Project, target: ClocheTarget, baseCommonTarget: CommonTarget, common: Boolean) {
-        val kotlin = useKotlin(cloche, project)
-        val dependencies = if (target == baseCommonTarget) target.dependsOn else project.provider { target.dependsOn.get() + baseCommonTarget }
-
-        if (kotlin) {
-            val multiplatform = project.extensions.getByType(KotlinMultiplatformExtension::class.java)
-            for ((name, compilation) in target.compilations) {
-                val sourceSet = if (common) {
-                    multiplatform.targets.findByName(name)?.compilations?.findByName(compilation.name)?.defaultSourceSet
-                } else {
-                    multiplatform.sourceSets.findByName(compilation.sourceSetName)
-                }
-
-                if (sourceSet != null) {
-                    for (commonTarget in dependencies.get()) {
-                        val dependency = commonTarget.compilations[name]?.sourceSetName?.let(multiplatform.sourceSets::findByName)
-
-                        if (dependency != null) {
-                            sourceSet.dependsOn(dependency)
-                        }
-                    }
-                }
-            }
-        } else {
-            val sourceSets = project.extensions.getByType(SourceSetContainer::class.java)
-
-            for ((name, compilation) in target.compilations) {
-                val sourceSet = sourceSets.findByName(compilation.sourceSetName)
-
-                if (sourceSet != null) {
-                    for (commonTarget in dependencies.get()) {
-                        val dependency = commonTarget.compilations[name]?.sourceSetName?.let(sourceSets::findByName)
-
-                        if (dependency != null) {
-                            fun extend(base: String, dependency: String) = project.configurations.getByName(base).extendsFrom(project.configurations.getByName(dependency))
-
-                            extend(sourceSet.apiConfigurationName, dependency.apiConfigurationName)
-                            extend(sourceSet.implementationConfigurationName, dependency.implementationConfigurationName)
-                            extend(sourceSet.runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
-                            extend(sourceSet.compileOnlyConfigurationName, dependency.compileOnlyConfigurationName)
-                        }
-                    }
-                }
-            }
-        }
+        handleTarget(project, target)
     }
 
     override fun apply(target: Project) {
         val cloche = target.extensions.create("cloche", ClocheExtension::class.java)
 
-        val common = cloche.commonTargets.maybeCreate(ClocheExtension::common.name)
-
         target.plugins.apply(MinecraftCodevFabricPlugin::class.java)
         target.plugins.apply(MinecraftCodevForgePlugin::class.java)
         target.plugins.apply(MinecraftCodevRemapperPlugin::class.java)
+        target.plugins.apply(MinecraftCodevIncludesPlugin::class.java)
+        target.plugins.apply(MinecraftCodevIntersectionPlugin::class.java)
+        target.plugins.apply(MinecraftCodevDecompilerPlugin::class.java)
         target.plugins.apply(MinecraftCodevAccessWidenerPlugin::class.java)
         target.plugins.apply(MinecraftCodevMixinsPlugin::class.java)
+        target.plugins.apply(MinecraftCodevRunsPlugin::class.java)
+        target.plugins.apply(JvmClassExtensionsPlugin::class.java)
+        target.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
+        target.plugins.apply(JavaPlugin::class.java)
+        target.plugins.apply(JavaLibraryPlugin::class.java)
+        target.plugins.apply(ApplicationPlugin::class.java)
 
         target.repositories.minecraft()
 
-        target.repositories.maven { it.url = target.uri("https://maven.minecraftforge.net/") }
+        target.repositories.maven { it.url = target.uri("https://maven.msrandom.net/repository/root/") }
+        target.repositories.maven { it.url = target.uri("https://maven.neoforged.net/") }
+
+        target.repositories.maven {
+            it.url = target.uri("https://maven.minecraftforge.net/")
+
+            it.metadataSources { sources ->
+                sources.gradleMetadata()
+                sources.mavenPom()
+                sources.artifact()
+            }
+        }
+
         target.repositories.maven { it.url = target.uri("https://maven.fabricmc.net/") }
         target.repositories.maven { it.url = target.uri("https://libraries.minecraft.net/") }
 
-        target.afterEvaluate { project ->
-            cloche.commonTargets.all { addTarget(cloche, target, it, true) }
-            cloche.targets.all { addTarget(cloche, target, it, false) }
+        cloche.useKotlin.convention(target.provider { target.plugins.hasPlugin(KOTLIN_JVM) })
 
-            cloche.commonTargets.all { addDependencies(cloche, project, it, common, true) }
-            cloche.targets.all { addDependencies(cloche, project, it, common, false) }
+        cloche.targets.whenObjectAdded { addTarget(cloche, target, it) }
+
+        val primaryCommon = cloche.commonTargets.maybeCreate(ClocheExtension::common.name)
+
+        target.afterEvaluate { project ->
+            cloche.targets.all {
+                if (it != primaryCommon) {
+                    it.dependsOn(primaryCommon)
+                }
+            }
+
+            cloche.commonTargets.all {
+                if (it != primaryCommon) {
+                    it.dependsOn(primaryCommon)
+                }
+            }
+
+            fun getDependencies(target: ClocheTarget): List<CommonTarget> =
+                target.dependsOn.get() + target.dependsOn.get().flatMap { getDependencies(it) }
+
+            val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
+            val commonToTarget = hashMapOf<CommonTarget, MutableSet<MinecraftTarget>>()
+
+            for ((edgeTarget, dependencies) in targetDependencies) {
+                for (dependency in dependencies) {
+                    commonToTarget.computeIfAbsent(dependency) { hashSetOf() }.add(edgeTarget)
+                }
+            }
+
+            for ((common, targets) in commonToTarget) {
+                project.createCommonTarget(common, targets)
+            }
         }
     }
 
-    private companion object {
-        private const val KOTLIN_MULTIPLATFORM = "org.jetbrains.kotlin.multiplatform"
+    companion object {
+        const val CLIENT_COMPILATION_NAME = "client"
+        const val DATA_COMPILATION_NAME = "data"
+
+        internal const val KOTLIN_JVM = "org.jetbrains.kotlin.jvm"
+
+        @JvmField
+        val MINECRAFT_VERSION_ATTRIBUTE = Attribute.of("earth.terrarium.cloche.minecraftVersion", String::class.java)
+
+        @JvmField
+        val MOD_LOADER_ATTRIBUTE = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
     }
 }

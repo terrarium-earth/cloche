@@ -1,19 +1,27 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.metadata.ModMetadata
 import earth.terrarium.cloche.target.*
 import org.gradle.api.Action
-import org.gradle.api.Project
+import org.gradle.api.NamedDomainObjectContainer
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
 import javax.inject.Inject
 import kotlin.reflect.KClass
 
-open class ClocheExtension @Inject constructor(project: Project, objects: ObjectFactory) {
+open class ClocheExtension @Inject constructor(objects: ObjectFactory) {
     val minecraftVersion: Property<String> = objects.property(String::class.java)
-    val useKotlinMultiplatform: Property<Boolean> = objects.property(Boolean::class.java)
+    val useKotlin: Property<Boolean> = objects.property(Boolean::class.java)
+    val extensionPattern: Property<String> = objects.property(String::class.java)
 
-    val commonTargets = objects.domainObjectContainer(CommonTarget::class.java)
+    val accessWideners: ConfigurableFileCollection = objects.fileCollection()
+    val mixins: ConfigurableFileCollection = objects.fileCollection()
+
+    val commonTargets: NamedDomainObjectContainer<CommonTarget> = objects.domainObjectContainer(CommonTarget::class.java)
     val targets: MinecraftTargetContainer = objects.newInstance(MinecraftTargetContainer::class.java)
+
+    val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
 
     internal val mappingActions = mutableListOf<Action<MappingsBuilder>>()
 
@@ -24,15 +32,18 @@ open class ClocheExtension @Inject constructor(project: Project, objects: Object
         ?: commonTargets.create(name)
 
     @JvmOverloads
-    fun fabric(name: String = ::fabric.name, configure: Action<FabricTarget>? = null) = target<FabricTarget>(name, configure)
+    fun fabric(name: String = ::fabric.name, configure: Action<FabricTarget>? = null) = target(name, configure)
 
     @JvmOverloads
-    fun forge(name: String = ::forge.name, configure: Action<ForgeTarget>? = null) = target<ForgeTarget>(name, configure)
+    fun forge(name: String = ::forge.name, configure: Action<ForgeTarget>? = null) = target(name, configure)
 
     @JvmOverloads
-    fun quilt(name: String = ::quilt.name, configure: Action<QuiltTarget>? = null) = target<QuiltTarget>(name, configure)
+    fun neoforge(name: String = ::neoforge.name, configure: Action<NeoForgeTarget>? = null) = target(name, configure)
 
-    fun <T : MinecraftTarget> target(name: String, type: Class<T>, configure: Action<T>? = null) =
+    @JvmOverloads
+    fun quilt(name: String = ::quilt.name, configure: Action<QuiltTarget>? = null) = target(name, configure)
+
+    fun <T : MinecraftTarget> target(name: String, type: Class<T>, configure: Action<T>? = null): T =
         targets.withType(type)
             .findByName(name)
             ?.also { configure?.execute(it) }
@@ -46,5 +57,9 @@ open class ClocheExtension @Inject constructor(project: Project, objects: Object
 
     fun mappings(action: Action<MappingsBuilder>) {
         mappingActions.add(action)
+    }
+
+    fun metadata(action: Action<ModMetadata>) {
+        action.execute(metadata)
     }
 }

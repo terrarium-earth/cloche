@@ -1,86 +1,51 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
-import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
-import net.msrandom.minecraftcodev.core.MinecraftType
-import net.msrandom.minecraftcodev.remapper.dependency.remapped
+import earth.terrarium.cloche.ClochePlugin
+import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
+import net.msrandom.minecraftcodev.intersection.dependency.IntersectionDependency
 import org.gradle.api.Action
 import org.gradle.api.artifacts.ModuleDependency
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
-import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+import org.gradle.api.tasks.SourceSet
 
-abstract class CommonTarget : ClocheTarget, ClientTarget {
-    private val main: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, KotlinCompilation.MAIN_COMPILATION_NAME)
+abstract class CommonTarget : ClocheTarget {
+    val main: Compilation = run {
+        project.objects.newInstance(CommonCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME)
     }
 
-    private var client: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, "client")
+    val test: Compilation = run {
+        project.objects.newInstance(CommonCompilation::class.java, SourceSet.TEST_SOURCE_SET_NAME)
     }
 
-    private var data: TargetCompilation? = null
-
-    private var mainDependency = run {
-        minecraftVersion.map {
-            project.extensions.getByType(MinecraftCodevExtension::class.java)(MinecraftType.Common, it)
-        }
+    val data: Compilation = run {
+        project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.DATA_COMPILATION_NAME)
     }
 
-    private var clientDependency = run {
-        minecraftVersion.map {
-            project.extensions.getByType(MinecraftCodevExtension::class.java)(MinecraftType.Client, it)
-        }
+    val client: Compilation = run {
+        project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
     }
 
-    override val compilations by lazy {
-        listOfNotNull(main, if (clientMode.get() == ClientMode.SourceSet) client else null, data).associateBy(TargetCompilation::getName)
-    }
+    override val remapNamespace: String?
+        get() = if (useIntermediary.get()) MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE else null
+
+    abstract val useIntermediary: Property<Boolean>
+
+    override val accessWideners get() = main.accessWideners
+
+    override val mixins get() = main.mixins
+
+    override val sourceSet get() = main.sourceSet
 
     init {
-        main.dependencies { dependencies ->
-            project.dependencies.addProvider(dependencies.implementation.configurationName, clientMode.flatMap {
-                if (it == ClientMode.Included) {
-                    process(clientDependency, client)
-                } else {
-                    process(mainDependency, client)
-                }
-            })
-        }
-
-        client.dependencies { dependencies ->
-            project.dependencies.addProvider(dependencies.implementation.configurationName, process(clientDependency, client))
-        }
-
         apply {
-            clientMode.convention(ClientMode.SourceSet)
+            useIntermediary.convention(true)
         }
     }
 
-    private fun process(dependency: Provider<out ModuleDependency>, compilation: TargetCompilation) = dependency.map {
-        project.mixin(project.accessWiden(it.remapped(mappingsConfiguration = main.mappingsConfigurationName), accessWideners, compilation), mixins, compilation)
-    }
-
-    override fun client(action: Action<Compilation>) = action.execute(client)
-
-    override fun data(action: Action<Compilation>?) {
-        val data = data ?: project.objects.newInstance(TargetCompilation::class.java, "data").also {
-            data = it
-        }
-
-        action?.execute(data)
-    }
-
-    override fun dependencies(action: Action<ClocheDependencyHandler>) = main.dependencies(action)
-
-    override fun mappings(action: Action<MappingsBuilder>) {
-        val mappings = mutableListOf<MappingDependencyProvider>()
-
-        action.execute(MappingsBuilder(project, mappings))
-
-        main.dependencies {
-            for (mapping in mappings) {
-                project.dependencies.addProvider(main.mappingsConfigurationName, minecraftVersion.map(mapping))
-            }
-        }
+    override fun dependencies(action: Action<ClocheDependencyHandler>) {
+        main.dependencies(action)
     }
 }
