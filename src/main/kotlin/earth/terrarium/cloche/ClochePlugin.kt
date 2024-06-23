@@ -56,19 +56,7 @@ class ClochePlugin : Plugin<Project> {
         target.repositories.minecraft()
 
         target.repositories.maven { it.url = target.uri("https://maven.msrandom.net/repository/root/") }
-        target.repositories.maven { it.url = target.uri("https://maven.neoforged.net/") }
 
-        target.repositories.maven {
-            it.url = target.uri("https://maven.minecraftforge.net/")
-
-            it.metadataSources { sources ->
-                sources.gradleMetadata()
-                sources.mavenPom()
-                sources.artifact()
-            }
-        }
-
-        target.repositories.maven { it.url = target.uri("https://maven.fabricmc.net/") }
         target.repositories.maven { it.url = target.uri("https://libraries.minecraft.net/") }
 
         cloche.useKotlin.convention(target.provider { target.plugins.hasPlugin(KOTLIN_JVM) })
@@ -115,9 +103,9 @@ class ClochePlugin : Plugin<Project> {
         internal const val KOTLIN_JVM = "org.jetbrains.kotlin.jvm"
 
         @JvmField
-        val MINECRAFT_VERSION_ATTRIBUTE = Attribute.of("earth.terrarium.cloche.minecraftVersion", String::class.java)
+        val MINECRAFT_VERSION_ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.minecraftVersion", String::class.java)
 
         @JvmField
-        val MOD_LOADER_ATTRIBUTE = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
+        val MOD_LOADER_ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
     }
 }
