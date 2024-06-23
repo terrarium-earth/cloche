@@ -91,7 +91,7 @@ class ClochePlugin : Plugin<Project> {
             }
 
             fun getDependencies(target: ClocheTarget): List<CommonTarget> =
-                target.dependsOn.get() + target.dependsOn.get().flatMap { getDependencies(it) }
+                target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
 
             val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
             val commonToTarget = hashMapOf<CommonTarget, MutableSet<MinecraftTarget>>()

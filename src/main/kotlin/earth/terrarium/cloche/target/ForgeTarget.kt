@@ -102,6 +102,12 @@ abstract class ForgeTarget : MinecraftTarget {
             project.dependencies.add(main.sourceSet.mixinsConfigurationName, main.mixins)
             project.dependencies.add(main.sourceSet.accessWidenersConfigurationName, main.accessWideners)
 
+            if (!hasMappings) {
+                val codev = project.extension<MinecraftCodevExtension>()
+
+                project.dependencies.addProvider(main.sourceSet.mappingsConfigurationName, minecraftVersion.map { codev(MinecraftType.ClientMappings, it) })
+            }
+
             project.tasks.named(main.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
                 it.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
             }
