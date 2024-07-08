@@ -4,8 +4,10 @@ import earth.terrarium.cloche.ClocheDependencyHandler
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Named
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
@@ -20,7 +22,7 @@ interface Compilation : Named {
         @InputFiles
         get
 
-    val sourceSet: SourceSet
+    val sourceSet: Provider<SourceSet>
         @Internal
         get
 
@@ -30,7 +32,9 @@ interface Compilation : Named {
 interface CompilationInternal: Compilation {
     val dependencySetupActions: List<Action<ClocheDependencyHandler>>
 
-    fun process(sourceSet: SourceSet)
+    override val sourceSet: Property<SourceSet>
+        @Internal
+        get
 }
 
 interface RunnableCompilation : Compilation {
@@ -38,11 +42,7 @@ interface RunnableCompilation : Compilation {
 }
 
 interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation {
-    val dependency: Provider<ModuleDependency>
-        @Internal
-        get
-
-    val createSourceSet: Boolean
+    val dependency: Provider<Dependency>
         @Internal
         get
 

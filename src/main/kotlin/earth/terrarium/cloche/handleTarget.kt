@@ -5,13 +5,13 @@ import earth.terrarium.cloche.target.Compilation
 import earth.terrarium.cloche.target.MinecraftTarget
 import earth.terrarium.cloche.target.RunnableCompilationInternal
 import net.msrandom.extensions.ClassExtensionsExtension
-import net.msrandom.minecraftcodev.accesswidener.dependency.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
-import net.msrandom.minecraftcodev.mixins.dependency.mixinsConfigurationName
-import net.msrandom.minecraftcodev.remapper.dependency.mappingsConfigurationName
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
@@ -39,85 +39,85 @@ fun handleTarget(project: Project, target: MinecraftTarget) {
     fun add(compilation: RunnableCompilationInternal) {
         val main = sourceSets.maybeCreate(sourceSetName(target.main))
 
-        val sourceSet = if (compilation.createSourceSet) {
-            val sourceSet = sourceSets.maybeCreate(sourceSetName(compilation))
+        val sourceSet = sourceSets.maybeCreate(sourceSetName(compilation))
 
-            val extensionPattern = target.extensionPattern.orElse(cloche.extensionPattern).getOrElse("**/classextensions/**")
+        val extensionPattern = target.extensionPattern.orElse(cloche.extensionPattern).getOrElse("**/classextensions/**")
 
-            compilation.process(sourceSet)
+        compilation.sourceSet.set(sourceSet)
 
-            classExtensions.registerForSourceSet(sourceSet, extensionPattern)
+        classExtensions.registerForSourceSet(sourceSet, extensionPattern)
 
-            if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-                java.registerFeature(GUtil.toCamelCase(sourceSet.name)) { spec ->
-                    val capability = ProjectDerivedCapability(project)
+        if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
+            java.registerFeature(GUtil.toCamelCase(sourceSet.name)) { spec ->
+                val capability = ProjectDerivedCapability(project)
 
-                    spec.withJavadocJar()
-                    spec.withSourcesJar()
+                spec.withJavadocJar()
+                spec.withSourcesJar()
 
-                    spec.usingSourceSet(sourceSet)
+                spec.usingSourceSet(sourceSet)
 
-                    spec.capability(capability.group, capability.name, capability.version!!)
-                }
+                spec.capability(capability.group, capability.name, capability.version!!)
+            }
 
-                for (name in arrayOf(
-                    sourceSet.apiElementsConfigurationName,
-                    sourceSet.compileClasspathConfigurationName,
-                    sourceSet.runtimeElementsConfigurationName,
-                    sourceSet.runtimeClasspathConfigurationName,
-                    sourceSet.javadocElementsConfigurationName,
-                    sourceSet.sourcesElementsConfigurationName,
-                )) {
-                    project.configurations.named(name) { configuration ->
-                        configuration.attributes.attribute(ClochePlugin.MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
+            for (name in arrayOf(
+                sourceSet.apiElementsConfigurationName,
+                sourceSet.compileClasspathConfigurationName,
+                sourceSet.runtimeElementsConfigurationName,
+                sourceSet.runtimeClasspathConfigurationName,
+                sourceSet.javadocElementsConfigurationName,
+                sourceSet.sourcesElementsConfigurationName,
+            )) {
+                project.configurations.named(name) { configuration ->
+                    configuration.attributes.attribute(ClochePlugin.MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
 
-                        project.afterEvaluate {
-                            configuration.attributes.attribute(ClochePlugin.MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion.orElse(cloche.minecraftVersion).get())
-                        }
+                    project.afterEvaluate {
+                        configuration.attributes.attribute(ClochePlugin.MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion.orElse(cloche.minecraftVersion).get())
                     }
                 }
-            } else {
-                sourceSet.extension<VirtualExtension>().dependsOn.add(main)
-
-                if (cloche.useKotlin.get()) {
-                    val kotlin = project.extension<KotlinSourceSetContainer>()
-
-                    kotlin.sourceSets.getByName(sourceSet.name).dependsOn(kotlin.sourceSets.getByName(main.name))
-                }
-
-                project.extend(sourceSet.mixinsConfigurationName, main.mixinsConfigurationName)
-                project.extend(sourceSet.patchesConfigurationName, main.patchesConfigurationName)
-                project.extend(sourceSet.mappingsConfigurationName, main.mappingsConfigurationName)
-                project.extend(sourceSet.accessWidenersConfigurationName, main.accessWidenersConfigurationName)
             }
-
-            project.afterEvaluate {
-                val dependencyHandler = ClocheDependencyHandler(
-                    project,
-                    target.remapNamespace,
-                    sourceSet.mappingsConfigurationName,
-                    sourceSet.apiConfigurationName,
-                    sourceSet.implementationConfigurationName,
-                    sourceSet.runtimeOnlyConfigurationName,
-                    sourceSet.compileOnlyConfigurationName
-                )
-
-                for (action in compilation.dependencySetupActions) {
-                    action.execute(dependencyHandler)
-                }
-            }
-
-            sourceSet
         } else {
-            compilation.process(main)
+            sourceSet.extension<VirtualExtension>().dependsOn.add(main)
 
-            main
+            if (cloche.useKotlin.get()) {
+                val kotlin = project.extension<KotlinSourceSetContainer>()
+
+                kotlin.sourceSets.getByName(sourceSet.name).dependsOn(kotlin.sourceSets.getByName(main.name))
+            }
+
+            project.extend(sourceSet.mixinsConfigurationName, main.mixinsConfigurationName)
+            project.extend(sourceSet.patchesConfigurationName, main.patchesConfigurationName)
+            project.extend(sourceSet.mappingsConfigurationName, main.mappingsConfigurationName)
+            project.extend(sourceSet.accessWidenersConfigurationName, main.accessWidenersConfigurationName)
         }
 
-        project.extensions
-            .getByType(MinecraftCodevExtension::class.java)
-            .extensions
-            .getByType(RunsContainer::class.java)
+        fun modConfigurationName(name: String) = lowerCamelCaseName("mod", name)
+
+        val modApi = project.configurations.create(modConfigurationName(sourceSet.apiConfigurationName))
+        val modImplementation = project.configurations.create(modConfigurationName(sourceSet.implementationConfigurationName))
+        val modRuntimeOnly = project.configurations.create(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
+        val modCompileOnly = project.configurations.create(modConfigurationName(sourceSet.compileOnlyConfigurationName))
+
+        project.afterEvaluate {
+            val dependencyHandler = ClocheDependencyHandler(
+                project,
+                sourceSet.apiConfigurationName,
+                sourceSet.implementationConfigurationName,
+                sourceSet.runtimeOnlyConfigurationName,
+                sourceSet.compileOnlyConfigurationName,
+                modApi.name,
+                modImplementation.name,
+                modRuntimeOnly.name,
+                modCompileOnly.name,
+            )
+
+            for (action in compilation.dependencySetupActions) {
+                action.execute(dependencyHandler)
+            }
+        }
+
+        project
+            .extension<MinecraftCodevExtension>()
+            .extension<RunsContainer>()
             .create(lowerCamelCaseName(target.name, compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
                 builder.sourceSet(sourceSet)
 

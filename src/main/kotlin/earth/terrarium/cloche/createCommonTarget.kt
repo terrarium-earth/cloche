@@ -3,14 +3,13 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
-import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
-import net.msrandom.minecraftcodev.intersection.IntersectionMinecraftCodevExtension
-import net.msrandom.minecraftcodev.mixins.dependency.mixinsConfigurationName
+import net.msrandom.minecraftcodev.intersection.JarIntersection
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ModuleDependency
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
@@ -18,7 +17,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetContainer
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.isAccessible
@@ -33,13 +31,12 @@ private val multiPlatformEnabled = KotlinCompile::class.memberProperties
 
 fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTarget>) {
     val cloche = extension<ClocheExtension>()
-    val intersections = extension<MinecraftCodevExtension>().extension<IntersectionMinecraftCodevExtension>()
     val sourceSets = extension<SourceSetContainer>()
 
     val main = edges.map { it to it.main as RunnableCompilationInternal }
     val test = edges.map { it to it.test as RunnableCompilationInternal }
-    val client = edges.takeIf { it.all { it is ClientTarget && (it.client as RunnableCompilationInternal).createSourceSet } }?.map { it to (it as ClientTarget).client as RunnableCompilationInternal }
-    val data = edges.takeIf { it.all { it.data != null } }?.map { it to it.data as RunnableCompilationInternal }
+    val client = edges.takeIf { it.any { it is ClientTarget } }?.map { it to ((it as? ClientTarget)?.client ?: it.main) as RunnableCompilationInternal }
+    val data = edges.map { it to it.data as RunnableCompilationInternal }
 
     val sourceSetName = { target: ClocheTarget, compilationName: String ->
         when {
@@ -49,24 +46,32 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
         }
     }
 
-    fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): Provider<in ModuleDependency> {
+    fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): Provider<out Dependency> {
         for ((target, compilation) in compilations) {
-            compilation.process(sourceSets.maybeCreate(sourceSetName(target, compilation.name)))
+            compilation.sourceSet.set(sourceSets.maybeCreate(sourceSetName(target, compilation.name)))
         }
 
         if (compilations.size == 1) {
             return compilations.first().second.dependency
         }
 
-        return project
-            .provider { compilations.map { (_, compilation) -> compilation.dependency.get() } }
-            .map { intersections(*it.toTypedArray()) }
+        val name = lowerCamelCaseName("create", *compilations.map { (target) -> target.name }.toTypedArray(), "intersection")
+
+        val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: project.tasks.create(name, JarIntersection::class.java) {
+            for ((_, compilation) in compilations) {
+                it.files.from(compilation.dependency)
+            }
+        }
+
+        project.addSetupTask(name)
+
+        return project.provider { project.dependencies.create(files(createIntersection.output)) }
     }
 
-    fun add(name: String, compilation: CompilationInternal, dependencyProvider: Provider<in ModuleDependency>) {
+    fun add(name: String, compilation: CompilationInternal, dependencyProvider: Provider<out Dependency>) {
         val sourceSet = sourceSets.maybeCreate(sourceSetName(common, name))
 
-        compilation.process(sourceSet)
+        compilation.sourceSet.set(sourceSet)
 
         project.dependencies.addProvider(sourceSet.implementationConfigurationName, dependencyProvider)
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:multiplatform-annotations:1.0.0")

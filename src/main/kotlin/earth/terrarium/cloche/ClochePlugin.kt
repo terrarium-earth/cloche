@@ -3,7 +3,6 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.target.*
 import net.msrandom.extensions.JvmClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
-import net.msrandom.minecraftcodev.core.dependency.minecraft
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
@@ -19,6 +18,22 @@ import org.gradle.api.attributes.Attribute
 import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.plugins.JavaPlugin
+
+fun Project.addSetupTask(name: String): String {
+    if (!System.getProperty("idea.sync.active", "false").toBoolean()) {
+        return name
+    }
+
+    val fullName = "${project.path}$name"
+
+    val taskNames = project.gradle.startParameter.taskNames
+
+    if (fullName !in taskNames) {
+        project.gradle.startParameter.setTaskNames(taskNames + fullName)
+    }
+
+    return name
+}
 
 fun Project.extend(base: String, dependency: String) = project.configurations.findByName(dependency)?.let {
     project.configurations.findByName(base)?.extendsFrom(it)
@@ -47,13 +62,13 @@ class ClochePlugin : Plugin<Project> {
         target.plugins.apply(MinecraftCodevAccessWidenerPlugin::class.java)
         target.plugins.apply(MinecraftCodevMixinsPlugin::class.java)
         target.plugins.apply(MinecraftCodevRunsPlugin::class.java)
+
         target.plugins.apply(JvmClassExtensionsPlugin::class.java)
         target.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
+
         target.plugins.apply(JavaPlugin::class.java)
         target.plugins.apply(JavaLibraryPlugin::class.java)
         target.plugins.apply(ApplicationPlugin::class.java)
-
-        target.repositories.minecraft()
 
         target.repositories.maven { it.url = target.uri("https://maven.msrandom.net/repository/root/") }
 

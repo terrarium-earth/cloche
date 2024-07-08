@@ -3,55 +3,83 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
-import net.msrandom.minecraftcodev.accesswidener.dependency.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
-import net.msrandom.minecraftcodev.core.MinecraftType
+import net.msrandom.minecraftcodev.core.task.DownloadMinecraftMappings
+import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
+import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
 import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
-import net.msrandom.minecraftcodev.mixins.dependency.mixinsConfigurationName
-import net.msrandom.minecraftcodev.remapper.dependency.mappingsConfigurationName
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
+import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import net.msrandom.minecraftcodev.runs.nativesConfigurationName
 import org.gradle.api.Action
-import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.SourceSet
 
-abstract class FabricTarget : MinecraftTarget, ClientTarget {
+abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientTarget {
+    private val minecraftCommonClasspath = project.configurations.create(lowerCamelCaseName(name, "minecraftCommonClasspath"))
+    private val minecraftClientClasspath = project.configurations.create(lowerCamelCaseName(name, "minecraftClientClasspath"))
+
+    private val downloadClientMappings = project.tasks.register(lowerCamelCaseName("download", name, "clientMappings"), DownloadMinecraftMappings::class.java) {
+        it.version.set(minecraftVersion)
+        it.server.set(false)
+    }
+
+    private val resolveCommonMinecraft = project.tasks.register(lowerCamelCaseName("resolveCommon", name), ResolveMinecraftCommon::class.java) {
+        it.version.set(minecraftVersion)
+    }
+
+    private val resolveClientMinecraft = project.tasks.register(lowerCamelCaseName("resolveClient", name), ResolveMinecraftClient::class.java) {
+        it.version.set(minecraftVersion)
+    }
+
+    private val remapCommonMinecraftJar = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraftJar"), RemapJar::class.java) {
+        it.destinationDirectory.set(it.temporaryDir)
+        it.archiveBaseName.set("minecraft-common")
+        it.archiveVersion.set(name)
+        it.archiveClassifier.set("named")
+        it.sourceNamespace.set("obf")
+        it.targetNamespace.set("named")
+
+        it.mappings.from(sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+        it.input.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
+        it.classpath.from(minecraftCommonClasspath)
+    }
+
+    private val remapClientMinecraftJar = project.tasks.register(lowerCamelCaseName("remap", name, "clientMinecraftJar"), RemapJar::class.java) {
+        it.destinationDirectory.set(it.temporaryDir)
+        it.archiveBaseName.set("minecraft-client")
+        it.archiveVersion.set(name)
+        it.archiveClassifier.set("named")
+        it.sourceNamespace.set("obf")
+        it.targetNamespace.set("named")
+
+        it.mappings.from(sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+        it.input.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
+        it.classpath.from(minecraftClientClasspath)
+    }
+
     final override val main: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME, baseDependency, { true })
+        project.objects.newInstance(TargetCompilation::class.java, name, SourceSet.MAIN_SOURCE_SET_NAME, remapCommonMinecraftJar.flatMap(RemapJar::getArchiveFile))
     }
 
     final override val test: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, SourceSet.TEST_SOURCE_SET_NAME, baseDependency, { true })
+        project.objects.newInstance(TargetCompilation::class.java, name, SourceSet.TEST_SOURCE_SET_NAME, remapCommonMinecraftJar.flatMap(RemapJar::getArchiveFile))
     }
 
-    final override val client: TargetCompilation
-        get() =
-            project.objects.newInstance(TargetCompilation::class.java, ClochePlugin.CLIENT_COMPILATION_NAME, clientDependency, { clientMode == ClientMode.Separate })
-
-    final override var data: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, ClochePlugin.DATA_COMPILATION_NAME, baseDependency, { true })
+    final override val client: TargetCompilation = run {
+        project.objects.newInstance(TargetCompilation::class.java, name, ClochePlugin.CLIENT_COMPILATION_NAME, remapClientMinecraftJar.flatMap(RemapJar::getArchiveFile))
     }
 
-    private var natives = run {
-        minecraftVersion.map {
-            project.extension<MinecraftCodevExtension>()(MinecraftType.ClientNatives, it)
-        }
+    final override val data: TargetCompilation = run {
+        project.objects.newInstance(TargetCompilation::class.java, name, ClochePlugin.DATA_COMPILATION_NAME, remapCommonMinecraftJar.flatMap(RemapJar::getArchiveFile))
     }
-
-    private val baseDependency: Provider<ModuleDependency>
-        get() = minecraftVersion.map {
-            project.extension<MinecraftCodevExtension>()(MinecraftType.Common, it)
-        }
-
-    private val clientDependency: Provider<ModuleDependency>
-        get() = minecraftVersion.map {
-            project.extension<MinecraftCodevExtension>()(MinecraftType.Client, it)
-        }
 
     override val remapNamespace: String?
         get() = MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE
@@ -74,27 +102,31 @@ abstract class FabricTarget : MinecraftTarget, ClientTarget {
 
     init {
         main.dependencies { dependencies ->
-            project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2" })
+            project.dependencies.addProvider(sourceSet.get().mappingsConfigurationName, minecraftVersion.map { "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2" })
 
             if (clientMode == ClientMode.Included) {
-                project.configurations.named(dependencies.implementation.configurationName) {
-                    it.dependencies.addLater(client.dependency)
-                }
+                dependencies.implementation(main.dependency)
 
-                project.dependencies.addProvider(main.sourceSet.nativesConfigurationName, natives)
-            } else {
-                project.configurations.named(dependencies.implementation.configurationName) {
-                    it.dependencies.addLater(main.dependency)
+                project.configurations.named(main.sourceSet.get().nativesConfigurationName) {
+                    val codev = project.extension<MinecraftCodevExtension>()
+
+                    it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
                 }
+            } else {
+                dependencies.implementation(main.dependency)
             }
 
-            project.dependencies.add(main.sourceSet.mixinsConfigurationName, mixins)
-            project.dependencies.add(main.sourceSet.accessWidenersConfigurationName, accessWideners)
+            minecraftCommonClasspath.dependencies.addAllLater(minecraftVersion.flatMap(project.extension<MinecraftCodevExtension>()::commonDependencies))
+
+            project.configurations.named(dependencies.implementation.configurationName) {
+                it.extendsFrom(minecraftCommonClasspath)
+            }
+
+            project.dependencies.add(main.sourceSet.get().mixinsConfigurationName, mixins)
+            project.dependencies.add(main.sourceSet.get().accessWidenersConfigurationName, accessWideners)
 
             if (!hasMappings) {
-                val codev = project.extension<MinecraftCodevExtension>()
-
-                project.dependencies.addProvider(main.sourceSet.mappingsConfigurationName, minecraftVersion.map { codev(MinecraftType.ClientMappings, it) })
+                project.dependencies.add(main.sourceSet.get().mappingsConfigurationName, project.files(downloadClientMappings.flatMap(DownloadMinecraftMappings::output)))
             }
 
             dependencies.modImplementation(loaderVersion.map { version -> "net.fabricmc:fabric-loader:$version" })
@@ -102,28 +134,34 @@ abstract class FabricTarget : MinecraftTarget, ClientTarget {
         }
 
         client.dependencies { dependencies ->
+            dependencies.implementation(client.dependency)
+
             project.configurations.named(dependencies.implementation.configurationName) {
-                it.dependencies.addLater(client.dependency)
+                it.extendsFrom(minecraftClientClasspath)
             }
 
-            project.dependencies.addProvider(client.sourceSet.nativesConfigurationName, natives)
+            project.configurations.named(client.sourceSet.get().nativesConfigurationName) {
+                val codev = project.extension<MinecraftCodevExtension>()
 
-            project.dependencies.add(client.sourceSet.mixinsConfigurationName, client.mixins)
-            project.dependencies.add(client.sourceSet.accessWidenersConfigurationName, client.accessWideners)
+                it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
+            }
+
+            minecraftClientClasspath.dependencies.addAllLater(minecraftVersion.flatMap(project.extension<MinecraftCodevExtension>()::clientDependencies))
+
+            project.dependencies.add(client.sourceSet.get().mixinsConfigurationName, client.mixins)
+            project.dependencies.add(client.sourceSet.get().accessWidenersConfigurationName, client.accessWideners)
         }
 
         test.dependencies {
-            project.dependencies.add(test.sourceSet.mixinsConfigurationName, test.mixins)
-            project.dependencies.add(test.sourceSet.accessWidenersConfigurationName, test.accessWideners)
+            project.dependencies.add(test.sourceSet.get().mixinsConfigurationName, test.mixins)
+            project.dependencies.add(test.sourceSet.get().accessWidenersConfigurationName, test.accessWideners)
         }
 
         data.dependencies { dependencies ->
-            project.dependencies.add(data.sourceSet.mixinsConfigurationName, data.mixins)
-            project.dependencies.add(data.sourceSet.accessWidenersConfigurationName, data.accessWideners)
+            project.dependencies.add(data.sourceSet.get().mixinsConfigurationName, data.mixins)
+            project.dependencies.add(data.sourceSet.get().accessWidenersConfigurationName, data.accessWideners)
 
-            project.configurations.named(dependencies.implementation.configurationName) {
-                it.dependencies.addLater(data.dependency)
-            }
+            dependencies.implementation(data.dependency)
         }
 
         main.runConfiguration {
@@ -146,6 +184,8 @@ abstract class FabricTarget : MinecraftTarget, ClientTarget {
             }
         }
     }
+
+    override fun getName() = name
 
     override fun noClient() {
         clientMode = ClientMode.None
@@ -181,7 +221,7 @@ abstract class FabricTarget : MinecraftTarget, ClientTarget {
 
         main.dependencies {
             for (mapping in mappings) {
-                project.dependencies.addProvider(main.sourceSet.mappingsConfigurationName, minecraftVersion.map(mapping))
+                project.dependencies.addProvider(main.sourceSet.get().mappingsConfigurationName, minecraftVersion.map(mapping))
             }
         }
     }

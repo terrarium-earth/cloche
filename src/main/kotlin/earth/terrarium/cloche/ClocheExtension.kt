@@ -22,10 +22,10 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     internal val mappingActions = mutableListOf<Action<MappingsBuilder>>()
 
-    private val usedTargets = hashSetOf<Class<out MinecraftTarget>>()
+    private val usedTargetTypes = hashSetOf<Class<out MinecraftTarget>>()
 
     @JvmOverloads
-    fun common(name: String = ::common.name, configure: Action<CommonTarget>? = null) = commonTargets.findByName(name)
+    fun common(name: String = ::common.name, configure: Action<CommonTarget>? = null): CommonTarget = commonTargets.findByName(name)
         ?.also { configure?.execute(it) }
         ?: configure?.let { commonTargets.create(name, it) }
         ?: commonTargets.create(name)
@@ -65,7 +65,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }, configure)
 
     fun <T : MinecraftTarget> target(name: String, type: Class<T>, setupTargetType: () -> Unit = {}, configure: Action<T>? = null): T {
-        if (usedTargets.add(type)) {
+        if (usedTargetTypes.add(type)) {
             setupTargetType()
         }
 

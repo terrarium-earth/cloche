@@ -1,6 +1,6 @@
 package earth.terrarium.cloche.target
 
-abstract class NeoForgeTarget : ForgeTarget() {
+abstract class NeoForgeTarget(name: String) : ForgeTarget(name) {
     override val group
         get() = "net.neoforged"
 

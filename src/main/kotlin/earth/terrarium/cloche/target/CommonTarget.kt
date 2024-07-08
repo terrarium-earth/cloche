@@ -3,12 +3,8 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.ClochePlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
-import net.msrandom.minecraftcodev.intersection.dependency.IntersectionDependency
 import org.gradle.api.Action
-import org.gradle.api.artifacts.ModuleDependency
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 
 abstract class CommonTarget : ClocheTarget {

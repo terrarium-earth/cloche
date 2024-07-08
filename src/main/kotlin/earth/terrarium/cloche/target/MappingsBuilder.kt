@@ -1,8 +1,6 @@
 package earth.terrarium.cloche.target
 
-import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
-import net.msrandom.minecraftcodev.core.MinecraftType
-import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.task.DownloadMinecraftMappings
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 
@@ -10,10 +8,16 @@ typealias MappingDependencyProvider = (minecraftVersion: String) -> Dependency
 
 class MappingsBuilder(private val project: Project, private val dependencies: MutableList<MappingDependencyProvider>) {
     fun official(minecraftVersion: String? = null) {
-        val codev = project.extension<MinecraftCodevExtension>()
+        dependencies.add {
+            val version = minecraftVersion ?: it
 
-        // dependencies.add { codev(MinecraftType.ServerMappings, minecraftVersion ?: it) }
-        dependencies.add { codev(MinecraftType.ClientMappings, minecraftVersion ?: it) }
+            val task = project.tasks.maybeCreate("download${version}ClientMappings", DownloadMinecraftMappings::class.java).apply {
+                server.set(false)
+                this.version.set(version)
+            }
+
+            project.dependencies.create(project.files(task.output))
+        }
     }
 
     fun parchment(version: String, minecraftVersion: String? = null) {
