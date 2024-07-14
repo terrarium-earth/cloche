@@ -1,7 +1,6 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
-import net.msrandom.extensions.JvmClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
@@ -63,7 +62,6 @@ class ClochePlugin : Plugin<Project> {
         target.plugins.apply(MinecraftCodevMixinsPlugin::class.java)
         target.plugins.apply(MinecraftCodevRunsPlugin::class.java)
 
-        target.plugins.apply(JvmClassExtensionsPlugin::class.java)
         target.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
 
         target.plugins.apply(JavaPlugin::class.java)
@@ -71,8 +69,8 @@ class ClochePlugin : Plugin<Project> {
         target.plugins.apply(ApplicationPlugin::class.java)
 
         target.repositories.maven { it.url = target.uri("https://maven.msrandom.net/repository/root/") }
-
         target.repositories.maven { it.url = target.uri("https://libraries.minecraft.net/") }
+        target.repositories.mavenCentral()
 
         cloche.useKotlin.convention(target.provider { target.plugins.hasPlugin(KOTLIN_JVM) })
 
@@ -122,5 +120,8 @@ class ClochePlugin : Plugin<Project> {
 
         @JvmField
         val MOD_LOADER_ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
+
+        @JvmField
+        val VARIANT_ATTRIBUTE: Attribute<PublicationVariant> = Attribute.of("earth.terrarium.cloche.variant", PublicationVariant::class.java)
     }
 }

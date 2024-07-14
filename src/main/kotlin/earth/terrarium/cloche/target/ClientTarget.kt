@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.target
 
-interface ClientTarget {
-    val client: RunnableCompilation
+interface ClientTarget : ClocheTarget {
+    val client: RunnableCompilation?
 
     fun noClient()
 

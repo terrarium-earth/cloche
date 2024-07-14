@@ -59,11 +59,17 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
 
         val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: project.tasks.create(name, JarIntersection::class.java) {
             for ((_, compilation) in compilations) {
-                it.files.from(compilation.dependency)
+                it.files.from(compilation.minecraftJar)
             }
         }
 
         project.addSetupTask(name)
+
+        for ((_, compilation) in compilations) {
+            // Make sure it stays only in common
+            compilation.sourceSet.get().compileClasspath -= files(createIntersection.output)
+            compilation.sourceSet.get().runtimeClasspath -= files(createIntersection.output)
+        }
 
         return project.provider { project.dependencies.create(files(createIntersection.output)) }
     }
@@ -125,5 +131,5 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
     add(SourceSet.MAIN_SOURCE_SET_NAME, common.main as CompilationInternal, intersection(main))
     add(SourceSet.TEST_SOURCE_SET_NAME, common.test as CompilationInternal, intersection(test))
     client?.let(::intersection)?.let { add(ClochePlugin.CLIENT_COMPILATION_NAME, common.client as CompilationInternal, it) }
-    data?.let(::intersection)?.let { add(ClochePlugin.DATA_COMPILATION_NAME, common.data as CompilationInternal, it) }
+    add(ClochePlugin.DATA_COMPILATION_NAME, common.data as CompilationInternal, intersection(data))
 }

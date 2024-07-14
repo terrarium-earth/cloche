@@ -13,22 +13,27 @@ class ClocheDependencyHandler(
     private val project: Project,
 
     apiConfigurationName: String,
+    compileOnlyApiConfigurationName: String,
     implementationConfigurationName: String,
     runtimeOnlyConfigurationName: String,
     compileOnlyConfigurationName: String,
 
     modApiConfigurationName: String,
+    modCompileOnlyApiConfigurationName: String,
     modImplementationConfigurationName: String,
     modRuntimeOnlyConfigurationName: String,
     modCompileOnlyConfigurationName: String,
 ) {
     val api = ConfigurationHandler(apiConfigurationName)
-    val modApi = ConfigurationHandler(modApiConfigurationName)
+    val compileOnlyApi = ConfigurationHandler(compileOnlyApiConfigurationName)
     val implementation = ConfigurationHandler(implementationConfigurationName)
-    val modImplementation = ConfigurationHandler(modImplementationConfigurationName)
     val runtimeOnly = ConfigurationHandler(runtimeOnlyConfigurationName)
-    val modRuntimeOnly = ConfigurationHandler(modRuntimeOnlyConfigurationName)
     val compileOnly = ConfigurationHandler(compileOnlyConfigurationName)
+
+    val modApi = ConfigurationHandler(modApiConfigurationName)
+    val modCompileOnlyApi = ConfigurationHandler(modCompileOnlyApiConfigurationName)
+    val modImplementation = ConfigurationHandler(modImplementationConfigurationName)
+    val modRuntimeOnly = ConfigurationHandler(modRuntimeOnlyConfigurationName)
     val modCompileOnly = ConfigurationHandler(modCompileOnlyConfigurationName)
 
     inner class ConfigurationHandler(val configurationName: String) {

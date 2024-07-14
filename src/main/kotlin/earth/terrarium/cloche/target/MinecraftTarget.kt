@@ -24,10 +24,6 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation {
         @Input
         get
 
-    val jarCompilations
-        @Internal
-        get() = emptyList<RunnableCompilation>()
-
     val datagenDirectory: Provider<Directory>
         @Internal
         get() = project.layout.buildDirectory.dir("generatedResources/${name}")

@@ -7,6 +7,8 @@ import org.gradle.api.Named
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
@@ -22,17 +24,13 @@ interface Compilation : Named {
         @InputFiles
         get
 
-    val sourceSet: Provider<SourceSet>
-        @Internal
-        get
-
     fun dependencies(action: Action<ClocheDependencyHandler>)
 }
 
 interface CompilationInternal: Compilation {
     val dependencySetupActions: List<Action<ClocheDependencyHandler>>
 
-    override val sourceSet: Property<SourceSet>
+    val sourceSet: Property<SourceSet>
         @Internal
         get
 }
@@ -42,7 +40,19 @@ interface RunnableCompilation : Compilation {
 }
 
 interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation {
+    val minecraftJar: Provider<RegularFile>
+        @Internal
+        get
+
     val dependency: Provider<Dependency>
+        @Internal
+        get
+
+    val compileClasspath: Provider<FileCollection>
+        @Internal
+        get
+
+    val runtimeClasspath: Provider<FileCollection>
         @Internal
         get
 

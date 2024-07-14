@@ -33,8 +33,6 @@ abstract class CommonTarget : ClocheTarget {
 
     override val mixins get() = main.mixins
 
-    override val sourceSet get() = main.sourceSet
-
     init {
         apply {
             useIntermediary.convention(true)

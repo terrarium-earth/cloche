@@ -6,10 +6,11 @@ import earth.terrarium.cloche.ClochePlugin
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.task.DownloadMinecraftMappings
+import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
+import net.msrandom.minecraftcodev.forge.MinecraftCodevForgeExtension
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
-import net.msrandom.minecraftcodev.forge.PatchedMinecraftCodevExtension
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunsDefaultsContainer
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
@@ -28,7 +29,9 @@ import org.gradle.language.jvm.tasks.ProcessResources
 import java.io.File
 
 abstract class ForgeTarget(private val name: String) : MinecraftTarget {
-    private val minecraftForgeClasspath = project.configurations.create(lowerCamelCaseName(name, "minecraftForgeClasspath"))
+    private val minecraftForgeClasspath = project.configurations.create(lowerCamelCaseName(name, "minecraftForgeClasspath")) {
+        it.isCanBeConsumed = false
+    }
 
     private val downloadClientMappings = project.tasks.register(lowerCamelCaseName("download", name, "clientMappings"), DownloadMinecraftMappings::class.java) {
         it.version.set(minecraftVersion)
@@ -43,41 +46,33 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
 
     private val remapJarTask = project.tasks.register(lowerCamelCaseName("remap", name, "minecraft"), RemapJar::class.java) {
         it.destinationDirectory.set(it.temporaryDir)
-        it.archiveBaseName.set("minecraft")
+        it.archiveBaseName.set("patched-minecraft")
         it.archiveVersion.set(name)
         it.archiveClassifier.set("named")
-        it.sourceNamespace.set(if (remapNamespace == null) "named" else "srg")
+        it.sourceNamespace.set(remapNamespace)
         it.targetNamespace.set("named")
 
-        it.mappings.from(sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+        it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
         it.input.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
         it.classpath.from(minecraftForgeClasspath)
     }
 
-    final override val main: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, name, SourceSet.MAIN_SOURCE_SET_NAME, remapJarTask.flatMap(RemapJar::getArchiveFile))
-    }
+    final override val main: TargetCompilation
 
-    final override val test: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, name, SourceSet.TEST_SOURCE_SET_NAME, remapJarTask.flatMap(RemapJar::getArchiveFile))
-    }
+    final override val test: TargetCompilation
 
     /*    private val client: TargetCompilation = run {
             project.objects.newInstance(TargetCompilation::class.java, name, ClochePlugin.CLIENT_COMPILATION_NAME, remapJarTask.flatMap(RemapJar::getArchiveFile))
         }*/
 
-    final override val data: TargetCompilation = run {
-        project.objects.newInstance(TargetCompilation::class.java, name, ClochePlugin.DATA_COMPILATION_NAME, remapJarTask.flatMap(RemapJar::getArchiveFile))
-    }
+    final override val data: TargetCompilation
 
     override val accessWideners get() = main.accessWideners
     override val mixins get() = main.mixins
 
-    override val sourceSet get() = main.sourceSet
-
     private var hasMappings = false
 
-    override val remapNamespace: String?
+    override val remapNamespace: String
         get() = MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE
 
     abstract val userdevClassifier: Property<String>
@@ -96,6 +91,59 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
     override val loaderAttributeName get() = "forge"
 
     init {
+        val mappingClasspath = project.files()
+
+        main = run {
+            project.objects.newInstance(
+                TargetCompilation::class.java,
+                name,
+                SourceSet.MAIN_SOURCE_SET_NAME,
+                remapJarTask.flatMap(RemapJar::getArchiveFile),
+                java.util.Optional.empty<TargetCompilation>(),
+                remapNamespace,
+                mappingClasspath,
+            )
+        }
+
+        test = run {
+            project.objects.newInstance(
+                TargetCompilation::class.java,
+                name,
+                SourceSet.TEST_SOURCE_SET_NAME,
+                remapJarTask.flatMap(RemapJar::getArchiveFile),
+                java.util.Optional.of(main),
+                remapNamespace,
+                mappingClasspath,
+            )
+        }
+
+        data = run {
+            project.objects.newInstance(
+                TargetCompilation::class.java,
+                name,
+                ClochePlugin.DATA_COMPILATION_NAME,
+                remapJarTask.flatMap(RemapJar::getArchiveFile),
+                java.util.Optional.of(main),
+                remapNamespace,
+                mappingClasspath,
+            )
+        }
+
+        val remapPatchedMinecraftIntermediaryJar = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraftNamed", remapNamespace, "jar"), RemapJar::class.java) {
+            it.destinationDirectory.set(it.temporaryDir)
+            it.archiveBaseName.set("patched-minecraft")
+            it.archiveVersion.set(name)
+            it.archiveClassifier.set("named")
+            it.sourceNamespace.set("obf")
+            it.targetNamespace.set(remapNamespace)
+
+            it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+            it.input.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
+            it.classpath.from(minecraftForgeClasspath)
+        }
+
+        mappingClasspath.from(remapPatchedMinecraftIntermediaryJar.flatMap(RemapJar::getArchiveFile))
+
         main.dependencies { dependencies ->
             val userdev = minecraftVersion.flatMap { minecraftVersion ->
                 loaderVersion.flatMap { forgeVersion ->
@@ -105,15 +153,15 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 }
             }
 
-            // project.dependencies.addProvider(main.sourceSet.get().mappingsConfigurationName, userdev)
+            project.dependencies.addProvider(main.sourceSet.get().mappingsConfigurationName, userdev)
             project.dependencies.addProvider(main.sourceSet.get().patchesConfigurationName, userdev)
 
-            val codevPatched = project.extension<MinecraftCodevExtension>().extension<PatchedMinecraftCodevExtension>()
+            val forge = project.extension<MinecraftCodevExtension>().extension<MinecraftCodevForgeExtension>()
 
             dependencies.implementation(main.dependency)
 
-            minecraftForgeClasspath.dependencies.addAllLater(minecraftVersion.zip(sourceSet, ::Pair).flatMap { (version, sourceSet) ->
-                codevPatched.dependencies(version, project.configurations.getByName(sourceSet.patchesConfigurationName))
+            minecraftForgeClasspath.dependencies.addAllLater(minecraftVersion.flatMap {
+                forge.dependencies(it, project.configurations.getByName(main.sourceSet.get().patchesConfigurationName))
             })
 
             project.configurations.named(dependencies.implementation.configurationName) {
@@ -129,7 +177,7 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
             project.dependencies.add(main.sourceSet.get().mixinsConfigurationName, main.mixins)
             project.dependencies.add(main.sourceSet.get().accessWidenersConfigurationName, main.accessWideners)
 
-            if (!hasMappings && remapNamespace != null) {
+            if (!hasMappings) {
                 project.dependencies.add(main.sourceSet.get().mappingsConfigurationName, project.files(downloadClientMappings.flatMap(DownloadMinecraftMappings::output)))
             }
 
@@ -163,8 +211,7 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 }*/
 
         test.runConfiguration {
-            // it.defaults.extension<ForgeRunsDefaultsContainer>().gameTestServer()
-            it.mainClass("test")
+            it.defaults.extension<ForgeRunsDefaultsContainer>().gameTestServer(minecraftVersion)
         }
 
         data.runConfiguration {
