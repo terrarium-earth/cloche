@@ -23,7 +23,11 @@ fun Project.addSetupTask(name: String): String {
         return name
     }
 
-    val fullName = "${project.path}$name"
+    val fullName = if (project == project.rootProject) {
+        name
+    } else {
+        "${project.path}:$name"
+    }
 
     val taskNames = project.gradle.startParameter.taskNames
 

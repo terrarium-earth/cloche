@@ -8,6 +8,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.intersection.JarIntersection
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
+import org.apache.commons.lang3.StringUtils
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.file.ConfigurableFileCollection
@@ -100,7 +101,17 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
 
                 kotlinSourceSet.dependsOn(kotlin.sourceSets.getByName(sourceSet.name))
 
-                tasks.named(edgeDependant.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
+                fun lowerCamelCaseName(vararg nameParts: String?): String {
+                    val nonEmptyParts = nameParts.mapNotNull { it?.takeIf(String::isNotEmpty) }
+
+                    return nonEmptyParts.drop(1).joinToString(
+                        separator = "",
+                        prefix = nonEmptyParts.firstOrNull().orEmpty(),
+                        transform = StringUtils::capitalize,
+                    )
+                }
+
+                tasks.named(lowerCamelCaseName("compile", kotlinSourceSet.name, "kotlin"), KotlinCompile::class.java) {
                     multiPlatformEnabled.get(it).set(true)
                     commonSourceSet.get(it).from(sourceSet.allSource)
                 }
