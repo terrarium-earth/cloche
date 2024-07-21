@@ -50,7 +50,9 @@ class ClochePlugin : Plugin<Project> {
             target.mappings(mappingAction)
         }
 
-        handleTarget(project, target)
+        with(project) {
+            handleTarget(target)
+        }
     }
 
     override fun apply(target: Project) {
@@ -75,8 +77,6 @@ class ClochePlugin : Plugin<Project> {
         target.repositories.maven { it.url = target.uri("https://maven.msrandom.net/repository/root/") }
         target.repositories.maven { it.url = target.uri("https://libraries.minecraft.net/") }
         target.repositories.mavenCentral()
-
-        cloche.useKotlin.convention(target.provider { target.plugins.hasPlugin(KOTLIN_JVM) })
 
         cloche.targets.whenObjectAdded { addTarget(cloche, target, it) }
 
@@ -107,8 +107,10 @@ class ClochePlugin : Plugin<Project> {
                 }
             }
 
-            for ((common, targets) in commonToTarget) {
-                project.createCommonTarget(common, targets)
+            with(project) {
+                for ((common, targets) in commonToTarget) {
+                    createCommonTarget(common, targets)
+                }
             }
         }
     }

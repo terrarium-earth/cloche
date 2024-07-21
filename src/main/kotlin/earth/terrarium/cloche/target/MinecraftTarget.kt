@@ -33,13 +33,9 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation {
 
     val main: RunnableCompilation
     val data: RunnableCompilation
-    val test: RunnableCompilation
 
     fun data() = data(null)
     fun data(action: Action<RunnableCompilation>?)
-
-    fun test() = test(null)
-    fun test(action: Action<RunnableCompilation>?)
 
     fun mappings(action: Action<MappingsBuilder>)
 }

@@ -12,10 +12,6 @@ abstract class CommonTarget : ClocheTarget {
         project.objects.newInstance(CommonCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME)
     }
 
-    val test: Compilation = run {
-        project.objects.newInstance(CommonCompilation::class.java, SourceSet.TEST_SOURCE_SET_NAME)
-    }
-
     val data: Compilation = run {
         project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.DATA_COMPILATION_NAME)
     }

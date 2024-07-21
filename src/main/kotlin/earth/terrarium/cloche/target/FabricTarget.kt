@@ -14,6 +14,7 @@ import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricExtension
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
@@ -54,11 +55,14 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         it.destinationDirectory.set(it.temporaryDir)
         it.archiveBaseName.set("minecraft-common")
         it.archiveVersion.set(name)
-        it.archiveClassifier.set("named")
+        it.archiveClassifier.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.sourceNamespace.set("obf")
-        it.targetNamespace.set("named")
+        it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+        with(project) {
+            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+        }
+
         it.input.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
         it.classpath.from(minecraftCommonClasspath)
     }
@@ -67,26 +71,28 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         it.destinationDirectory.set(it.temporaryDir)
         it.archiveBaseName.set("minecraft-client")
         it.archiveVersion.set(name)
-        it.archiveClassifier.set("named")
+        it.archiveClassifier.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.sourceNamespace.set("obf")
-        it.targetNamespace.set("named")
+        it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+        with(project) {
+            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+        }
+
         it.input.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
         it.classpath.from(minecraftClientClasspath)
         it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
     }
 
-    final override val test: TargetCompilation
     final override val main: TargetCompilation
     final override val client: TargetCompilation
     final override val data: TargetCompilation
 
-    override val remapNamespace: String
+    final override val remapNamespace: String
         get() = MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE
 
-    override val accessWideners get() = main.accessWideners
-    override val mixins get() = main.mixins
+    final override val accessWideners get() = main.accessWideners
+    final override val mixins get() = main.mixins
 
     private var clientMode = ClientMode.Separate
     private var hasMappings = false
@@ -101,28 +107,18 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
 
         main = project.objects.newInstance(
             TargetCompilation::class.java,
-            name,
             SourceSet.MAIN_SOURCE_SET_NAME,
+            this,
             remapCommonMinecraftNamedJar.flatMap(RemapJar::getArchiveFile),
             Optional.empty<TargetCompilation>(),
             remapNamespace,
             mappingClasspath,
         )
 
-        test = project.objects.newInstance(
-            TargetCompilation::class.java,
-            name,
-            SourceSet.TEST_SOURCE_SET_NAME,
-            remapCommonMinecraftNamedJar.flatMap(RemapJar::getArchiveFile),
-            Optional.of(main),
-            remapNamespace,
-            mappingClasspath,
-        )
-
         client = project.objects.newInstance(
             TargetCompilation::class.java,
-            name,
             ClochePlugin.CLIENT_COMPILATION_NAME,
+            this,
             remapClientMinecraftNamedJar.flatMap(RemapJar::getArchiveFile),
             Optional.of(main),
             remapNamespace,
@@ -131,15 +127,15 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
 
         data = project.objects.newInstance(
             TargetCompilation::class.java,
-            name,
             ClochePlugin.DATA_COMPILATION_NAME,
+            this,
             remapCommonMinecraftNamedJar.flatMap(RemapJar::getArchiveFile),
             Optional.of(main),
             remapNamespace,
             mappingClasspath,
         )
 
-        val remapCommonMinecraftIntermediaryJar = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraftNamed", remapNamespace, "jar"), RemapJar::class.java) {
+        val remapCommonMinecraftIntermediaryJar = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraft", remapNamespace, "jar"), RemapJar::class.java) {
             it.destinationDirectory.set(it.temporaryDir)
             it.archiveBaseName.set("minecraft-common")
             it.archiveVersion.set(name)
@@ -147,7 +143,10 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
             it.sourceNamespace.set("obf")
             it.targetNamespace.set(remapNamespace)
 
-            it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+            with(project) {
+                it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+            }
+
             it.input.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
             it.classpath.from(minecraftCommonClasspath)
         }
@@ -160,7 +159,10 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
             it.sourceNamespace.set("obf")
             it.targetNamespace.set(remapNamespace)
 
-            it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+            with(project) {
+                it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+            }
+
             it.input.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
             it.classpath.from(minecraftClientClasspath)
             it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
@@ -170,17 +172,20 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         mappingClasspath.from(remapClientMinecraftIntermediaryJar.flatMap(RemapJar::getArchiveFile))
 
         main.dependencies { dependencies ->
-            project.dependencies.addProvider(
-                main.sourceSet.get().mappingsConfigurationName,
-                minecraftVersion.map { "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2" })
+            with(project) {
+                project.dependencies.addProvider(
+                    main.sourceSet.mappingsConfigurationName,
+                    minecraftVersion.map { "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2" })
 
-            if (!hasMappings) {
-                project.dependencies.add(main.sourceSet.get().mappingsConfigurationName, project.files(downloadClientMappings.flatMap(DownloadMinecraftMappings::output)))
+                if (!hasMappings) {
+                    project.dependencies.add(main.sourceSet.mappingsConfigurationName, project.files(downloadClientMappings.flatMap(DownloadMinecraftMappings::output)))
+                }
+
+                project.dependencies.add(main.sourceSet.mixinsConfigurationName, mixins)
+                project.dependencies.add(main.sourceSet.accessWidenersConfigurationName, accessWideners)
             }
 
             dependencies.implementation(main.dependency)
-            dependencies.compileOnly(main.compileClasspath)
-            dependencies.runtimeOnly(main.runtimeClasspath)
 
             val fabric = project.extension<MinecraftCodevExtension>().extension<MinecraftCodevFabricExtension>()
 
@@ -194,9 +199,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
                 it.extendsFrom(minecraftCommonClasspath)
             }
 
-            project.dependencies.add(main.sourceSet.get().mixinsConfigurationName, mixins)
-            project.dependencies.add(main.sourceSet.get().accessWidenersConfigurationName, accessWideners)
-
             project.dependencies.addProvider(fabricLoaderConfiguration.name, loaderVersion.map { version -> "net.fabricmc:fabric-loader:$version" })
 
             project.configurations.named(dependencies.implementation.configurationName) {
@@ -208,8 +210,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
 
         client.dependencies { dependencies ->
             dependencies.implementation(client.dependency)
-            dependencies.compileOnly(client.compileClasspath)
-            dependencies.runtimeOnly(client.runtimeClasspath)
 
             val fabric = project.extension<MinecraftCodevExtension>().extension<MinecraftCodevFabricExtension>()
 
@@ -223,32 +223,25 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
                 it.extendsFrom(minecraftClientClasspath)
             }
 
-            project.configurations.named(client.sourceSet.get().nativesConfigurationName) {
-                val codev = project.extension<MinecraftCodevExtension>()
+            with(project) {
+                project.configurations.named(client.sourceSet.nativesConfigurationName) {
+                    val codev = project.extension<MinecraftCodevExtension>()
 
-                it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
+                    it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
+                }
+
+                project.dependencies.add(client.sourceSet.mixinsConfigurationName, client.mixins)
+                project.dependencies.add(client.sourceSet.accessWidenersConfigurationName, client.accessWideners)
             }
-
-            project.dependencies.add(client.sourceSet.get().mixinsConfigurationName, client.mixins)
-            project.dependencies.add(client.sourceSet.get().accessWidenersConfigurationName, client.accessWideners)
-        }
-
-        test.dependencies { dependencies ->
-            dependencies.implementation(test.dependency)
-            dependencies.compileOnly(test.compileClasspath)
-            dependencies.runtimeOnly(test.runtimeClasspath)
-
-            project.dependencies.add(test.sourceSet.get().mixinsConfigurationName, test.mixins)
-            project.dependencies.add(test.sourceSet.get().accessWidenersConfigurationName, test.accessWideners)
         }
 
         data.dependencies { dependencies ->
             dependencies.implementation(data.dependency)
-            dependencies.compileOnly(data.compileClasspath)
-            dependencies.runtimeOnly(data.runtimeClasspath)
 
-            project.dependencies.add(data.sourceSet.get().mixinsConfigurationName, data.mixins)
-            project.dependencies.add(data.sourceSet.get().accessWidenersConfigurationName, data.accessWideners)
+            with(project) {
+                project.dependencies.add(data.sourceSet.mixinsConfigurationName, data.mixins)
+                project.dependencies.add(data.sourceSet.accessWidenersConfigurationName, data.accessWideners)
+            }
         }
 
         main.runConfiguration {
@@ -257,10 +250,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
 
         client.runConfiguration {
             it.defaults.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
-        }
-
-        test.runConfiguration {
-            it.defaults.extension<FabricRunsDefaultsContainer>().gameTestServer()
         }
 
         data.runConfiguration {
@@ -288,10 +277,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         action.execute(client)
     }
 
-    override fun test(action: Action<RunnableCompilation>?) {
-        action?.execute(test)
-    }
-
     override fun data(action: Action<RunnableCompilation>?) {
         action?.execute(data)
     }
@@ -307,8 +292,10 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         action.execute(MappingsBuilder(project, mappings))
 
         main.dependencies {
-            for (mapping in mappings) {
-                project.dependencies.addProvider(main.sourceSet.get().mappingsConfigurationName, minecraftVersion.map(mapping))
+            with(project) {
+                for (mapping in mappings) {
+                    project.dependencies.addProvider(main.sourceSet.mappingsConfigurationName, minecraftVersion.map(mapping))
+                }
             }
         }
     }

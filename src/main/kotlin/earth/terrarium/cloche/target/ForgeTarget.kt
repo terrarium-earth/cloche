@@ -6,7 +6,6 @@ import earth.terrarium.cloche.ClochePlugin
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.task.DownloadMinecraftMappings
-import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgeExtension
@@ -15,6 +14,7 @@ import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunsDefaultsContainer
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
@@ -41,34 +41,40 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
     private val resolvePatchedMinecraft = project.tasks.register(lowerCamelCaseName("resolve", name, "patchedMinecraft"), ResolvePatchedMinecraft::class.java) {
         it.version.set(minecraftVersion)
         it.clientMappings.set(downloadClientMappings.flatMap(DownloadMinecraftMappings::output))
-        it.patches.from(main.sourceSet.map(SourceSet::patchesConfigurationName).flatMap(project.configurations::named))
+
+        with(project) {
+            it.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+        }
     }
 
     private val remapJarTask = project.tasks.register(lowerCamelCaseName("remap", name, "minecraft"), RemapJar::class.java) {
         it.destinationDirectory.set(it.temporaryDir)
         it.archiveBaseName.set("patched-minecraft")
         it.archiveVersion.set(name)
-        it.archiveClassifier.set("named")
+        it.archiveClassifier.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.sourceNamespace.set(remapNamespace)
-        it.targetNamespace.set("named")
+        it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+        with(project) {
+            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+        }
+
         it.input.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
         it.classpath.from(minecraftForgeClasspath)
     }
 
     final override val main: TargetCompilation
 
-    final override val test: TargetCompilation
-
-    /*    private val client: TargetCompilation = run {
-            project.objects.newInstance(TargetCompilation::class.java, name, ClochePlugin.CLIENT_COMPILATION_NAME, remapJarTask.flatMap(RemapJar::getArchiveFile))
-        }*/
+    /*
+    private val client: TargetCompilation = run {
+        project.objects.newInstance(TargetCompilation::class.java, name, ClochePlugin.CLIENT_COMPILATION_NAME, remapJarTask.flatMap(RemapJar::getArchiveFile))
+    }
+    */
 
     final override val data: TargetCompilation
 
-    override val accessWideners get() = main.accessWideners
-    override val mixins get() = main.mixins
+    final override val accessWideners get() = main.accessWideners
+    final override val mixins get() = main.mixins
 
     private var hasMappings = false
 
@@ -96,22 +102,10 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
         main = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
-                name,
                 SourceSet.MAIN_SOURCE_SET_NAME,
+                this,
                 remapJarTask.flatMap(RemapJar::getArchiveFile),
                 java.util.Optional.empty<TargetCompilation>(),
-                remapNamespace,
-                mappingClasspath,
-            )
-        }
-
-        test = run {
-            project.objects.newInstance(
-                TargetCompilation::class.java,
-                name,
-                SourceSet.TEST_SOURCE_SET_NAME,
-                remapJarTask.flatMap(RemapJar::getArchiveFile),
-                java.util.Optional.of(main),
                 remapNamespace,
                 mappingClasspath,
             )
@@ -120,8 +114,8 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
         data = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
-                name,
                 ClochePlugin.DATA_COMPILATION_NAME,
+                this,
                 remapJarTask.flatMap(RemapJar::getArchiveFile),
                 java.util.Optional.of(main),
                 remapNamespace,
@@ -129,15 +123,18 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
             )
         }
 
-        val remapPatchedMinecraftIntermediaryJar = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraftNamed", remapNamespace, "jar"), RemapJar::class.java) {
+        val remapPatchedMinecraftIntermediaryJar = project.tasks.register(lowerCamelCaseName("remap", name, "patchedMinecraft", remapNamespace, "jar"), RemapJar::class.java) {
             it.destinationDirectory.set(it.temporaryDir)
             it.archiveBaseName.set("patched-minecraft")
             it.archiveVersion.set(name)
-            it.archiveClassifier.set("named")
+            it.archiveClassifier.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
             it.sourceNamespace.set("obf")
             it.targetNamespace.set(remapNamespace)
 
-            it.mappings.from(main.sourceSet.map(SourceSet::mappingsConfigurationName).flatMap(project.configurations::named))
+            with(project) {
+                it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+            }
+
             it.input.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
             it.classpath.from(minecraftForgeClasspath)
         }
@@ -153,70 +150,71 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 }
             }
 
-            project.dependencies.addProvider(main.sourceSet.get().mappingsConfigurationName, userdev)
-            project.dependencies.addProvider(main.sourceSet.get().patchesConfigurationName, userdev)
+            with(project) {
+                project.dependencies.addProvider(main.sourceSet.mappingsConfigurationName, userdev)
+                project.dependencies.addProvider(main.sourceSet.patchesConfigurationName, userdev)
 
-            val forge = project.extension<MinecraftCodevExtension>().extension<MinecraftCodevForgeExtension>()
+                minecraftForgeClasspath.dependencies.addAllLater(minecraftVersion.flatMap {
+                    val forge = project.extension<MinecraftCodevExtension>().extension<MinecraftCodevForgeExtension>()
+
+                    forge.dependencies(it, project.configurations.getByName(main.sourceSet.patchesConfigurationName))
+                })
+
+                project.configurations.named(main.sourceSet.nativesConfigurationName) {
+                    val codev = project.extension<MinecraftCodevExtension>()
+
+                    it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
+                }
+
+                project.dependencies.add(main.sourceSet.mixinsConfigurationName, main.mixins)
+                project.dependencies.add(main.sourceSet.accessWidenersConfigurationName, main.accessWideners)
+
+                if (!hasMappings) {
+                    project.dependencies.add(main.sourceSet.mappingsConfigurationName, project.files(downloadClientMappings.flatMap(DownloadMinecraftMappings::output)))
+                }
+
+                project.tasks.named(main.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+                    it.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
+                }
+            }
 
             dependencies.implementation(main.dependency)
-
-            minecraftForgeClasspath.dependencies.addAllLater(minecraftVersion.flatMap {
-                forge.dependencies(it, project.configurations.getByName(main.sourceSet.get().patchesConfigurationName))
-            })
 
             project.configurations.named(dependencies.implementation.configurationName) {
                 it.extendsFrom(minecraftForgeClasspath)
             }
-
-            project.configurations.named(main.sourceSet.get().nativesConfigurationName) {
-                val codev = project.extension<MinecraftCodevExtension>()
-
-                it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
-            }
-
-            project.dependencies.add(main.sourceSet.get().mixinsConfigurationName, main.mixins)
-            project.dependencies.add(main.sourceSet.get().accessWidenersConfigurationName, main.accessWideners)
-
-            if (!hasMappings) {
-                project.dependencies.add(main.sourceSet.get().mappingsConfigurationName, project.files(downloadClientMappings.flatMap(DownloadMinecraftMappings::output)))
-            }
-
-            project.tasks.named(main.sourceSet.get().processResourcesTaskName, ProcessResources::class.java) {
-                it.from(project.configurations.named(main.sourceSet.get().mixinsConfigurationName))
-            }
-        }
-
-        test.dependencies {
-            project.dependencies.add(test.sourceSet.get().mixinsConfigurationName, test.mixins)
-            project.dependencies.add(test.sourceSet.get().accessWidenersConfigurationName, test.accessWideners)
         }
 
         data.dependencies {
-            project.dependencies.add(data.sourceSet.get().mixinsConfigurationName, data.mixins)
-            project.dependencies.add(data.sourceSet.get().accessWidenersConfigurationName, data.accessWideners)
+            with(project) {
+                project.dependencies.add(data.sourceSet.mixinsConfigurationName, data.mixins)
+                project.dependencies.add(data.sourceSet.accessWidenersConfigurationName, data.accessWideners)
+            }
 
             it.implementation(data.dependency)
         }
 
         main.runConfiguration {
             it.defaults.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
-                serverConfig.mixinConfigs.set(project.configurations.named(main.sourceSet.get().mixinsConfigurationName).map { it.files.map(File::getName) })
+                with(project) {
+                    serverConfig.mixinConfigs.set(project.configurations.named(main.sourceSet.mixinsConfigurationName).map { it.files.map(File::getName) })
+                }
             }
         }
 
-        /*        client.runConfiguration {
-                    it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
-                        clientConfig.mixinConfigs.set(project.configurations.named(main.sourceSet.get().mixinsConfigurationName).map { it.files.map(File::getName) })
-                    }
-                }*/
-
-        test.runConfiguration {
-            it.defaults.extension<ForgeRunsDefaultsContainer>().gameTestServer(minecraftVersion)
+        /*
+        client.runConfiguration {
+            it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
+                clientConfig.mixinConfigs.set(project.configurations.named(main.sourceSet.get().mixinsConfigurationName).map { it.files.map(File::getName) })
+            }
         }
+        */
 
         data.runConfiguration {
             it.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
-                datagen.mixinConfigs.set(project.configurations.named(main.sourceSet.get().mixinsConfigurationName).map { it.files.map(File::getName) })
+                with(project) {
+                    datagen.mixinConfigs.set(project.configurations.named(main.sourceSet.mixinsConfigurationName).map { it.files.map(File::getName) })
+                }
 
                 datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
 
@@ -237,10 +235,6 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
         action?.execute(data)
     }
 
-    override fun test(action: Action<RunnableCompilation>?) {
-        action?.execute(test)
-    }
-
     override fun mappings(action: Action<MappingsBuilder>) {
         hasMappings = true
 
@@ -249,8 +243,10 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
         action.execute(MappingsBuilder(project, mappings))
 
         main.dependencies {
-            for (mapping in mappings) {
-                project.dependencies.addProvider(main.sourceSet.get().mappingsConfigurationName, minecraftVersion.map(mapping))
+            with(project) {
+                for (mapping in mappings) {
+                    project.dependencies.addProvider(main.sourceSet.mappingsConfigurationName, minecraftVersion.map(mapping))
+                }
             }
         }
     }

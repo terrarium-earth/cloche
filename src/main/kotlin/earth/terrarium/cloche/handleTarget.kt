@@ -1,9 +1,9 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.ClientTarget
-import earth.terrarium.cloche.target.Compilation
 import earth.terrarium.cloche.target.MinecraftTarget
 import earth.terrarium.cloche.target.RunnableCompilationInternal
+import earth.terrarium.cloche.target.sourceSet
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -12,28 +12,16 @@ import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
-import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.internal.DefaultJavaFeatureSpec
 import org.gradle.api.tasks.SourceSet
-import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.internal.component.external.model.ProjectDerivedCapability
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetContainer
 
 fun modConfigurationName(name: String) = lowerCamelCaseName("mod", name)
 
-fun handleTarget(project: Project, target: MinecraftTarget) {
-    val sourceSets = project.extension<SourceSetContainer>()
-    val cloche = project.extension<ClocheExtension>()
-
-    val sourceSetName = { compilation: Compilation ->
-        when {
-            target.name == ClocheExtension::common.name -> compilation.name
-            compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.name
-            else -> lowerCamelCaseName(target.name, compilation.name)
-        }
-    }
+context(Project) fun handleTarget(target: MinecraftTarget) {
+    val cloche = extension<ClocheExtension>()
 
     fun add(compilation: RunnableCompilationInternal?, variant: PublicationVariant? = null) {
         if (compilation == null) {
@@ -42,11 +30,13 @@ fun handleTarget(project: Project, target: MinecraftTarget) {
             return
         }
 
-        val main = sourceSets.maybeCreate(sourceSetName(target.main))
+        val main = with(target) {
+            target.main.sourceSet
+        }
 
-        val sourceSet = sourceSets.maybeCreate(sourceSetName(compilation))
-
-        compilation.sourceSet.set(sourceSet)
+        val sourceSet = with(target) {
+            compilation.sourceSet
+        }
 
         fun modConfiguration(name: String) = project.configurations.create(modConfigurationName(name)) { modConfig ->
             modConfig.isCanBeConsumed = false
@@ -142,13 +132,11 @@ fun handleTarget(project: Project, target: MinecraftTarget) {
         }
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            sourceSet.extension<VirtualExtension>().dependsOn.add(main)
+            sourceSet.compileClasspath += main.compileClasspath
+            sourceSet.runtimeClasspath += main.runtimeClasspath
 
-            if (cloche.useKotlin.get()) {
-                val kotlin = project.extension<KotlinSourceSetContainer>()
-
-                kotlin.sourceSets.getByName(sourceSet.name).dependsOn(kotlin.sourceSets.getByName(main.name))
-            }
+            sourceSet.compileClasspath += main.output
+            sourceSet.runtimeClasspath += main.output
 
             project.extend(sourceSet.mixinsConfigurationName, main.mixinsConfigurationName)
             project.extend(sourceSet.patchesConfigurationName, main.patchesConfigurationName)
@@ -192,7 +180,6 @@ fun handleTarget(project: Project, target: MinecraftTarget) {
     }
 
     add(target.main as RunnableCompilationInternal, PublicationVariant.Common)
-    add(target.test as RunnableCompilationInternal)
     add(target.data as RunnableCompilationInternal, PublicationVariant.Data)
     add((target as? ClientTarget)?.client as RunnableCompilationInternal?, PublicationVariant.Client)
 }

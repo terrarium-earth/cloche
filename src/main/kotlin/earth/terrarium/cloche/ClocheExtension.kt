@@ -12,8 +12,6 @@ import kotlin.reflect.KClass
 
 open class ClocheExtension @Inject constructor(private val project: Project, objects: ObjectFactory) {
     val minecraftVersion: Property<String> = objects.property(String::class.java)
-    val useKotlin: Property<Boolean> = objects.property(Boolean::class.java)
-    val extensionPattern: Property<String> = objects.property(String::class.java)
 
     val commonTargets: NamedDomainObjectContainer<CommonTarget> = objects.domainObjectContainer(CommonTarget::class.java)
     val targets: MinecraftTargetContainer = objects.newInstance(MinecraftTargetContainer::class.java)

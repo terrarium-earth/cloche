@@ -1,9 +1,13 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
+import earth.terrarium.cloche.ClocheExtension
+import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Named
+import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.file.ConfigurableFileCollection
@@ -14,25 +18,20 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.SourceSetContainer
 
 interface Compilation : Named {
     val accessWideners: ConfigurableFileCollection
-        @InputFiles
-        get
+        @InputFiles get
 
     val mixins: ConfigurableFileCollection
-        @InputFiles
-        get
+        @InputFiles get
 
     fun dependencies(action: Action<ClocheDependencyHandler>)
 }
 
-interface CompilationInternal: Compilation {
+interface CompilationInternal : Compilation {
     val dependencySetupActions: List<Action<ClocheDependencyHandler>>
-
-    val sourceSet: Property<SourceSet>
-        @Internal
-        get
 }
 
 interface RunnableCompilation : Compilation {
@@ -41,20 +40,45 @@ interface RunnableCompilation : Compilation {
 
 interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation {
     val minecraftJar: Provider<RegularFile>
-        @Internal
-        get
+        @Internal get
 
     val dependency: Provider<Dependency>
-        @Internal
-        get
+        @Internal get
 
-    val compileClasspath: Provider<FileCollection>
-        @Internal
-        get
+    val compileClasspath: FileCollection
+        @Internal get
 
-    val runtimeClasspath: Provider<FileCollection>
-        @Internal
-        get
+    val runtimeClasspath: FileCollection
+        @Internal get
 
     val runSetupActions: List<Action<MinecraftRunConfigurationBuilder>>
 }
+
+private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
+    target.name == ClocheExtension::common.name -> compilation.name
+    compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.name
+    else -> lowerCamelCaseName(target.name, compilation.name)
+}
+
+context(Project, MinecraftTarget) val RunnableCompilation.sourceSet: SourceSet
+    get() {
+        this@RunnableCompilation as RunnableCompilationInternal
+
+        val name = sourceSetName(this, this@MinecraftTarget)
+
+        val sourceSets = project.extension<SourceSetContainer>()
+
+        return sourceSets.findByName(name) ?: sourceSets.create(name) {
+            it.runtimeClasspath += runtimeClasspath
+            it.compileClasspath += compileClasspath
+        }
+    }
+
+context(Project, CommonTarget) val Compilation.sourceSet: SourceSet
+    get() {
+        val name = sourceSetName(this, this@CommonTarget)
+
+        val sourceSets = project.extension<SourceSetContainer>()
+
+        return sourceSets.findByName(name) ?: sourceSets.create(name)
+    }

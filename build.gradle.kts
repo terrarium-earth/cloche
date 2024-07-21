@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     kotlin("jvm") version "1.9.23"
     `java-gradle-plugin`
@@ -43,12 +45,16 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.1.2")
     implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.1.2")
     implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.0.1")
+    implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.0.2")
 
     implementation(group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version = "1.5.32")
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")
 
     testImplementation(kotlin("test"))
+}
+
+tasks.withType<KotlinCompile> {
+    compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
 }
 
 publishing {

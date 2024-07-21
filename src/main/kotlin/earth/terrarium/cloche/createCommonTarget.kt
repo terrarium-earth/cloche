@@ -8,15 +8,15 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.intersection.JarIntersection
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
-import org.apache.commons.lang3.StringUtils
 import org.gradle.api.Project
-import org.gradle.api.artifacts.Dependency
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetContainer
+import org.gradle.api.tasks.compile.JavaCompile
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.memberProperties
@@ -30,12 +30,10 @@ private val multiPlatformEnabled = KotlinCompile::class.memberProperties
     .first { it.name == "multiPlatformEnabled" }
     .apply { isAccessible = true } as KProperty1<KotlinCompile, Property<Boolean>>
 
-fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTarget>) {
-    val cloche = extension<ClocheExtension>()
+context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTarget>) {
     val sourceSets = extension<SourceSetContainer>()
 
     val main = edges.map { it to it.main as RunnableCompilationInternal }
-    val test = edges.map { it to it.test as RunnableCompilationInternal }
     val client = edges.takeIf { it.any { it is ClientTarget } }?.map { it to ((it as? ClientTarget)?.client ?: it.main) as RunnableCompilationInternal }
     val data = edges.map { it to it.data as RunnableCompilationInternal }
 
@@ -47,15 +45,7 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
         }
     }
 
-    fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): Provider<out Dependency> {
-        for ((target, compilation) in compilations) {
-            compilation.sourceSet.set(sourceSets.maybeCreate(sourceSetName(target, compilation.name)))
-        }
-
-        if (compilations.size == 1) {
-            return compilations.first().second.dependency
-        }
-
+    fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): FileCollection {
         val name = lowerCamelCaseName("create", *compilations.map { (target) -> target.name }.toTypedArray(), "intersection")
 
         val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: project.tasks.create(name, JarIntersection::class.java) {
@@ -66,22 +56,21 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
 
         project.addSetupTask(name)
 
-        for ((_, compilation) in compilations) {
-            // Make sure it stays only in common
-            compilation.sourceSet.get().compileClasspath -= files(createIntersection.output)
-            compilation.sourceSet.get().runtimeClasspath -= files(createIntersection.output)
-        }
-
-        return project.provider { project.dependencies.create(files(createIntersection.output)) }
+        return files(createIntersection.output)
     }
 
-    fun add(name: String, compilation: CompilationInternal, dependencyProvider: Provider<out Dependency>) {
-        val sourceSet = sourceSets.maybeCreate(sourceSetName(common, name))
+    fun add(name: String, compilation: CompilationInternal, minecraftIntersection: FileCollection) {
+        val sourceSet = with(common) {
+            compilation.sourceSet
+        }
 
-        compilation.sourceSet.set(sourceSet)
+        sourceSet.compileClasspath += minecraftIntersection
 
-        project.dependencies.addProvider(sourceSet.implementationConfigurationName, dependencyProvider)
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:multiplatform-annotations:1.0.0")
+
+        tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
+            it.options.compilerArgs.add("-AgenerateExpectStubs")
+        }
 
         for (edge in edges) {
             val edgeDependant = sourceSets.findByName(sourceSetName(edge, name)) ?: run {
@@ -94,24 +83,11 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
 
             edgeDependant.extension<VirtualExtension>().dependsOn.add(sourceSet)
 
-            if (cloche.useKotlin.get()) {
-                val kotlin = extension<KotlinSourceSetContainer>()
+            plugins.withId(ClochePlugin.KOTLIN_JVM) {
+                val kotlin = extension<KotlinJvmProjectExtension>()
+                val kotlinCompilation = kotlin.target.compilations.getByName(edgeDependant.name)
 
-                val kotlinSourceSet = kotlin.sourceSets.getByName(edgeDependant.name)
-
-                kotlinSourceSet.dependsOn(kotlin.sourceSets.getByName(sourceSet.name))
-
-                fun lowerCamelCaseName(vararg nameParts: String?): String {
-                    val nonEmptyParts = nameParts.mapNotNull { it?.takeIf(String::isNotEmpty) }
-
-                    return nonEmptyParts.drop(1).joinToString(
-                        separator = "",
-                        prefix = nonEmptyParts.firstOrNull().orEmpty(),
-                        transform = StringUtils::capitalize,
-                    )
-                }
-
-                tasks.named(lowerCamelCaseName("compile", kotlinSourceSet.name, "kotlin"), KotlinCompile::class.java) {
+                tasks.named(kotlinCompilation.compileKotlinTaskName, KotlinCompile::class.java) {
                     multiPlatformEnabled.get(it).set(true)
                     commonSourceSet.get(it).from(sourceSet.allSource)
                 }
@@ -130,17 +106,10 @@ fun Project.createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTa
 
         sourceSet.extension<VirtualExtension>().dependsOn.add(dependency)
 
-        if (cloche.useKotlin.get()) {
-            val kotlin = extension<KotlinSourceSetContainer>()
-
-            kotlin.sourceSets.getByName(sourceSet.name).dependsOn(kotlin.sourceSets.getByName(dependency.name))
-        }
-
         project.extend(sourceSet.mixinsConfigurationName, dependency.mixinsConfigurationName)
     }
 
     add(SourceSet.MAIN_SOURCE_SET_NAME, common.main as CompilationInternal, intersection(main))
-    add(SourceSet.TEST_SOURCE_SET_NAME, common.test as CompilationInternal, intersection(test))
     client?.let(::intersection)?.let { add(ClochePlugin.CLIENT_COMPILATION_NAME, common.client as CompilationInternal, it) }
     add(ClochePlugin.DATA_COMPILATION_NAME, common.data as CompilationInternal, intersection(data))
 }
