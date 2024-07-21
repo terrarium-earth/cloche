@@ -13,14 +13,14 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSet
-import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
-import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.isAccessible
+
+private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
 private val commonSourceSet = KotlinCompile::class.memberProperties
     .first { it.name == "commonSourceSet" }
@@ -31,19 +31,9 @@ private val multiPlatformEnabled = KotlinCompile::class.memberProperties
     .apply { isAccessible = true } as KProperty1<KotlinCompile, Property<Boolean>>
 
 context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTarget>) {
-    val sourceSets = extension<SourceSetContainer>()
-
     val main = edges.map { it to it.main as RunnableCompilationInternal }
     val client = edges.takeIf { it.any { it is ClientTarget } }?.map { it to ((it as? ClientTarget)?.client ?: it.main) as RunnableCompilationInternal }
     val data = edges.map { it to it.data as RunnableCompilationInternal }
-
-    val sourceSetName = { target: ClocheTarget, compilationName: String ->
-        when {
-            target.name == ClocheExtension::common.name -> compilationName
-            compilationName == SourceSet.MAIN_SOURCE_SET_NAME -> target.name
-            else -> lowerCamelCaseName(target.name, compilationName)
-        }
-    }
 
     fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): FileCollection {
         val name = lowerCamelCaseName("create", *compilations.map { (target) -> target.name }.toTypedArray(), "intersection")
@@ -59,7 +49,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
         return files(createIntersection.output)
     }
 
-    fun add(name: String, compilation: CompilationInternal, minecraftIntersection: FileCollection) {
+    fun add(name: String, compilation: Compilation, minecraftIntersection: FileCollection) {
         val sourceSet = with(common) {
             compilation.sourceSet
         }
@@ -69,17 +59,19 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:multiplatform-annotations:1.0.0")
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
-            it.options.compilerArgs.add("-AgenerateExpectStubs")
+            it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
         }
 
         for (edge in edges) {
-            val edgeDependant = sourceSets.findByName(sourceSetName(edge, name)) ?: run {
-                if (name == ClochePlugin.CLIENT_COMPILATION_NAME) {
-                    sourceSets.findByName(sourceSetName(edge, SourceSet.MAIN_SOURCE_SET_NAME))
-                } else {
-                    null
-                }
-            } ?: continue
+            val edgeCompilation = when (name) {
+                ClochePlugin.CLIENT_COMPILATION_NAME -> (edge as? ClientTarget)?.client ?: edge.main
+                ClochePlugin.DATA_COMPILATION_NAME -> edge.data
+                else -> edge.main
+            }
+
+            val edgeDependant = with(edge) {
+                edgeCompilation.sourceSet
+            }
 
             edgeDependant.extension<VirtualExtension>().dependsOn.add(sourceSet)
 
@@ -102,11 +94,13 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
             return
         }
 
-        val dependency = sourceSets.findByName(sourceSetName(common, SourceSet.MAIN_SOURCE_SET_NAME)) ?: return
+        val mainDependency = with(common) {
+            common.main.sourceSet
+        }
 
-        sourceSet.extension<VirtualExtension>().dependsOn.add(dependency)
+        sourceSet.extension<VirtualExtension>().dependsOn.add(mainDependency)
 
-        project.extend(sourceSet.mixinsConfigurationName, dependency.mixinsConfigurationName)
+        project.extend(sourceSet.mixinsConfigurationName, mainDependency.mixinsConfigurationName)
     }
 
     add(SourceSet.MAIN_SOURCE_SET_NAME, common.main as CompilationInternal, intersection(main))

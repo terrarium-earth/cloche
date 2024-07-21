@@ -9,6 +9,6 @@ abstract class NeoForgeTarget(name: String) : ForgeTarget(name) {
 
     final override val loaderAttributeName get() = "neoforge"
 
-    override fun version(minecraftVersion: String, loaderVersion: String) =
+    final override fun version(minecraftVersion: String, loaderVersion: String) =
         loaderVersion
 }

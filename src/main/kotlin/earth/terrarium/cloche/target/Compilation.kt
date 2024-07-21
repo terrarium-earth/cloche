@@ -9,11 +9,9 @@ import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
-import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
-import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
@@ -75,10 +73,6 @@ context(Project, MinecraftTarget) val RunnableCompilation.sourceSet: SourceSet
     }
 
 context(Project, CommonTarget) val Compilation.sourceSet: SourceSet
-    get() {
-        val name = sourceSetName(this, this@CommonTarget)
-
-        val sourceSets = project.extension<SourceSetContainer>()
-
-        return sourceSets.findByName(name) ?: sourceSets.create(name)
-    }
+    get() = project
+        .extension<SourceSetContainer>()
+        .maybeCreate(sourceSetName(this, this@CommonTarget))

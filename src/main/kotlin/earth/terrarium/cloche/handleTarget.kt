@@ -23,7 +23,7 @@ fun modConfigurationName(name: String) = lowerCamelCaseName("mod", name)
 context(Project) fun handleTarget(target: MinecraftTarget) {
     val cloche = extension<ClocheExtension>()
 
-    fun add(compilation: RunnableCompilationInternal?, variant: PublicationVariant? = null) {
+    fun add(compilation: RunnableCompilationInternal?, variant: PublicationVariant) {
         if (compilation == null) {
             // TODO Setup run configurations regardless
 
@@ -80,44 +80,42 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
             extendsFrom(modRuntimeOnly)
         }
 
-        if (variant != null) {
-            val spec = DefaultJavaFeatureSpec(sourceSet.name, project as ProjectInternal)
+        val spec = DefaultJavaFeatureSpec(sourceSet.name, project as ProjectInternal)
 
-            val capability = ProjectDerivedCapability(project)
+        val capability = ProjectDerivedCapability(project)
 
-            spec.withJavadocJar()
-            spec.withSourcesJar()
+        spec.withJavadocJar()
+        spec.withSourcesJar()
 
-            spec.usingSourceSet(sourceSet)
+        spec.usingSourceSet(sourceSet)
 
-            spec.capability(capability.group, capability.name, capability.version!!)
-            spec.create()
+        spec.capability(capability.group, capability.name, capability.version!!)
+        spec.create()
 
-            project.configurations.named(sourceSet.apiElementsConfigurationName) {
-                it.extendsFrom(modApi)
-                it.extendsFrom(modCompileOnlyApi)
+        project.configurations.named(sourceSet.apiElementsConfigurationName) {
+            it.extendsFrom(modApi)
+            it.extendsFrom(modCompileOnlyApi)
 
-                it.artifacts.clear()
-                project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
-            }
-
-            project.configurations.named(sourceSet.runtimeElementsConfigurationName) {
-                it.extendsFrom(modRuntimeOnly)
-                it.extendsFrom(modImplementation)
-
-                it.artifacts.clear()
-                project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
-            }
-
-            configurationNames.addAll(
-                listOf(
-                    sourceSet.apiElementsConfigurationName,
-                    sourceSet.runtimeElementsConfigurationName,
-                    sourceSet.javadocElementsConfigurationName,
-                    sourceSet.sourcesElementsConfigurationName,
-                ),
-            )
+            it.artifacts.clear()
+            project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
         }
+
+        project.configurations.named(sourceSet.runtimeElementsConfigurationName) {
+            it.extendsFrom(modRuntimeOnly)
+            it.extendsFrom(modImplementation)
+
+            it.artifacts.clear()
+            project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
+        }
+
+        configurationNames.addAll(
+            listOf(
+                sourceSet.apiElementsConfigurationName,
+                sourceSet.runtimeElementsConfigurationName,
+                sourceSet.javadocElementsConfigurationName,
+                sourceSet.sourcesElementsConfigurationName,
+            ),
+        )
 
         for (name in configurationNames) {
             project.configurations.named(name) { configuration ->
@@ -127,7 +125,7 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
                     configuration.attributes.attribute(ClochePlugin.MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion.orElse(cloche.minecraftVersion).get())
                 }
 
-                configuration.attributes.attribute(ClochePlugin.VARIANT_ATTRIBUTE, variant ?: PublicationVariant.Common)
+                configuration.attributes.attribute(ClochePlugin.VARIANT_ATTRIBUTE, variant)
             }
         }
 
