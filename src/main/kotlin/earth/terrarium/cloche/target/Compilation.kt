@@ -67,8 +67,20 @@ context(Project, MinecraftTarget) val RunnableCompilation.sourceSet: SourceSet
         val sourceSets = project.extension<SourceSetContainer>()
 
         return sourceSets.findByName(name) ?: sourceSets.create(name) {
-            it.runtimeClasspath += runtimeClasspath
-            it.compileClasspath += compileClasspath
+            project.dependencies.add(it.compileOnlyConfigurationName, compileClasspath)
+            project.dependencies.add(it.runtimeOnlyConfigurationName, runtimeClasspath)
+        }
+    }
+
+context(Project, MinecraftTarget) val RunnableCompilation.singleTargetSourceSet: SourceSet
+    get() {
+        this@RunnableCompilation as RunnableCompilationInternal
+
+        val sourceSets = project.extension<SourceSetContainer>()
+
+        return sourceSets.findByName(name) ?: sourceSets.create(name) {
+            project.dependencies.add(it.compileOnlyConfigurationName, compileClasspath)
+            project.dependencies.add(it.runtimeOnlyConfigurationName, runtimeClasspath)
         }
     }
 

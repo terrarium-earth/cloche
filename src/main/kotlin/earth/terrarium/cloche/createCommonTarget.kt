@@ -54,9 +54,9 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
             compilation.sourceSet
         }
 
-        sourceSet.compileClasspath += minecraftIntersection
-
-        project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:multiplatform-annotations:1.0.0")
+        project.dependencies.add(sourceSet.compileOnlyConfigurationName, minecraftIntersection)
+        project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:java-expect-actual-annotations:1.0.0")
+        project.dependencies.add(sourceSet.annotationProcessorConfigurationName, "net.msrandom:java-expect-actual-processor:1.0.8")
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
@@ -85,7 +85,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
                 }
             }
 
-            project.dependencies.add(edgeDependant.annotationProcessorConfigurationName, "net.msrandom:multiplatform-processor:1.0.7")
+            project.dependencies.add(edgeDependant.annotationProcessorConfigurationName, "net.msrandom:java-expect-actual-processor:1.0.8")
 
             project.extend(edgeDependant.mixinsConfigurationName, sourceSet.mixinsConfigurationName)
         }

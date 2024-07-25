@@ -1,9 +1,6 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.ClientTarget
-import earth.terrarium.cloche.target.MinecraftTarget
-import earth.terrarium.cloche.target.RunnableCompilationInternal
-import earth.terrarium.cloche.target.sourceSet
+import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -20,7 +17,7 @@ import org.gradle.internal.component.external.model.ProjectDerivedCapability
 
 fun modConfigurationName(name: String) = lowerCamelCaseName("mod", name)
 
-context(Project) fun handleTarget(target: MinecraftTarget) {
+context(Project) fun handleTarget(target: MinecraftTarget, onlyTarget: Boolean) {
     val cloche = extension<ClocheExtension>()
 
     fun add(compilation: RunnableCompilationInternal?, variant: PublicationVariant) {
@@ -31,11 +28,15 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
         }
 
         val main = with(target) {
-            target.main.sourceSet
+            target.main.singleTargetSourceSet
         }
 
         val sourceSet = with(target) {
-            compilation.sourceSet
+            if (onlyTarget) {
+                compilation.singleTargetSourceSet
+            } else {
+                compilation.sourceSet
+            }
         }
 
         fun modConfiguration(name: String) = project.configurations.create(modConfigurationName(name)) { modConfig ->
