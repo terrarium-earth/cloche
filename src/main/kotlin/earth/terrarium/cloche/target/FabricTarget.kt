@@ -13,16 +13,18 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricExtension
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
+import net.msrandom.minecraftcodev.fabric.task.SplitModClients
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
-import net.msrandom.minecraftcodev.remapper.task.RemapJar
+import net.msrandom.minecraftcodev.remapper.task.Remap
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import net.msrandom.minecraftcodev.runs.nativesConfigurationName
 import org.gradle.api.Action
+import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.SourceSet
+import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.util.*
 
 abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientTarget {
@@ -43,45 +45,29 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         it.server.set(false)
     }
 
-    private val resolveCommonMinecraft = project.tasks.register(lowerCamelCaseName("resolveCommon", name), ResolveMinecraftCommon::class.java) {
+    private val resolveCommonMinecraft = project.tasks.register(lowerCamelCaseName("resolve", name, "common"), ResolveMinecraftCommon::class.java) {
         it.version.set(minecraftVersion)
     }
 
-    private val resolveClientMinecraft = project.tasks.register(lowerCamelCaseName("resolveClient", name), ResolveMinecraftClient::class.java) {
+    private val resolveClientMinecraft = project.tasks.register(lowerCamelCaseName("resolve", name, "client"), ResolveMinecraftClient::class.java) {
         it.version.set(minecraftVersion)
     }
 
-    private val remapCommonMinecraftNamedJar = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraftNamedJar"), RemapJar::class.java) {
-        it.destinationDirectory.set(it.temporaryDir)
-        it.archiveBaseName.set("minecraft-common")
-        it.archiveVersion.set(name)
-        it.archiveClassifier.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+    private val remapCommonMinecraftIntermediary = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraft", remapNamespace), Remap::class.java) {
+        it.inputFiles.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
         it.sourceNamespace.set("obf")
-        it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-
-        with(project) {
-            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
-        }
-
-        it.input.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
+        it.targetNamespace.set(remapNamespace)
         it.classpath.from(minecraftCommonClasspath)
+        it.filterMods.set(false)
     }
 
-    private val remapClientMinecraftNamedJar = project.tasks.register(lowerCamelCaseName("remap", name, "clientMinecraftNamedJar"), RemapJar::class.java) {
-        it.destinationDirectory.set(it.temporaryDir)
-        it.archiveBaseName.set("minecraft-client")
-        it.archiveVersion.set(name)
-        it.archiveClassifier.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+    private val remapClientMinecraftIntermediary = project.tasks.register(lowerCamelCaseName("remap", name, "clientMinecraft", remapNamespace), Remap::class.java) {
+        it.inputFiles.from(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
         it.sourceNamespace.set("obf")
-        it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-
-        with(project) {
-            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
-        }
-
-        it.input.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
+        it.targetNamespace.set(remapNamespace)
         it.classpath.from(minecraftClientClasspath)
         it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
+        it.filterMods.set(false)
     }
 
     final override val main: TargetCompilation
@@ -103,73 +89,71 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
     override val loaderAttributeName get() = "fabric"
 
     init {
-        val mappingClasspath = project.files()
+        val registerJarSplitter = { classpath: FileCollection, nameParts: Array<String> ->
+            val splitTask = project.tasks.register(lowerCamelCaseName("split", *nameParts, "classpath"), SplitModClients::class.java) {
+                it.inputFiles.from(classpath)
+            }
+
+            project.files(splitTask.map(SplitModClients::outputFiles))
+        }
+
+        val registerClientJarSplitter = { classpath: FileCollection, nameParts: Array<String> ->
+            val splitTask = project.tasks.register(lowerCamelCaseName("split", *nameParts, "classpath"), SplitModClients::class.java) {
+                it.inputFiles.from(classpath)
+            }
+
+            project.files(splitTask.map(SplitModClients::outputFiles))
+        }
 
         main = project.objects.newInstance(
             TargetCompilation::class.java,
             SourceSet.MAIN_SOURCE_SET_NAME,
             this,
-            remapCommonMinecraftNamedJar.flatMap(RemapJar::getArchiveFile),
+            project.files(remapCommonMinecraftIntermediary.map(Remap::outputFiles)),
             Optional.empty<TargetCompilation>(),
+            registerJarSplitter,
+            Side.SERVER,
             remapNamespace,
-            mappingClasspath,
+            minecraftCommonClasspath,
         )
 
         client = project.objects.newInstance(
             TargetCompilation::class.java,
             ClochePlugin.CLIENT_COMPILATION_NAME,
             this,
-            remapClientMinecraftNamedJar.flatMap(RemapJar::getArchiveFile),
+            project.files(remapClientMinecraftIntermediary.map(Remap::outputFiles)),
             Optional.of(main),
+            registerClientJarSplitter,
+            Side.CLIENT,
             remapNamespace,
-            mappingClasspath,
+            minecraftCommonClasspath + minecraftClientClasspath + project.files(remapCommonMinecraftIntermediary.map(Remap::outputFiles)),
         )
 
         data = project.objects.newInstance(
             TargetCompilation::class.java,
             ClochePlugin.DATA_COMPILATION_NAME,
             this,
-            remapCommonMinecraftNamedJar.flatMap(RemapJar::getArchiveFile),
+            project.files(remapCommonMinecraftIntermediary.map(Remap::outputFiles)),
             Optional.of(main),
+            registerJarSplitter,
+            Side.SERVER,
             remapNamespace,
-            mappingClasspath,
+            minecraftCommonClasspath,
         )
 
-        val remapCommonMinecraftIntermediaryJar = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraft", remapNamespace, "jar"), RemapJar::class.java) {
-            it.destinationDirectory.set(it.temporaryDir)
-            it.archiveBaseName.set("minecraft-common")
-            it.archiveVersion.set(name)
-            it.archiveClassifier.set("named")
-            it.sourceNamespace.set("obf")
-            it.targetNamespace.set(remapNamespace)
-
-            with(project) {
-                it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+        project.afterEvaluate {
+            remapCommonMinecraftIntermediary.configure {
+                with(project) {
+                    it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+                }
             }
 
-            it.input.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
-            it.classpath.from(minecraftCommonClasspath)
-        }
-
-        val remapClientMinecraftIntermediaryJar = project.tasks.register(lowerCamelCaseName("remap", name, "clientMinecraft", remapNamespace, "jar"), RemapJar::class.java) {
-            it.destinationDirectory.set(it.temporaryDir)
-            it.archiveBaseName.set("minecraft-client")
-            it.archiveVersion.set(name)
-            it.archiveClassifier.set(remapNamespace)
-            it.sourceNamespace.set("obf")
-            it.targetNamespace.set(remapNamespace)
-
-            with(project) {
-                it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+            remapClientMinecraftIntermediary.configure {
+                with(project) {
+                    it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+                }
             }
-
-            it.input.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
-            it.classpath.from(minecraftClientClasspath)
-            it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
         }
-
-        mappingClasspath.from(remapCommonMinecraftIntermediaryJar.flatMap(RemapJar::getArchiveFile))
-        mappingClasspath.from(remapClientMinecraftIntermediaryJar.flatMap(RemapJar::getArchiveFile))
 
         main.dependencies { dependencies ->
             with(project) {
@@ -184,8 +168,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
                 project.dependencies.add(main.sourceSet.mixinsConfigurationName, mixins)
                 project.dependencies.add(main.sourceSet.accessWidenersConfigurationName, accessWideners)
             }
-
-            dependencies.implementation(main.dependency)
 
             val fabric = project.extension<MinecraftCodevExtension>().extension<MinecraftCodevFabricExtension>()
 
@@ -209,8 +191,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         }
 
         client.dependencies { dependencies ->
-            dependencies.implementation(client.dependency)
-
             val fabric = project.extension<MinecraftCodevExtension>().extension<MinecraftCodevFabricExtension>()
 
             minecraftClientClasspath.dependencies.addAllLater(
@@ -235,9 +215,7 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
             }
         }
 
-        data.dependencies { dependencies ->
-            dependencies.implementation(data.dependency)
-
+        data.dependencies {
             with(project) {
                 project.dependencies.add(data.sourceSet.mixinsConfigurationName, data.mixins)
                 project.dependencies.add(data.sourceSet.accessWidenersConfigurationName, data.accessWideners)

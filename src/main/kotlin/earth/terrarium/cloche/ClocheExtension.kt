@@ -18,6 +18,9 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
 
+    val isSingleTargetMode
+        get() = targets.size == 1 && commonTargets.isEmpty()
+
     internal val mappingActions = mutableListOf<Action<MappingsBuilder>>()
 
     private val usedTargetTypes = hashSetOf<Class<out MinecraftTarget>>()
@@ -52,13 +55,6 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     fun neoforge(name: String = ::neoforge.name, configure: Action<NeoForgeTarget>? = null) = target(name, {
         project.repositories.maven {
             it.url = project.uri("https://maven.neoforged.net/")
-        }
-    }, configure)
-
-    @JvmOverloads
-    fun quilt(name: String = ::quilt.name, configure: Action<QuiltTarget>? = null) = target(name, {
-        project.repositories.maven {
-            it.url = project.uri("https://maven.quiltmc.org/repository/release/")
         }
     }, configure)
 

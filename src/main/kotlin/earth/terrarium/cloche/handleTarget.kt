@@ -17,7 +17,7 @@ import org.gradle.internal.component.external.model.ProjectDerivedCapability
 
 fun modConfigurationName(name: String) = lowerCamelCaseName("mod", name)
 
-context(Project) fun handleTarget(target: MinecraftTarget, onlyTarget: Boolean) {
+context(Project) fun handleTarget(target: MinecraftTarget) {
     val cloche = extension<ClocheExtension>()
 
     fun add(compilation: RunnableCompilationInternal?, variant: PublicationVariant) {
@@ -27,58 +27,22 @@ context(Project) fun handleTarget(target: MinecraftTarget, onlyTarget: Boolean) 
             return
         }
 
-        val main = with(target) {
-            target.main.singleTargetSourceSet
-        }
-
         val sourceSet = with(target) {
-            if (onlyTarget) {
-                compilation.singleTargetSourceSet
-            } else {
-                compilation.sourceSet
+            compilation.sourceSet
+        }
+
+        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+            val main = with(target) {
+                target.main.sourceSet
             }
-        }
 
-        fun modConfiguration(name: String) = project.configurations.create(modConfigurationName(name)) { modConfig ->
-            modConfig.isCanBeConsumed = false
-            modConfig.isCanBeResolved = false
-        }
+            sourceSet.compileClasspath += main.compileClasspath + main.output
+            sourceSet.runtimeClasspath += main.runtimeClasspath + main.output
 
-        val modImplementation = modConfiguration(sourceSet.implementationConfigurationName)
-        val modRuntimeOnly = modConfiguration(sourceSet.runtimeOnlyConfigurationName)
-        val modCompileOnly = modConfiguration(sourceSet.compileOnlyConfigurationName)
-
-        val modApi = modConfiguration(sourceSet.apiConfigurationName).apply {
-            extendsFrom(modImplementation)
-        }
-
-        val modCompileOnlyApi = modConfiguration(sourceSet.compileOnlyApiConfigurationName).apply {
-            extendsFrom(modCompileOnly)
-        }
-
-        val configurationNames = mutableListOf(
-            sourceSet.compileClasspathConfigurationName,
-            sourceSet.runtimeClasspathConfigurationName,
-        )
-
-        modConfiguration(sourceSet.compileClasspathConfigurationName).apply {
-            isCanBeResolved = true
-            isCanBeDeclared = false
-
-            configurationNames.add(name)
-
-            extendsFrom(modImplementation)
-            extendsFrom(modCompileOnly)
-        }
-
-        modConfiguration(sourceSet.runtimeClasspathConfigurationName).apply {
-            isCanBeResolved = true
-            isCanBeDeclared = false
-
-            configurationNames.add(name)
-
-            extendsFrom(modImplementation)
-            extendsFrom(modRuntimeOnly)
+            project.extend(sourceSet.mixinsConfigurationName, main.mixinsConfigurationName)
+            project.extend(sourceSet.patchesConfigurationName, main.patchesConfigurationName)
+            project.extend(sourceSet.mappingsConfigurationName, main.mappingsConfigurationName)
+            project.extend(sourceSet.accessWidenersConfigurationName, main.accessWidenersConfigurationName)
         }
 
         val spec = DefaultJavaFeatureSpec(sourceSet.name, project as ProjectInternal)
@@ -92,6 +56,12 @@ context(Project) fun handleTarget(target: MinecraftTarget, onlyTarget: Boolean) 
 
         spec.capability(capability.group, capability.name, capability.version!!)
         spec.create()
+
+        val modApi = project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName))
+        val modCompileOnlyApi = project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName))
+        val modRuntimeOnly = project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
+        val modImplementation = project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName))
+        val modCompileOnly = project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName))
 
         project.configurations.named(sourceSet.apiElementsConfigurationName) {
             it.extendsFrom(modApi)
@@ -109,13 +79,15 @@ context(Project) fun handleTarget(target: MinecraftTarget, onlyTarget: Boolean) 
             project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
         }
 
-        configurationNames.addAll(
-            listOf(
-                sourceSet.apiElementsConfigurationName,
-                sourceSet.runtimeElementsConfigurationName,
-                sourceSet.javadocElementsConfigurationName,
-                sourceSet.sourcesElementsConfigurationName,
-            ),
+        val configurationNames = listOf(
+            sourceSet.compileClasspathConfigurationName,
+            sourceSet.runtimeClasspathConfigurationName,
+            sourceSet.apiElementsConfigurationName,
+            sourceSet.runtimeElementsConfigurationName,
+            sourceSet.javadocElementsConfigurationName,
+            sourceSet.sourcesElementsConfigurationName,
+            modConfigurationName(sourceSet.compileClasspathConfigurationName),
+            modConfigurationName(sourceSet.runtimeClasspathConfigurationName),
         )
 
         for (name in configurationNames) {
@@ -130,38 +102,23 @@ context(Project) fun handleTarget(target: MinecraftTarget, onlyTarget: Boolean) 
             }
         }
 
-        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            sourceSet.compileClasspath += main.compileClasspath
-            sourceSet.runtimeClasspath += main.runtimeClasspath
+        val dependencyHandler = ClocheDependencyHandler(
+            project,
+            sourceSet.apiConfigurationName,
+            sourceSet.compileOnlyApiConfigurationName,
+            sourceSet.implementationConfigurationName,
+            sourceSet.runtimeOnlyConfigurationName,
+            sourceSet.compileOnlyConfigurationName,
 
-            sourceSet.compileClasspath += main.output
-            sourceSet.runtimeClasspath += main.output
+            modApi.name,
+            modCompileOnlyApi.name,
+            modImplementation.name,
+            modRuntimeOnly.name,
+            modCompileOnly.name,
+        )
 
-            project.extend(sourceSet.mixinsConfigurationName, main.mixinsConfigurationName)
-            project.extend(sourceSet.patchesConfigurationName, main.patchesConfigurationName)
-            project.extend(sourceSet.mappingsConfigurationName, main.mappingsConfigurationName)
-            project.extend(sourceSet.accessWidenersConfigurationName, main.accessWidenersConfigurationName)
-        }
-
-        project.afterEvaluate {
-            val dependencyHandler = ClocheDependencyHandler(
-                project,
-                sourceSet.apiConfigurationName,
-                sourceSet.compileOnlyApiConfigurationName,
-                sourceSet.implementationConfigurationName,
-                sourceSet.runtimeOnlyConfigurationName,
-                sourceSet.compileOnlyConfigurationName,
-
-                modApi.name,
-                modCompileOnlyApi.name,
-                modImplementation.name,
-                modRuntimeOnly.name,
-                modCompileOnly.name,
-            )
-
-            for (action in compilation.dependencySetupActions) {
-                action.execute(dependencyHandler)
-            }
+        for (action in compilation.dependencySetupActions) {
+            action.execute(dependencyHandler)
         }
 
         project

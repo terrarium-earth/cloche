@@ -22,7 +22,6 @@ open class MinecraftTargetContainer @Inject constructor(
             addTargetType<FabricTarget>()
             addTargetType<ForgeTarget>()
             addTargetType<NeoForgeTarget>()
-            addTargetType<QuiltTarget>()
         }
     }
 

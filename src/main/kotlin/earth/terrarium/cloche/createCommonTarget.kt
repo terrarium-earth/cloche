@@ -40,7 +40,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
 
         val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: project.tasks.create(name, JarIntersection::class.java) {
             for ((_, compilation) in compilations) {
-                it.files.from(compilation.minecraftJar)
+                it.files.from(compilation.minecraftFiles)
             }
         }
 

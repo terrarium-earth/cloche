@@ -43,7 +43,7 @@ fun Project.extend(base: String, dependency: String) = project.configurations.fi
 }
 
 class ClochePlugin : Plugin<Project> {
-    private fun addTarget(cloche: ClocheExtension, project: Project, target: MinecraftTarget, onlyTarget: Boolean) {
+    private fun addTarget(cloche: ClocheExtension, project: Project, target: MinecraftTarget) {
         target.minecraftVersion.convention(cloche.minecraftVersion)
 
         for (mappingAction in cloche.mappingActions) {
@@ -51,7 +51,7 @@ class ClochePlugin : Plugin<Project> {
         }
 
         with(project) {
-            handleTarget(target, onlyTarget)
+            handleTarget(target)
         }
     }
 
@@ -79,39 +79,40 @@ class ClochePlugin : Plugin<Project> {
         target.repositories.mavenCentral()
 
         target.afterEvaluate { project ->
-            if (cloche.targets.size == 1 && cloche.commonTargets.isEmpty()) {
-                addTarget(cloche, project, cloche.targets.first(), true)
-            } else {
-                val primaryCommon = cloche.common()
+            if (cloche.isSingleTargetMode) {
+                addTarget(cloche, project, cloche.targets.first())
+                return@afterEvaluate
+            }
 
-                cloche.targets.all {
-                    addTarget(cloche, project, it, false)
+            val primaryCommon = cloche.common()
 
+            cloche.targets.all {
+                addTarget(cloche, project, it)
+
+                it.dependsOn(primaryCommon)
+            }
+
+            cloche.commonTargets.all {
+                if (it != primaryCommon) {
                     it.dependsOn(primaryCommon)
                 }
+            }
 
-                cloche.commonTargets.all {
-                    if (it != primaryCommon) {
-                        it.dependsOn(primaryCommon)
-                    }
+            fun getDependencies(target: ClocheTarget): List<CommonTarget> =
+                target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
+
+            val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
+            val commonToTarget = hashMapOf<CommonTarget, MutableSet<MinecraftTarget>>()
+
+            for ((edgeTarget, dependencies) in targetDependencies) {
+                for (dependency in dependencies) {
+                    commonToTarget.computeIfAbsent(dependency) { hashSetOf() }.add(edgeTarget)
                 }
+            }
 
-                fun getDependencies(target: ClocheTarget): List<CommonTarget> =
-                    target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
-
-                val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
-                val commonToTarget = hashMapOf<CommonTarget, MutableSet<MinecraftTarget>>()
-
-                for ((edgeTarget, dependencies) in targetDependencies) {
-                    for (dependency in dependencies) {
-                        commonToTarget.computeIfAbsent(dependency) { hashSetOf() }.add(edgeTarget)
-                    }
-                }
-
-                with(project) {
-                    for ((common, targets) in commonToTarget) {
-                        createCommonTarget(common, targets)
-                    }
+            with(project) {
+                for ((common, targets) in commonToTarget) {
+                    createCommonTarget(common, targets)
                 }
             }
         }

@@ -25,6 +25,7 @@ repositories {
     maven(url = "https://repo.spongepowered.org/repository/maven-public/")
     maven(url = "https://maven.minecraftforge.net/")
     maven(url = "https://maven.msrandom.net/repository/root/")
+    maven(url = "https://jitpack.io/")
 
     mavenCentral()
     gradlePluginPortal()
