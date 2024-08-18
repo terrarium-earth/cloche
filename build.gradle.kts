@@ -46,7 +46,7 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.1.2")
     implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.1.2")
     implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.0.2")
+    implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.0.3")
 
     implementation(group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version = "1.5.32")
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")

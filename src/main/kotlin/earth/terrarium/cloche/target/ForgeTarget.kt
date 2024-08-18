@@ -19,6 +19,7 @@ import net.msrandom.minecraftcodev.remapper.task.Remap
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import net.msrandom.minecraftcodev.runs.nativesConfigurationName
 import org.gradle.api.Action
+import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
@@ -85,6 +86,10 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
     override val loaderAttributeName get() = "forge"
 
     init {
+        val classpathMapper = { classpath: FileCollection, _: Array<String?> ->
+            classpath
+        }
+
         main = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
@@ -92,6 +97,7 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 this,
                 project.files(remapPatchedMinecraftIntermediary.map(Remap::outputFiles)),
                 java.util.Optional.empty<TargetCompilation>(),
+                classpathMapper,
                 Side.UNKNOWN,
                 remapNamespace,
                 minecraftForgeClasspath,
@@ -105,6 +111,7 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 this,
                 project.files(remapPatchedMinecraftIntermediary.map(Remap::outputFiles)),
                 java.util.Optional.of(main),
+                classpathMapper,
                 Side.UNKNOWN,
                 remapNamespace,
                 minecraftForgeClasspath,
