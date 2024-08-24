@@ -37,15 +37,15 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.1.2")
-    implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.1.2")
+    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.1.3")
     implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.0.3")
 
     implementation(group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version = "1.5.32")

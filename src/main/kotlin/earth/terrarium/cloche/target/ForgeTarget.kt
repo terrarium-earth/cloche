@@ -17,7 +17,10 @@ import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.Remap
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
-import net.msrandom.minecraftcodev.runs.nativesConfigurationName
+import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
+import net.msrandom.minecraftcodev.runs.extractNativesTaskName
+import net.msrandom.minecraftcodev.runs.task.DownloadAssets
+import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
@@ -151,12 +154,6 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                     forge.dependencies(it, project.configurations.getByName(main.sourceSet.patchesConfigurationName))
                 })
 
-                project.configurations.named(main.sourceSet.nativesConfigurationName) {
-                    val codev = project.extension<MinecraftCodevExtension>()
-
-                    it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
-                }
-
                 project.dependencies.add(main.sourceSet.mixinsConfigurationName, main.mixins)
                 project.dependencies.add(main.sourceSet.accessWidenersConfigurationName, main.accessWideners)
 
@@ -178,6 +175,10 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
             with(project) {
                 project.dependencies.add(data.sourceSet.mixinsConfigurationName, data.mixins)
                 project.dependencies.add(data.sourceSet.accessWidenersConfigurationName, data.accessWideners)
+
+                project.tasks.withType(DownloadAssets::class.java).named(data.sourceSet.downloadAssetsTaskName) {
+                    it.version.set(minecraftVersion)
+                }
             }
         }
 

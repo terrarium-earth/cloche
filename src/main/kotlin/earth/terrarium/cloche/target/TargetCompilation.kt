@@ -42,15 +42,15 @@ abstract class TargetCompilation @Inject constructor(
         it.inputFiles.from(extractRuntimeIncludes.map(ExtractIncludes::outputFiles))
     }
 
-    private val mixinTask = project.tasks.register(lowerCamelCaseName("mixin", target.name, namePart, "Minecraft"), Mixin::class.java) {
+/*    private val mixinTask = project.tasks.register(lowerCamelCaseName("mixin", target.name, namePart, "Minecraft"), Mixin::class.java) {
         it.inputFiles.from(intermediateMinecraft)
         it.mixinFiles.from(extractCompileIncludes.map(ExtractIncludes::outputFiles))
         it.classpath.from(classpath)
         it.side.set(side)
-    }
+    }*/
 
     private val remapMinecraftNamedJar = project.tasks.register(lowerCamelCaseName("remap", target.name, namePart, "minecraftNamed"), Remap::class.java) {
-        it.inputFiles.from(mixinTask.map(Mixin::outputFiles))
+        it.inputFiles.from(intermediateMinecraft)
         it.sourceNamespace.set(remapNamespace)
         it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.classpath.from(classpath)

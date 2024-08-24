@@ -18,7 +18,10 @@ import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.Remap
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
-import net.msrandom.minecraftcodev.runs.nativesConfigurationName
+import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
+import net.msrandom.minecraftcodev.runs.extractNativesTaskName
+import net.msrandom.minecraftcodev.runs.task.DownloadAssets
+import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
@@ -204,14 +207,16 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
             }
 
             with(project) {
-                project.configurations.named(client.sourceSet.nativesConfigurationName) {
-                    val codev = project.extension<MinecraftCodevExtension>()
-
-                    it.dependencies.addAllLater(minecraftVersion.flatMap(codev::nativeDependencies))
-                }
-
                 project.dependencies.add(client.sourceSet.mixinsConfigurationName, client.mixins)
                 project.dependencies.add(client.sourceSet.accessWidenersConfigurationName, client.accessWideners)
+
+                project.tasks.withType(DownloadAssets::class.java).named(client.sourceSet.downloadAssetsTaskName) {
+                    it.version.set(minecraftVersion)
+                }
+
+                project.tasks.withType(ExtractNatives::class.java).named(client.sourceSet.extractNativesTaskName) {
+                    it.version.set(minecraftVersion)
+                }
             }
         }
 
@@ -219,6 +224,10 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
             with(project) {
                 project.dependencies.add(data.sourceSet.mixinsConfigurationName, data.mixins)
                 project.dependencies.add(data.sourceSet.accessWidenersConfigurationName, data.accessWideners)
+
+                project.tasks.withType(DownloadAssets::class.java).named(data.sourceSet.downloadAssetsTaskName) {
+                    it.version.set(minecraftVersion)
+                }
             }
         }
 
