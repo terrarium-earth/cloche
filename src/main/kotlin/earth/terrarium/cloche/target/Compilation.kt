@@ -31,11 +31,17 @@ interface CompilationInternal : Compilation {
     val dependencySetupActions: List<Action<ClocheDependencyHandler>>
 }
 
-interface RunnableCompilation : Compilation {
+interface Runnable : Named {
     fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>)
 }
 
-interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation {
+interface RunnableInternal : Runnable {
+    val runSetupActions: List<Action<MinecraftRunConfigurationBuilder>>
+}
+
+interface RunnableCompilation : Runnable, Compilation
+
+interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation, RunnableInternal {
     val minecraftFiles: FileCollection
         @Internal get
 
@@ -50,8 +56,6 @@ interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation
 
     val javadoc: FileCollection
         @Internal get
-
-    val runSetupActions: List<Action<MinecraftRunConfigurationBuilder>>
 }
 
 private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {

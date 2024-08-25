@@ -5,7 +5,8 @@ import earth.terrarium.cloche.addSetupTask
 import earth.terrarium.cloche.modConfigurationName
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.mixins.task.Mixin
 import net.msrandom.minecraftcodev.mixins.task.StripMixins
@@ -35,31 +36,36 @@ abstract class TargetCompilation @Inject constructor(
 ) : RunnableCompilationInternal {
     private val namePart = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
-    private val extractCompileIncludes = project.tasks.register(lowerCamelCaseName("extract", target.name, namePart, "compileIncludes"), ExtractIncludes::class.java)
-    private val extractRuntimeIncludes = project.tasks.register(lowerCamelCaseName("extract", target.name, namePart, "runtimeIncludes"), ExtractIncludes::class.java)
+    private val extractCompileIncludes = project.tasks.register(lowerCamelCaseGradleName("extract", target.name, namePart, "compileIncludes"), ExtractIncludes::class.java)
+    private val extractRuntimeIncludes = project.tasks.register(lowerCamelCaseGradleName("extract", target.name, namePart, "runtimeIncludes"), ExtractIncludes::class.java)
 
-    private val stripRuntimeMixins = project.tasks.register(lowerCamelCaseName("strip", target.name, namePart, "runtimeMixins"), StripMixins::class.java) {
+    private val stripRuntimeMixins = project.tasks.register(lowerCamelCaseGradleName("strip", target.name, namePart, "runtimeMixins"), StripMixins::class.java) {
         it.inputFiles.from(extractRuntimeIncludes.map(ExtractIncludes::outputFiles))
     }
 
-/*    private val mixinTask = project.tasks.register(lowerCamelCaseName("mixin", target.name, namePart, "Minecraft"), Mixin::class.java) {
+    private val mixinTask = project.tasks.register(lowerCamelCaseGradleName("mixin", target.name, namePart, "Minecraft"), Mixin::class.java) {
         it.inputFiles.from(intermediateMinecraft)
         it.mixinFiles.from(extractCompileIncludes.map(ExtractIncludes::outputFiles))
         it.classpath.from(classpath)
         it.side.set(side)
-    }*/
+    }
 
-    private val remapMinecraftNamedJar = project.tasks.register(lowerCamelCaseName("remap", target.name, namePart, "minecraftNamed"), Remap::class.java) {
-        it.inputFiles.from(intermediateMinecraft)
+    private val remapMinecraftNamedJar = project.tasks.register(lowerCamelCaseGradleName("remap", target.name, namePart, "minecraftNamed"), Remap::class.java) {
+        it.inputFiles.from(mixinTask.map(Mixin::outputFiles))
         it.sourceNamespace.set(remapNamespace)
         it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.classpath.from(classpath)
         it.filterMods.set(false)
     }
 
-    private val accessWidenTask = project.tasks.register(project.addSetupTask(lowerCamelCaseName("accessWiden", target.name, namePart, "Minecraft")), AccessWiden::class.java) {
+    private val accessWidenTask = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("accessWiden", target.name, namePart, "minecraft")), AccessWiden::class.java) {
         it.inputFiles.from(remapMinecraftNamedJar.map(Remap::outputFiles))
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+    }
+
+    private val decompileMinecraft = project.tasks.register(/*project.addSetupTask(*/lowerCamelCaseGradleName("decompile", target.name, namePart, "minecraft")/*)*/, Decompile::class.java) {
+        it.classpath.from(runtimeClasspath)
+        it.libraryFiles.from(minecraftFiles)
     }
 
     final override val minecraftFiles: FileCollection = project.files(accessWidenTask.map(AccessWiden::outputFiles))
@@ -67,7 +73,7 @@ abstract class TargetCompilation @Inject constructor(
     final override val compileClasspath: ConfigurableFileCollection = project.files()
     final override val runtimeClasspath: ConfigurableFileCollection = project.files()
 
-    override val sources: FileCollection = project.files()
+    override val sources: FileCollection = project.files(decompileMinecraft.map(Decompile::outputFiles))
     override val javadoc: FileCollection = project.files()
 
     final override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
@@ -109,13 +115,13 @@ abstract class TargetCompilation @Inject constructor(
         }
 
         if (remapNamespace != null) {
-            val remapCompileClasspath = project.tasks.register(project.addSetupTask(lowerCamelCaseName("remap", target.name, namePart, "compileClasspath")), Remap::class.java) {
+            val remapCompileClasspath = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("remap", target.name, namePart, "compileClasspath")), Remap::class.java) {
                 it.inputFiles.from(extractCompileIncludes.map(ExtractIncludes::outputFiles))
                 it.sourceNamespace.set(remapNamespace)
                 it.classpath.from(intermediateMinecraft)
             }
 
-            val remapRuntimeClasspath = project.tasks.register(project.addSetupTask(lowerCamelCaseName("remap", target.name, namePart, "runtimeClasspath")), Remap::class.java) {
+            val remapRuntimeClasspath = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("remap", target.name, namePart, "runtimeClasspath")), Remap::class.java) {
                 it.inputFiles.from(stripRuntimeMixins.map(StripMixins::outputFiles))
                 it.sourceNamespace.set(remapNamespace)
                 it.classpath.from(intermediateMinecraft)

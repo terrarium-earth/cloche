@@ -4,6 +4,7 @@ import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
@@ -45,7 +46,7 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
             project.extend(sourceSet.accessWidenersConfigurationName, main.accessWidenersConfigurationName)
         }
 
-        val spec = DefaultJavaFeatureSpec(sourceSet.name, project as ProjectInternal)
+        val spec = DefaultJavaFeatureSpec(target.name, project as ProjectInternal)
 
         val capability = ProjectDerivedCapability(project)
 
@@ -120,15 +121,17 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
         for (action in compilation.dependencySetupActions) {
             action.execute(dependencyHandler)
         }
+    }
+
+    fun addRunnable(runnable: Runnable) {
+        runnable as RunnableInternal
 
         project
             .extension<MinecraftCodevExtension>()
             .extension<RunsContainer>()
-            .create(lowerCamelCaseName(target.name, compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
-                builder.sourceSet(sourceSet)
-
+            .create(lowerCamelCaseGradleName(target.name, runnable.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
                 project.afterEvaluate {
-                    for (runSetupAction in compilation.runSetupActions) {
+                    for (runSetupAction in runnable.runSetupActions) {
                         runSetupAction.execute(builder)
                     }
                 }
@@ -138,4 +141,8 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
     add(target.main as RunnableCompilationInternal, PublicationVariant.Common)
     add(target.data as RunnableCompilationInternal, PublicationVariant.Data)
     add((target as? ClientTarget)?.client as RunnableCompilationInternal?, PublicationVariant.Client)
+
+    addRunnable(target.main)
+    addRunnable(target.data)
+    addRunnable(target.client)
 }

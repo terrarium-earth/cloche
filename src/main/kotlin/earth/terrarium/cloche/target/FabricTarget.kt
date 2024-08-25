@@ -9,7 +9,7 @@ import net.msrandom.minecraftcodev.core.task.DownloadMinecraftMappings
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricExtension
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
@@ -31,32 +31,32 @@ import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.util.*
 
 abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientTarget {
-    private val minecraftCommonClasspath = project.configurations.create(lowerCamelCaseName(name, "minecraftCommonClasspath")) {
+    private val minecraftCommonClasspath = project.configurations.create(lowerCamelCaseGradleName("minecraft", name, "commonClasspath")) {
         it.isCanBeConsumed = false
     }
 
-    private val minecraftClientClasspath = project.configurations.create(lowerCamelCaseName(name, "minecraftClientClasspath")) {
+    private val minecraftClientClasspath = project.configurations.create(lowerCamelCaseGradleName("minecraft", name, "clientClasspath")) {
         it.isCanBeConsumed = false
     }
 
-    private val fabricLoaderConfiguration = project.configurations.create(lowerCamelCaseName(name, "loader")) {
+    private val fabricLoaderConfiguration = project.configurations.create(lowerCamelCaseGradleName(name, "loader")) {
         it.isCanBeConsumed = false
     }
 
-    private val downloadClientMappings = project.tasks.register(lowerCamelCaseName("download", name, "clientMappings"), DownloadMinecraftMappings::class.java) {
+    private val downloadClientMappings = project.tasks.register(lowerCamelCaseGradleName("download", name, "clientMappings"), DownloadMinecraftMappings::class.java) {
         it.version.set(minecraftVersion)
         it.server.set(false)
     }
 
-    private val resolveCommonMinecraft = project.tasks.register(lowerCamelCaseName("resolve", name, "common"), ResolveMinecraftCommon::class.java) {
+    private val resolveCommonMinecraft = project.tasks.register(lowerCamelCaseGradleName("resolve", name, "common"), ResolveMinecraftCommon::class.java) {
         it.version.set(minecraftVersion)
     }
 
-    private val resolveClientMinecraft = project.tasks.register(lowerCamelCaseName("resolve", name, "client"), ResolveMinecraftClient::class.java) {
+    private val resolveClientMinecraft = project.tasks.register(lowerCamelCaseGradleName("resolve", name, "client"), ResolveMinecraftClient::class.java) {
         it.version.set(minecraftVersion)
     }
 
-    private val remapCommonMinecraftIntermediary = project.tasks.register(lowerCamelCaseName("remap", name, "commonMinecraft", remapNamespace), Remap::class.java) {
+    private val remapCommonMinecraftIntermediary = project.tasks.register(lowerCamelCaseGradleName("remap", name, "commonMinecraft", remapNamespace), Remap::class.java) {
         it.inputFiles.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
         it.sourceNamespace.set("obf")
         it.targetNamespace.set(remapNamespace)
@@ -64,7 +64,7 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         it.filterMods.set(false)
     }
 
-    private val remapClientMinecraftIntermediary = project.tasks.register(lowerCamelCaseName("remap", name, "clientMinecraft", remapNamespace), Remap::class.java) {
+    private val remapClientMinecraftIntermediary = project.tasks.register(lowerCamelCaseGradleName("remap", name, "clientMinecraft", remapNamespace), Remap::class.java) {
         it.inputFiles.from(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
         it.sourceNamespace.set("obf")
         it.targetNamespace.set(remapNamespace)
@@ -93,7 +93,7 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
 
     init {
         val registerJarSplitter = { classpath: FileCollection, nameParts: Array<String> ->
-            val splitTask = project.tasks.register(lowerCamelCaseName("split", *nameParts, "classpath"), SplitModClients::class.java) {
+            val splitTask = project.tasks.register(lowerCamelCaseGradleName("split", *nameParts, "classpath"), SplitModClients::class.java) {
                 it.inputFiles.from(classpath)
             }
 
@@ -101,7 +101,7 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
         }
 
         val registerClientJarSplitter = { classpath: FileCollection, nameParts: Array<String> ->
-            val splitTask = project.tasks.register(lowerCamelCaseName("split", *nameParts, "classpath"), SplitModClients::class.java) {
+            val splitTask = project.tasks.register(lowerCamelCaseGradleName("split", *nameParts, "classpath"), SplitModClients::class.java) {
                 it.inputFiles.from(classpath)
             }
 
@@ -233,14 +233,26 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
 
         main.runConfiguration {
             it.defaults.extension<FabricRunsDefaultsContainer>().server()
+
+            with(project) {
+                it.sourceSet(main.sourceSet)
+            }
         }
 
         client.runConfiguration {
             it.defaults.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
+
+            with(project) {
+                it.sourceSet(client.sourceSet)
+            }
         }
 
         data.runConfiguration {
             it.defaults.extension<FabricRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
+                with(project) {
+                    it.sourceSet(data.sourceSet)
+                }
+
                 datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
 
                 datagen.outputDirectory.set(datagenDirectory)
