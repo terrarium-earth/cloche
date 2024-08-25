@@ -86,9 +86,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
     private var clientMode = ClientMode.Separate
     private var hasMappings = false
 
-    abstract val apiVersion: Property<String>
-        @Input get
-
     override val loaderAttributeName get() = "fabric"
 
     init {
@@ -189,8 +186,6 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
             project.configurations.named(dependencies.implementation.configurationName) {
                 it.extendsFrom(fabricLoaderConfiguration)
             }
-
-            dependencies.modImplementation(apiVersion.map { api -> "net.fabricmc.fabric-api:fabric-api:$api" })
         }
 
         client.dependencies { dependencies ->
@@ -258,6 +253,10 @@ abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientT
                 datagen.outputDirectory.set(datagenDirectory)
             }
         }
+    }
+
+    fun ClocheDependencyHandler.fabricApi(apiVersion: String) {
+        modImplementation(group = "net.fabricmc.fabric-api", name = "fabric-api", version = apiVersion)
     }
 
     override fun getName() = name
