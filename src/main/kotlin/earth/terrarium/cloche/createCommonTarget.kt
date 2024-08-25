@@ -54,46 +54,36 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
     }
 
     fun SourceSet.addDependencyIntersection(edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>, configurationName: SourceSet.() -> String) {
-        if (edgeCompilations.size == 1) {
-            project.configurations.named(configurationName()) {
-                val (target, compilation) = edgeCompilations.first()
-
-                with(target) {
-                    it.extendsFrom(project.configurations.getByName(compilation.sourceSet.configurationName()))
-                }
+        val edgeDependencies = edgeCompilations.map { (target, compilation) ->
+            with(target) {
+                project.configurations.getByName(compilation.sourceSet.configurationName()).dependencies.toList()
             }
-        } else {
-            val edgeDependencies = edgeCompilations.map { (target, compilation) ->
-                with(target) {
-                    project.configurations.getByName(compilation.sourceSet.configurationName()).dependencies.toList()
-                }
-            }
+        }
 
-            val intersection = edgeDependencies.reduce { acc, dependencies ->
-                acc.mapNotNull { a ->
-                    val b = dependencies.find { b ->
-                        a.group == b.group && a.name == b.name
-                    } ?: return@mapNotNull null
+        val intersection = edgeDependencies.reduce { acc, dependencies ->
+            acc.mapNotNull { a ->
+                val b = dependencies.find { b ->
+                    a.group == b.group && a.name == b.name
+                } ?: return@mapNotNull null
 
-                    if (a.version.isNullOrBlank()) {
-                        if (b.version.isNullOrBlank()) {
-                            a
-                        } else {
-                            b
-                        }
+                if (a.version.isNullOrBlank()) {
+                    if (b.version.isNullOrBlank()) {
+                        a
                     } else {
-                        if (a.version!! > b.version!!) {
-                            b
-                        } else {
-                            a
-                        }
+                        b
+                    }
+                } else {
+                    if (a.version!! > b.version!!) {
+                        b
+                    } else {
+                        a
                     }
                 }
             }
+        }
 
-            for (dependency in intersection) {
-                project.dependencies.add(configurationName(), dependency)
-            }
+        for (dependency in intersection) {
+            project.dependencies.add(configurationName(), dependency)
         }
     }
 

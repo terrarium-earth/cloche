@@ -4,7 +4,7 @@ import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Named
@@ -61,7 +61,8 @@ interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation
 private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
     target.name == ClocheExtension::common.name -> compilation.name
     compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.name
-    else -> lowerCamelCaseName(target.name, compilation.name)
+    '-' in target.name -> "${target.name}-${compilation.name}"
+    else -> lowerCamelCaseGradleName(target.name, compilation.name)
 }
 
 private fun RunnableCompilationInternal.setupSourceSet(project: Project, sourceSet: SourceSet): SourceSet {
