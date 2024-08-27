@@ -1,14 +1,10 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
-import net.msrandom.minecraftcodev.forge.patchesConfigurationName
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
 import org.gradle.api.internal.project.ProjectInternal
@@ -37,13 +33,7 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
                 target.main.sourceSet
             }
 
-            sourceSet.compileClasspath += main.compileClasspath + main.output
-            sourceSet.runtimeClasspath += main.runtimeClasspath + main.output
-
-            project.extend(sourceSet.mixinsConfigurationName, main.mixinsConfigurationName)
-            project.extend(sourceSet.patchesConfigurationName, main.patchesConfigurationName)
-            project.extend(sourceSet.mappingsConfigurationName, main.mappingsConfigurationName)
-            project.extend(sourceSet.accessWidenersConfigurationName, main.accessWidenersConfigurationName)
+            sourceSet.linkDynamically(main)
         }
 
         val spec = DefaultJavaFeatureSpec(target.name, project as ProjectInternal)

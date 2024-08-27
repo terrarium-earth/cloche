@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm") version "2.0.20"
     `java-gradle-plugin`
     `maven-publish`
 }
@@ -46,9 +46,8 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.1.3")
     implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.1.3")
     implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.0.3")
+    implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.1.0")
 
-    implementation(group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version = "1.5.32")
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")
 
     testImplementation(kotlin("test"))

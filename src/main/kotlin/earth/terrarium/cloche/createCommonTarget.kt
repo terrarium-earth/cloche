@@ -1,34 +1,14 @@
-@file:Suppress("UNCHECKED_CAST")
-
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
-import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.intersection.JarIntersection
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
-import org.gradle.api.provider.Property
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import kotlin.reflect.KProperty1
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.jvm.isAccessible
 
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
-
-private val commonSourceSet = KotlinCompile::class.memberProperties
-    .first { it.name == "commonSourceSet" }
-    .apply { isAccessible = true } as KProperty1<KotlinCompile, ConfigurableFileCollection>
-
-private val multiPlatformEnabled = KotlinCompile::class.memberProperties
-    .first { it.name == "multiPlatformEnabled" }
-    .apply { isAccessible = true } as KProperty1<KotlinCompile, Property<Boolean>>
 
 context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTarget>) {
     val main = edges.map { it to it.main as RunnableCompilationInternal }
@@ -87,7 +67,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
         }
     }
 
-    fun add(name: String, compilation: Compilation, edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>) {
+    fun add(name: String, compilation: CommonCompilation, edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>) {
         val sourceSet = with(common) {
             compilation.sourceSet
         }
@@ -96,7 +76,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, intersection(edgeCompilations))
 
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:java-expect-actual-annotations:1.0.0")
-        project.dependencies.add(sourceSet.annotationProcessorConfigurationName, "net.msrandom:java-expect-actual-processor:1.0.8")
+        project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
 
         sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getImplementationConfigurationName)
         sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getApiConfigurationName)
@@ -106,6 +86,24 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
+        }
+
+        val dependencyHandler = ClocheDependencyHandler(
+            project,
+            sourceSet.apiConfigurationName,
+            sourceSet.compileOnlyApiConfigurationName,
+            sourceSet.implementationConfigurationName,
+            sourceSet.runtimeOnlyConfigurationName,
+            sourceSet.compileOnlyConfigurationName,
+            modConfigurationName(sourceSet.apiConfigurationName),
+            modConfigurationName(sourceSet.compileOnlyApiConfigurationName),
+            modConfigurationName(sourceSet.implementationConfigurationName),
+            modConfigurationName(sourceSet.runtimeOnlyConfigurationName),
+            modConfigurationName(sourceSet.compileOnlyConfigurationName),
+        )
+
+        for (dependencySetupAction in compilation.dependencySetupActions) {
+            dependencySetupAction.execute(dependencyHandler)
         }
 
         for (edge in edges) {
@@ -119,21 +117,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
                 edgeCompilation.sourceSet
             }
 
-            edgeDependant.extension<VirtualExtension>().dependsOn.add(sourceSet)
-
-            plugins.withId(ClochePlugin.KOTLIN_JVM) {
-                val kotlin = extension<KotlinJvmProjectExtension>()
-                val kotlinCompilation = kotlin.target.compilations.getByName(edgeDependant.name)
-
-                tasks.named(kotlinCompilation.compileKotlinTaskName, KotlinCompile::class.java) {
-                    multiPlatformEnabled.get(it).set(true)
-                    commonSourceSet.get(it).from(sourceSet.allSource)
-                }
-            }
-
-            project.dependencies.add(edgeDependant.annotationProcessorConfigurationName, "net.msrandom:java-expect-actual-processor:1.0.8")
-
-            project.extend(edgeDependant.mixinsConfigurationName, sourceSet.mixinsConfigurationName)
+            edgeDependant.linkStatically(sourceSet)
         }
 
         if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
@@ -144,12 +128,10 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
             common.main.sourceSet
         }
 
-        sourceSet.extension<VirtualExtension>().dependsOn.add(mainDependency)
-
-        project.extend(sourceSet.mixinsConfigurationName, mainDependency.mixinsConfigurationName)
+        sourceSet.linkDynamically(mainDependency)
     }
 
-    add(SourceSet.MAIN_SOURCE_SET_NAME, common.main as CompilationInternal, main)
-    client?.let { add(ClochePlugin.CLIENT_COMPILATION_NAME, common.client as CompilationInternal, it) }
-    add(ClochePlugin.DATA_COMPILATION_NAME, common.data as CompilationInternal, data)
+    add(SourceSet.MAIN_SOURCE_SET_NAME, common.main as CommonCompilation, main)
+    client?.let { add(ClochePlugin.CLIENT_COMPILATION_NAME, common.client as CommonCompilation, it) }
+    add(ClochePlugin.DATA_COMPILATION_NAME, common.data as CommonCompilation, data)
 }

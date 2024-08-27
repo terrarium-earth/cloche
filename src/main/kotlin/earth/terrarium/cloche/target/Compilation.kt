@@ -112,6 +112,34 @@ private fun RunnableCompilationInternal.setupSourceSet(project: Project, sourceS
     return sourceSet
 }
 
+fun setupCommonSourceSet(project: Project, sourceSet: SourceSet): SourceSet {
+    if (project.configurations.findByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)) != null) {
+        return sourceSet
+    }
+
+    fun modConfiguration(name: String): Configuration {
+        return project.configurations.create(modConfigurationName(name)) { modConfig ->
+            modConfig.isCanBeConsumed = false
+            modConfig.isCanBeResolved = false
+        }
+    }
+
+    val modImplementation = modConfiguration(sourceSet.implementationConfigurationName)
+    val modCompileOnly = modConfiguration(sourceSet.compileOnlyConfigurationName)
+
+    modConfiguration(sourceSet.runtimeOnlyConfigurationName)
+
+    modConfiguration(sourceSet.apiConfigurationName).apply {
+        extendsFrom(modImplementation)
+    }
+
+    modConfiguration(sourceSet.compileOnlyApiConfigurationName).apply {
+        extendsFrom(modCompileOnly)
+    }
+
+    return sourceSet
+}
+
 context(Project, MinecraftTarget) val RunnableCompilation.sourceSet: SourceSet
     get() {
         this@RunnableCompilation as RunnableCompilationInternal
@@ -130,6 +158,11 @@ context(Project, MinecraftTarget) val RunnableCompilation.sourceSet: SourceSet
     }
 
 context(Project, CommonTarget) val Compilation.sourceSet: SourceSet
-    get() = project
-        .extension<SourceSetContainer>()
-        .maybeCreate(sourceSetName(this, this@CommonTarget))
+    get() {
+        val sourceSets = project.extension<SourceSetContainer>()
+
+        return setupCommonSourceSet(
+            project,
+            sourceSets.maybeCreate(sourceSetName(this, this@CommonTarget)),
+        )
+    }

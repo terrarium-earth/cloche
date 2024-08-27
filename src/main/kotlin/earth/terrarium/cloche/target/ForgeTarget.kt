@@ -58,7 +58,7 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
     final override val main: TargetCompilation
 
     final override val client: SimpleRunnable = run {
-        project.objects.newInstance(SimpleRunnable::class.java, name)
+        project.objects.newInstance(SimpleRunnable::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
     }
 
     final override val data: TargetCompilation
