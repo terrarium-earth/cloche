@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.metadata.FabricMetadata
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.task.DownloadMinecraftMappings
@@ -30,7 +31,7 @@ import org.gradle.api.tasks.SourceSet
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.util.*
 
-abstract class FabricTarget(private val name: String) : MinecraftTarget, ClientTarget {
+abstract class FabricTarget(private val name: String) : MinecraftTarget<FabricMetadata>, ClientTarget {
     private val minecraftCommonClasspath = project.configurations.create(lowerCamelCaseGradleName("minecraft", name, "commonClasspath")) {
         it.isCanBeConsumed = false
     }

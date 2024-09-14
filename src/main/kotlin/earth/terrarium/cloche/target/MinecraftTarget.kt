@@ -7,7 +7,7 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 
-interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
+interface MinecraftTarget<TMetadata> : ClocheTarget, RunnableCompilation, Compilation {
     val minecraftVersion: Property<String>
         @Input
         get
@@ -26,8 +26,12 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
     val data: RunnableCompilation
     val client: Runnable
 
+    val metadata: TMetadata
+
     fun data() = data(null)
     fun data(action: Action<RunnableCompilation>?)
 
     fun mappings(action: Action<MappingsBuilder>)
+
+    fun metadata(action: Action<TMetadata>)
 }

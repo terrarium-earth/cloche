@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.metadata.ForgeMetadata
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.task.DownloadMinecraftMappings
@@ -32,7 +33,7 @@ import org.gradle.language.jvm.tasks.ProcessResources
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.io.File
 
-abstract class ForgeTarget(private val name: String) : MinecraftTarget {
+abstract class ForgeTarget(private val name: String) : MinecraftTarget<ForgeMetadata> {
     private val minecraftForgeClasspath = project.configurations.create(lowerCamelCaseGradleName(name, "minecraftForgeClasspath")) {
         it.isCanBeConsumed = false
     }
