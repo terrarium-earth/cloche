@@ -9,28 +9,25 @@ import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
 abstract class FabricMetadata {
-    abstract val entrypoints: MapProperty<String, MutableList<Entrypoint>>
-        @Input
-        get
+    abstract val entrypoints: MapProperty<String, List<Entrypoint>>
+        @Input get
 
     abstract val objectFactory: ObjectFactory
-        @Inject
-        get
+        @Inject get
 
     fun entrypoint(name: String, value: String) = entrypoint(name) {
         it.value.set(value)
     }
 
-    fun entrypoint(name: String, action: Action<Entrypoint>) {
-        val entrypoint = objectFactory.newInstance(Entrypoint::class.java).also(action::execute)
+    fun entrypoint(name: String, action: Action<Entrypoint>) =
+        entrypoint(name, listOf(action))
 
-        val list = entrypoints.get()[name]
-
-        if (list == null) {
-            entrypoints.put(name, mutableListOf(entrypoint))
-        } else {
-            list.add(entrypoint)
+    fun entrypoint(name: String, actions: List<Action<Entrypoint>>) {
+        val entrypoints = actions.map {
+            objectFactory.newInstance(Entrypoint::class.java).also(it::execute)
         }
+
+        this.entrypoints.put(name, entrypoints)
     }
 }
 
