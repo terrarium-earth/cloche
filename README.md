@@ -65,7 +65,9 @@ neoforge {
 fabric {
     loaderVersion.set("0.16.2")
 
-    fabricApi("0.102.1+1.21.1") // Optional
+    dependencies {
+        fabricApi("0.102.1+1.21.1") // Optional
+    }
 }
 ```
 
@@ -77,15 +79,18 @@ fabric("1.21.1") {
 
     loaderVersion.set("0.16.2")
 
-    fabricApi("0.102.1+1.21.1")
+    dependencies {
+        fabricApi("0.102.1+1.21.1")
+    }
 }
 
 fabric("1.19.4") {
     minecraftVersion.set("1.19.4")
 
     loaderVersion.set("0.14.19")
-
-    fabricApi("0.79.0+1.19.4")
+    dependencies {
+        fabricApi("0.79.0+1.19.4")
+    }
 }
 ```
 
