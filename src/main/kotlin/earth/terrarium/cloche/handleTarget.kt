@@ -1,7 +1,6 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
-import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
@@ -12,26 +11,32 @@ import org.gradle.api.plugins.internal.DefaultJavaFeatureSpec
 import org.gradle.api.tasks.SourceSet
 import org.gradle.internal.component.external.model.ProjectDerivedCapability
 
-fun modConfigurationName(name: String) = lowerCamelCaseName("mod", name)
-
-context(Project) fun handleTarget(target: MinecraftTarget) {
+context(Project)
+fun handleTarget(target: MinecraftTarget) {
     val cloche = extension<ClocheExtension>()
 
-    fun add(compilation: RunnableCompilationInternal?, variant: PublicationVariant) {
+    fun add(
+        compilation: RunnableCompilationInternal?,
+        variant: PublicationVariant,
+    ) {
         if (compilation == null) {
             // TODO Setup run configurations regardless
 
             return
         }
 
-        val sourceSet = with(target) {
-            compilation.sourceSet
-        }
+        val sourceSet =
+            with(target) {
+                compilation.sourceSet
+            }
+
+        project.dependencies.add(sourceSet.implementationConfigurationName, project.files(compilation.dependencyMinecraftFile))
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            val main = with(target) {
-                target.main.sourceSet
-            }
+            val main =
+                with(target) {
+                    (target.main as RunnableCompilationInternal).sourceSet
+                }
 
             sourceSet.linkDynamically(main)
         }
@@ -48,65 +53,44 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
         spec.capability(capability.group, capability.name, capability.version!!)
         spec.create()
 
-        val modApi = project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName))
-        val modCompileOnlyApi = project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName))
-        val modRuntimeOnly = project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
-        val modImplementation = project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName))
-        val modCompileOnly = project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName))
-
-        project.configurations.named(sourceSet.apiElementsConfigurationName) {
-            it.extendsFrom(modApi)
-            it.extendsFrom(modCompileOnlyApi)
-
-            it.artifacts.clear()
-            project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
-        }
-
-        project.configurations.named(sourceSet.runtimeElementsConfigurationName) {
-            it.extendsFrom(modRuntimeOnly)
-            it.extendsFrom(modImplementation)
-
-            it.artifacts.clear()
-            project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
-        }
-
-        val configurationNames = listOf(
+        val resolvableConfigurationNames = listOf(
             sourceSet.compileClasspathConfigurationName,
             sourceSet.runtimeClasspathConfigurationName,
+        )
+
+        val configurationNames = resolvableConfigurationNames + listOf(
             sourceSet.apiElementsConfigurationName,
             sourceSet.runtimeElementsConfigurationName,
             sourceSet.javadocElementsConfigurationName,
             sourceSet.sourcesElementsConfigurationName,
-            modConfigurationName(sourceSet.compileClasspathConfigurationName),
-            modConfigurationName(sourceSet.runtimeClasspathConfigurationName),
         )
 
-        for (name in configurationNames) {
+        val variantSuffix = if (compilation.name == ClochePlugin.CLIENT_COMPILATION_NAME) {
+            ClochePlugin.CLIENT_COMPILATION_NAME
+        } else {
+            ""
+        }
+
+        for (name in resolvableConfigurationNames) {
             project.configurations.named(name) { configuration ->
-                configuration.attributes.attribute(ClochePlugin.MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
-
-                project.afterEvaluate {
-                    configuration.attributes.attribute(ClochePlugin.MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion.orElse(cloche.minecraftVersion).get())
-                }
-
-                configuration.attributes.attribute(ClochePlugin.VARIANT_ATTRIBUTE, variant)
+                configuration.attributes.attribute(TARGET_MINECRAFT_ATTRIBUTE, lowerCamelCaseName(target.name, variantSuffix))
             }
         }
 
-        val dependencyHandler = ClocheDependencyHandler(
-            project,
-            sourceSet.apiConfigurationName,
-            sourceSet.compileOnlyApiConfigurationName,
-            sourceSet.implementationConfigurationName,
-            sourceSet.runtimeOnlyConfigurationName,
-            sourceSet.compileOnlyConfigurationName,
+        for (name in configurationNames) {
+            project.configurations.named(name) { configuration ->
+                configuration.attributes.attribute(MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
 
-            modApi.name,
-            modCompileOnlyApi.name,
-            modImplementation.name,
-            modRuntimeOnly.name,
-            modCompileOnly.name,
-        )
+                configuration.attributes.attribute(
+                    MINECRAFT_VERSION_ATTRIBUTE,
+                    target.minecraftVersion.orElse(cloche.minecraftVersion).get(),
+                )
+
+                configuration.attributes.attribute(VARIANT_ATTRIBUTE, variant)
+            }
+        }
+
+        val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
 
         for (action in compilation.dependencySetupActions) {
             action.execute(dependencyHandler)
@@ -117,7 +101,6 @@ context(Project) fun handleTarget(target: MinecraftTarget) {
         runnable as RunnableInternal
 
         project
-            .extension<MinecraftCodevExtension>()
             .extension<RunsContainer>()
             .create(lowerCamelCaseGradleName(target.name, runnable.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
                 project.afterEvaluate {

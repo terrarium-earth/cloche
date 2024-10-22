@@ -1,10 +1,15 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.intersection.JarIntersection
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFile
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 
@@ -17,14 +22,14 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
 
     fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): FileCollection {
         if (compilations.size == 1) {
-            return compilations.first().second.minecraftFiles
+            return compilations.first().second.finalMinecraftFiles
         }
 
         val name = lowerCamelCaseGradleName("create", *compilations.map { (target) -> target.name }.toTypedArray(), "intersection")
 
         val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: project.tasks.create(name, JarIntersection::class.java) {
             for ((_, compilation) in compilations) {
-                it.files.from(compilation.minecraftFiles)
+                it.files.from(compilation.finalMinecraftFiles)
             }
         }
 
@@ -42,6 +47,10 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
 
         val intersection = edgeDependencies.reduce { acc, dependencies ->
             acc.mapNotNull { a ->
+                if (a.group == null || a !is ModuleDependency) {
+                    return@mapNotNull null
+                }
+
                 val b = dependencies.find { b ->
                     a.group == b.group && a.name == b.name
                 } ?: return@mapNotNull null
@@ -72,11 +81,12 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
             compilation.sourceSet
         }
 
-        //sourceSet.compileClasspath += intersection(edgeCompilations)
-        project.dependencies.add(sourceSet.compileOnlyConfigurationName, intersection(edgeCompilations))
+        sourceSet.compileClasspath += intersection(edgeCompilations)
 
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:java-expect-actual-annotations:1.0.0")
         project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
+        project.dependencies.add(sourceSet.accessWidenersConfigurationName, compilation.accessWideners)
+        project.dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
 
         sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getImplementationConfigurationName)
         sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getApiConfigurationName)
@@ -88,19 +98,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
         }
 
-        val dependencyHandler = ClocheDependencyHandler(
-            project,
-            sourceSet.apiConfigurationName,
-            sourceSet.compileOnlyApiConfigurationName,
-            sourceSet.implementationConfigurationName,
-            sourceSet.runtimeOnlyConfigurationName,
-            sourceSet.compileOnlyConfigurationName,
-            modConfigurationName(sourceSet.apiConfigurationName),
-            modConfigurationName(sourceSet.compileOnlyApiConfigurationName),
-            modConfigurationName(sourceSet.implementationConfigurationName),
-            modConfigurationName(sourceSet.runtimeOnlyConfigurationName),
-            modConfigurationName(sourceSet.compileOnlyConfigurationName),
-        )
+        val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
 
         for (dependencySetupAction in compilation.dependencySetupActions) {
             dependencySetupAction.execute(dependencyHandler)
@@ -111,7 +109,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
                 ClochePlugin.CLIENT_COMPILATION_NAME -> (edge as? ClientTarget)?.client ?: edge.main
                 ClochePlugin.DATA_COMPILATION_NAME -> edge.data
                 else -> edge.main
-            }
+            } as RunnableCompilationInternal
 
             val edgeDependant = with(edge) {
                 edgeCompilation.sourceSet
@@ -125,7 +123,7 @@ context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<Mi
         }
 
         val mainDependency = with(common) {
-            common.main.sourceSet
+            (common.main as CommonCompilation).sourceSet
         }
 
         sourceSet.linkDynamically(mainDependency)

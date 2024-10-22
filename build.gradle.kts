@@ -20,12 +20,7 @@ gradlePlugin {
 repositories {
     mavenLocal()
 
-    maven(url = "https://maven.fabricmc.net/")
-    maven(url = "https://maven.quiltmc.org/repository/release/")
-    maven(url = "https://repo.spongepowered.org/repository/maven-public/")
-    maven(url = "https://maven.minecraftforge.net/")
     maven(url = "https://maven.msrandom.net/repository/root/")
-    maven(url = "https://jitpack.io/")
 
     mavenCentral()
     gradlePluginPortal()
@@ -37,20 +32,21 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.1.3")
-    implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.1.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.2.3")
+    implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.2.3")
     implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.1.1")
 
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")
 
     testImplementation(kotlin("test"))
+    testImplementation(gradleTestKit())
 }
 
 tasks.withType<KotlinCompile> {

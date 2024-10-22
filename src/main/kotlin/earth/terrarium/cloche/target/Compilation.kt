@@ -2,16 +2,16 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.ClocheExtension
-import earth.terrarium.cloche.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.Project
-import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFile
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
@@ -42,19 +42,10 @@ interface RunnableInternal : Runnable {
 interface RunnableCompilation : Runnable, Compilation
 
 interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation, RunnableInternal {
-    val minecraftFiles: FileCollection
+    val dependencyMinecraftFile: Provider<RegularFile>
         @Internal get
 
-    val compileClasspath: FileCollection
-        @Internal get
-
-    val runtimeClasspath: FileCollection
-        @Internal get
-
-    val sources: FileCollection
-        @Internal get
-
-    val javadoc: FileCollection
+    val finalMinecraftFiles: FileCollection
         @Internal get
 }
 
@@ -65,85 +56,8 @@ private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when
     else -> lowerCamelCaseGradleName(target.name, compilation.name)
 }
 
-private fun RunnableCompilationInternal.setupSourceSet(project: Project, sourceSet: SourceSet): SourceSet {
-    if (project.configurations.findByName(modConfigurationName(sourceSet.compileClasspathConfigurationName)) != null) {
-        return sourceSet
-    }
-
-    project.dependencies.add(sourceSet.implementationConfigurationName, minecraftFiles)
-    project.dependencies.add(sourceSet.compileOnlyConfigurationName, compileClasspath)
-    project.dependencies.add(sourceSet.runtimeOnlyConfigurationName, runtimeClasspath)
-
-    fun modConfiguration(name: String): Configuration {
-        return project.configurations.create(modConfigurationName(name)) { modConfig ->
-            modConfig.isCanBeConsumed = false
-            modConfig.isCanBeResolved = false
-        }
-    }
-
-    val modImplementation = modConfiguration(sourceSet.implementationConfigurationName)
-    val modRuntimeOnly = modConfiguration(sourceSet.runtimeOnlyConfigurationName)
-    val modCompileOnly = modConfiguration(sourceSet.compileOnlyConfigurationName)
-
-    modConfiguration(sourceSet.apiConfigurationName).apply {
-        extendsFrom(modImplementation)
-    }
-
-    modConfiguration(sourceSet.compileOnlyApiConfigurationName).apply {
-        extendsFrom(modCompileOnly)
-    }
-
-    modConfiguration(sourceSet.compileClasspathConfigurationName).apply {
-        isCanBeResolved = true
-        isCanBeDeclared = false
-
-        extendsFrom(modImplementation)
-        extendsFrom(modCompileOnly)
-    }
-
-    modConfiguration(sourceSet.runtimeClasspathConfigurationName).apply {
-        isCanBeResolved = true
-        isCanBeDeclared = false
-
-        extendsFrom(modImplementation)
-        extendsFrom(modRuntimeOnly)
-    }
-
-    return sourceSet
-}
-
-fun setupCommonSourceSet(project: Project, sourceSet: SourceSet): SourceSet {
-    if (project.configurations.findByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)) != null) {
-        return sourceSet
-    }
-
-    fun modConfiguration(name: String): Configuration {
-        return project.configurations.create(modConfigurationName(name)) { modConfig ->
-            modConfig.isCanBeConsumed = false
-            modConfig.isCanBeResolved = false
-        }
-    }
-
-    val modImplementation = modConfiguration(sourceSet.implementationConfigurationName)
-    val modCompileOnly = modConfiguration(sourceSet.compileOnlyConfigurationName)
-
-    modConfiguration(sourceSet.runtimeOnlyConfigurationName)
-
-    modConfiguration(sourceSet.apiConfigurationName).apply {
-        extendsFrom(modImplementation)
-    }
-
-    modConfiguration(sourceSet.compileOnlyApiConfigurationName).apply {
-        extendsFrom(modCompileOnly)
-    }
-
-    return sourceSet
-}
-
-context(Project, MinecraftTarget) val RunnableCompilation.sourceSet: SourceSet
+context(Project, MinecraftTarget) val RunnableCompilationInternal.sourceSet: SourceSet
     get() {
-        this@RunnableCompilation as RunnableCompilationInternal
-
         val cloche = project.extension<ClocheExtension>()
 
         val name = if (cloche.isSingleTargetMode) {
@@ -152,17 +66,10 @@ context(Project, MinecraftTarget) val RunnableCompilation.sourceSet: SourceSet
             sourceSetName(this, this@MinecraftTarget)
         }
 
-        val sourceSets = project.extension<SourceSetContainer>()
-
-        return setupSourceSet(project, sourceSets.maybeCreate(name))
+        return project.extension<SourceSetContainer>().maybeCreate(name)
     }
 
-context(Project, CommonTarget) val Compilation.sourceSet: SourceSet
+context(Project, CommonTarget) val CompilationInternal.sourceSet: SourceSet
     get() {
-        val sourceSets = project.extension<SourceSetContainer>()
-
-        return setupCommonSourceSet(
-            project,
-            sourceSets.maybeCreate(sourceSetName(this, this@CommonTarget)),
-        )
+        return project.extension<SourceSetContainer>().maybeCreate(sourceSetName(this, this@CommonTarget))
     }

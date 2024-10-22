@@ -2,12 +2,14 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.metadata.ModMetadata
 import earth.terrarium.cloche.target.*
+import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
 import javax.inject.Inject
+import kotlin.properties.Delegates
 import kotlin.reflect.KClass
 
 open class ClocheExtension @Inject constructor(private val project: Project, objects: ObjectFactory) {
@@ -18,8 +20,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
 
-    val isSingleTargetMode
-        get() = targets.size == 1 && commonTargets.isEmpty()
+    internal var isSingleTargetMode by Delegates.notNull<Boolean>()
 
     internal val mappingActions = mutableListOf<Action<MappingsBuilder>>()
 
@@ -33,29 +34,19 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     @JvmOverloads
     fun fabric(name: String = ::fabric.name, configure: Action<FabricTarget>? = null) = target(name, {
-        project.repositories.maven {
-            it.url = project.uri("https://maven.fabricmc.net/")
-        }
-    }, configure)
-
-    @JvmOverloads
-    fun forge(name: String = ::forge.name, configure: Action<ForgeTarget>? = null) = target(name, {
-        project.repositories.maven {
-            it.url = project.uri("https://maven.minecraftforge.net/")
-
-            it.metadataSources { sources ->
-                sources.gradleMetadata()
-                sources.mavenPom()
-                sources.artifact()
+        project.dependencies.components {
+            it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
+                it.params(VARIANT_ATTRIBUTE, PublicationVariant.Common, PublicationVariant.Client, false)
             }
         }
     }, configure)
 
     @JvmOverloads
+    fun forge(name: String = ::forge.name, configure: Action<ForgeTarget>? = null) = target(name, {
+    }, configure)
+
+    @JvmOverloads
     fun neoforge(name: String = ::neoforge.name, configure: Action<NeoForgeTarget>? = null) = target(name, {
-        project.repositories.maven {
-            it.url = project.uri("https://maven.neoforged.net/")
-        }
     }, configure)
 
     fun <T : MinecraftTarget> target(name: String, type: Class<T>, setupTargetType: () -> Unit = {}, configure: Action<T>? = null): T {

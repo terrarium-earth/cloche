@@ -1,166 +1,190 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
-import earth.terrarium.cloche.addSetupTask
-import earth.terrarium.cloche.modConfigurationName
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
+import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
+import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
+import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
-import net.msrandom.minecraftcodev.mixins.task.Mixin
-import net.msrandom.minecraftcodev.mixins.task.StripMixins
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
+import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
-import net.msrandom.minecraftcodev.remapper.task.Remap
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Project
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
+import org.gradle.api.attributes.Attribute
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFile
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.internal.component.local.model.OpaqueComponentArtifactIdentifier
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.util.*
 import javax.inject.Inject
 
-abstract class TargetCompilation @Inject constructor(
-    private val name: String,
-    target: MinecraftTarget,
-    intermediateMinecraft: FileCollection,
-    main: Optional<TargetCompilation>,
-    classpathMapper: (classpath: FileCollection, nameParts: Array<String?>) -> FileCollection,
-    side: Side,
-    remapNamespace: String?,
-    classpath: FileCollection,
-    project: Project,
-) : RunnableCompilationInternal {
-    private val namePart = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+enum class ModTransformationState {
+    None,
+    IncludesExtracted,
 
-    private val extractCompileIncludes = project.tasks.register(lowerCamelCaseGradleName("extract", target.name, namePart, "compileIncludes"), ExtractIncludes::class.java)
-    private val extractRuntimeIncludes = project.tasks.register(lowerCamelCaseGradleName("extract", target.name, namePart, "runtimeIncludes"), ExtractIncludes::class.java)
+    // MixinsStripped,
+    Remapped,
+    AccessWidened,
+}
 
-    private val stripRuntimeMixins = project.tasks.register(lowerCamelCaseGradleName("strip", target.name, namePart, "runtimeMixins"), StripMixins::class.java) {
-        it.inputFiles.from(extractRuntimeIncludes.map(ExtractIncludes::outputFiles))
-    }
+abstract class TargetCompilation
+    @Inject
+    constructor(
+        private val name: String,
+        target: MinecraftTarget,
+        intermediateMinecraft: Provider<RegularFile>,
+        main: Optional<TargetCompilation>,
+        side: Side,
+        remapNamespace: String?,
+        classpath: FileCollection,
+        project: Project,
+    ) : RunnableCompilationInternal {
+        private val namePart = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
+    /*
     private val mixinTask = project.tasks.register(lowerCamelCaseGradleName("mixin", target.name, namePart, "Minecraft"), Mixin::class.java) {
-        it.inputFiles.from(intermediateMinecraft)
+        it.inputFile.set(intermediateMinecraft)
         it.mixinFiles.from(extractCompileIncludes.map(ExtractIncludes::outputFiles))
         it.classpath.from(classpath)
         it.side.set(side)
-    }
+    }*/
 
-    private val remapMinecraftNamedJar = project.tasks.register(lowerCamelCaseGradleName("remap", target.name, namePart, "minecraftNamed"), Remap::class.java) {
-        it.inputFiles.from(mixinTask.map(Mixin::outputFiles))
-        it.sourceNamespace.set(remapNamespace)
-        it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-        it.classpath.from(classpath)
-        it.filterMods.set(false)
-    }
+        private val decompileMinecraft =
+            project.tasks.register( // project.addSetupTask(
+                lowerCamelCaseGradleName("decompile", target.name, namePart, "minecraft")/*)*/,
+                Decompile::class.java,
+            ) {
+                // it.inputFile.set(project.layout.file(project.provider { finalMinecraftFiles.singleFile }))
+            }
 
-    private val accessWidenTask = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("accessWiden", target.name, namePart, "minecraft")), AccessWiden::class.java) {
-        it.inputFiles.from(remapMinecraftNamedJar.map(Remap::outputFiles))
-        it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-    }
+        override val dependencyMinecraftFile = intermediateMinecraft
 
-    private val decompileMinecraft = project.tasks.register(/*project.addSetupTask(*/lowerCamelCaseGradleName("decompile", target.name, namePart, "minecraft")/*)*/, Decompile::class.java) {
-        it.classpath.from(runtimeClasspath)
-        it.libraryFiles.from(minecraftFiles)
-    }
+        final override val finalMinecraftFiles: ConfigurableFileCollection = project.files()
 
-    final override val minecraftFiles: FileCollection = project.files(accessWidenTask.map(AccessWiden::outputFiles))
+        final override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
+        final override val runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
 
-    final override val compileClasspath: ConfigurableFileCollection = project.files()
-    final override val runtimeClasspath: ConfigurableFileCollection = project.files()
+        init {
+            val modTransformationStateAttribute =
+                Attribute.of(
+                    lowerCamelCaseGradleName(target.name, namePart, "modTransformationState"),
+                    ModTransformationState::class.java,
+                )
 
-    override val sources: FileCollection = project.files(decompileMinecraft.map(Decompile::outputFiles))
-    override val javadoc: FileCollection = project.files()
+            project.dependencies.attributesSchema {
+                it.attribute(modTransformationStateAttribute)
+            }
 
-    final override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
-    final override val runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
-
-    init {
-        project.afterEvaluate {
-            extractCompileIncludes.configure {
-                with(project) {
-                    with(target) {
-                        it.inputFiles.from(project.configurations.named(modConfigurationName(this@TargetCompilation.sourceSet.compileClasspathConfigurationName)))
-                    }
+            project.dependencies.artifactTypes {
+                it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
+                    jar.attributes.attribute(modTransformationStateAttribute, ModTransformationState.None)
                 }
-            }
-
-            extractRuntimeIncludes.configure {
-                with(project) {
-                    with(target) {
-                        it.inputFiles.from(project.configurations.named(modConfigurationName(this@TargetCompilation.sourceSet.runtimeClasspathConfigurationName)))
-                    }
-                }
-            }
-
-            remapMinecraftNamedJar.configure {
-                with(project) {
-                    with(target) {
-                        it.mappings.from(project.configurations.named(main.map { it.sourceSet }.orElse(this@TargetCompilation.sourceSet).mappingsConfigurationName))
-                    }
-                }
-            }
-
-            accessWidenTask.configure {
-                with(project) {
-                    with(target) {
-                        it.accessWideners.from(project.configurations.named(this@TargetCompilation.sourceSet.accessWidenersConfigurationName))
-                    }
-                }
-            }
-        }
-
-        if (remapNamespace != null) {
-            val remapCompileClasspath = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("remap", target.name, namePart, "compileClasspath")), Remap::class.java) {
-                it.inputFiles.from(extractCompileIncludes.map(ExtractIncludes::outputFiles))
-                it.sourceNamespace.set(remapNamespace)
-                it.classpath.from(intermediateMinecraft)
-            }
-
-            val remapRuntimeClasspath = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("remap", target.name, namePart, "runtimeClasspath")), Remap::class.java) {
-                it.inputFiles.from(stripRuntimeMixins.map(StripMixins::outputFiles))
-                it.sourceNamespace.set(remapNamespace)
-                it.classpath.from(intermediateMinecraft)
             }
 
             project.afterEvaluate {
-                val mappings = with(project) {
+                with(project) {
                     with(target) {
-                        project.configurations.named(main.map { it.sourceSet }.orElse(this@TargetCompilation.sourceSet).mappingsConfigurationName)
+                        val main = main.map { it.sourceSet }.orElse(this@TargetCompilation.sourceSet)
+
+                        val transformedView =
+                            project.configurations.getByName(main.compileClasspathConfigurationName).incoming.artifactView {
+                                it.componentFilter {
+                                    it is OpaqueComponentArtifactIdentifier && it.file == dependencyMinecraftFile.get().asFile
+                                }
+                            }
+
+                        finalMinecraftFiles.from(transformedView.files)
+
+                        decompileMinecraft.configure {
+                            // it.classpath.from(this@TargetCompilation.sourceSet.compileClasspath)
+                        }
+
+                        project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)
+                        project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
+
+                        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+                            it.attributes.attribute(modTransformationStateAttribute, ModTransformationState.AccessWidened)
+                        }
+
+                        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+                            it.attributes.attribute(modTransformationStateAttribute, ModTransformationState.Remapped)
+                        }
+
+                        project.dependencies.registerTransform(ExtractIncludes::class.java) {
+                            it.from
+                                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                                .attribute(modTransformationStateAttribute, ModTransformationState.None)
+
+                            it.to
+                                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                                .attribute(modTransformationStateAttribute, ModTransformationState.IncludesExtracted)
+                        }
+
+                        project.dependencies.registerTransform(RemapAction::class.java) {
+                            it.from
+                                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                                .attribute(modTransformationStateAttribute, ModTransformationState.IncludesExtracted)
+
+                            it.to
+                                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                                .attribute(modTransformationStateAttribute, ModTransformationState.Remapped)
+
+                            it.parameters { parameters ->
+                                parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
+
+                                parameters.sourceNamespace.set(remapNamespace)
+
+                                parameters.extraClasspath.from(classpath + files(intermediateMinecraft))
+
+                                val patchesConfiguration = project.configurations.getByName(main.patchesConfigurationName)
+
+                                if (patchesConfiguration.allDependencies.isNotEmpty()) {
+                                    parameters.extraFiles.set(
+                                        mcpConfigDependency(project, patchesConfiguration)
+                                            .flatMap { file ->
+                                                mcpConfigExtraRemappingFiles(project, file)
+                                            },
+                                    )
+                                }
+                            }
+                        }
+
+                        project.dependencies.registerTransform(AccessWiden::class.java) {
+                            it.from
+                                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                                .attribute(modTransformationStateAttribute, ModTransformationState.Remapped)
+
+                            it.to
+                                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                                .attribute(modTransformationStateAttribute, ModTransformationState.AccessWidened)
+
+                            it.parameters { parameters ->
+                                parameters.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+                                parameters.accessWideners.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
+                            }
+                        }
                     }
                 }
-
-                remapCompileClasspath.configure {
-                    it.mappings.from(mappings)
-                }
-
-                remapRuntimeClasspath.configure {
-                    it.mappings.from(mappings)
-                }
             }
-
-            compileClasspath.from(remapCompileClasspath.map(Remap::outputFiles))
-            runtimeClasspath.from(remapRuntimeClasspath.map(Remap::outputFiles))
-        } else {
-            project.addSetupTask(extractCompileIncludes.name)
-            project.addSetupTask(stripRuntimeMixins.name)
-
-            compileClasspath.from(extractCompileIncludes.map(ExtractIncludes::outputFiles))
-            runtimeClasspath.from(stripRuntimeMixins.map(StripMixins::outputFiles))
         }
-    }
 
-    override fun dependencies(action: Action<ClocheDependencyHandler>) {
-        dependencySetupActions.add(action)
-    }
+        override fun dependencies(action: Action<ClocheDependencyHandler>) {
+            dependencySetupActions.add(action)
+        }
 
-    override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) {
-        runSetupActions.add(action)
-    }
+        override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) {
+            runSetupActions.add(action)
+        }
 
-    override fun getName() = name
-}
+        override fun getName() = name
+    }

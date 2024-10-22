@@ -1,7 +1,10 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.ClocheTarget
+import earth.terrarium.cloche.target.CommonTarget
+import earth.terrarium.cloche.target.MinecraftTarget
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
@@ -16,7 +19,6 @@ import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.attributes.Attribute
 import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.plugins.JavaPlugin
@@ -27,11 +29,12 @@ fun Project.addSetupTask(name: String): String {
         return name
     }
 
-    val fullName = if (project == project.rootProject) {
-        name
-    } else {
-        "${project.path}:$name"
-    }
+    val fullName =
+        if (project == project.rootProject) {
+            name
+        } else {
+            "${project.path}:$name"
+        }
 
     val taskNames = project.gradle.startParameter.taskNames
 
@@ -42,12 +45,19 @@ fun Project.addSetupTask(name: String): String {
     return name
 }
 
-fun Project.extend(base: String, dependency: String) = project.configurations.findByName(dependency)?.let {
+fun Project.extend(
+    base: String,
+    dependency: String,
+) = project.configurations.findByName(dependency)?.let {
     project.configurations.findByName(base)?.extendsFrom(it)
 }
 
 class ClochePlugin : Plugin<Project> {
-    private fun addTarget(cloche: ClocheExtension, project: Project, target: MinecraftTarget) {
+    private fun addTarget(
+        cloche: ClocheExtension,
+        project: Project,
+        target: MinecraftTarget,
+    ) {
         target.minecraftVersion.convention(cloche.minecraftVersion)
 
         for (mappingAction in cloche.mappingActions) {
@@ -78,24 +88,25 @@ class ClochePlugin : Plugin<Project> {
         target.plugins.apply(JavaLibraryPlugin::class.java)
         target.plugins.apply(ApplicationPlugin::class.java)
 
-        target.repositories.maven { it.url = target.uri("https://maven.msrandom.net/repository/root/") }
-        target.repositories.maven { it.url = target.uri("https://libraries.minecraft.net/") }
-        target.repositories.mavenCentral()
+        target.dependencies.attributesSchema { schema ->
+            schema.attribute(VARIANT_ATTRIBUTE) {
+                it.compatibilityRules.add(VariantCompatibilityRule::class.java)
+            }
+        }
 
         target.extension<SourceSetContainer>().all { sourceSet ->
             sourceSet.extension<VirtualExtension>().dependsOn.all { dependency ->
+                target.extend(sourceSet.accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
                 target.extend(sourceSet.mixinsConfigurationName, dependency.mixinsConfigurationName)
-
-                target.extend(modConfigurationName(sourceSet.apiConfigurationName), modConfigurationName(dependency.apiConfigurationName))
-                target.extend(modConfigurationName(sourceSet.compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
-                target.extend(modConfigurationName(sourceSet.implementationConfigurationName), modConfigurationName(dependency.implementationConfigurationName))
-                target.extend(modConfigurationName(sourceSet.runtimeOnlyConfigurationName), modConfigurationName(dependency.runtimeOnlyConfigurationName))
-                target.extend(modConfigurationName(sourceSet.compileOnlyConfigurationName), modConfigurationName(dependency.compileOnlyConfigurationName))
             }
         }
 
         target.afterEvaluate { project ->
-            if (cloche.isSingleTargetMode) {
+            val isSingleTargetMode = cloche.targets.size == 1 && cloche.commonTargets.isEmpty()
+
+            cloche.isSingleTargetMode = isSingleTargetMode
+
+            if (isSingleTargetMode) {
                 addTarget(cloche, project, cloche.targets.first())
                 return@afterEvaluate
             }
@@ -138,13 +149,7 @@ class ClochePlugin : Plugin<Project> {
         const val CLIENT_COMPILATION_NAME = "client"
         const val DATA_COMPILATION_NAME = "data"
 
-        @JvmField
-        val MINECRAFT_VERSION_ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.minecraftVersion", String::class.java)
-
-        @JvmField
-        val MOD_LOADER_ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
-
-        @JvmField
-        val VARIANT_ATTRIBUTE: Attribute<PublicationVariant> = Attribute.of("earth.terrarium.cloche.variant", PublicationVariant::class.java)
+        const val STUB_MODULE = "net.msrandom:stub"
+        const val STUB_DEPENDENCY = "$STUB_MODULE:0.0.0"
     }
 }

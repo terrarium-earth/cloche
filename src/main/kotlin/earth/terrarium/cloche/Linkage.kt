@@ -20,19 +20,13 @@ internal fun SourceSet.linkDynamically(dependency: SourceSet) {
     runtimeClasspath += dependency.output
 
     project.extend(mixinsConfigurationName, dependency.mixinsConfigurationName)
-    project.extend(patchesConfigurationName, dependency.patchesConfigurationName)
-    project.extend(mappingsConfigurationName, dependency.mappingsConfigurationName)
     project.extend(accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
+
     project.extend(apiConfigurationName, dependency.apiConfigurationName)
     project.extend(compileOnlyApiConfigurationName, dependency.compileOnlyApiConfigurationName)
     project.extend(implementationConfigurationName, dependency.implementationConfigurationName)
     project.extend(runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
     project.extend(compileOnlyConfigurationName, dependency.compileOnlyConfigurationName)
-    project.extend(modConfigurationName(apiConfigurationName), modConfigurationName(dependency.apiConfigurationName))
-    project.extend(modConfigurationName(compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
-    project.extend(modConfigurationName(implementationConfigurationName), modConfigurationName(dependency.implementationConfigurationName))
-    project.extend(modConfigurationName(runtimeOnlyConfigurationName), modConfigurationName(dependency.runtimeOnlyConfigurationName))
-    project.extend(modConfigurationName(compileOnlyConfigurationName), modConfigurationName(dependency.compileOnlyConfigurationName))
 }
 
 /**
