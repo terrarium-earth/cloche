@@ -4,7 +4,7 @@ import earth.terrarium.cloche.metadata.ModMetadata
 import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import org.gradle.api.Action
-import org.gradle.api.NamedDomainObjectContainer
+import org.gradle.api.NamedDomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
@@ -15,7 +15,12 @@ import kotlin.reflect.KClass
 open class ClocheExtension @Inject constructor(private val project: Project, objects: ObjectFactory) {
     val minecraftVersion: Property<String> = objects.property(String::class.java)
 
-    val commonTargets: NamedDomainObjectContainer<CommonTarget> = objects.domainObjectContainer(CommonTarget::class.java)
+    private val _commonTargets = objects.domainObjectContainer(CommonTargetInternal::class.java)
+
+    @Suppress("UNCHECKED_CAST")
+    val commonTargets: NamedDomainObjectCollection<CommonTarget>
+        get() = _commonTargets as NamedDomainObjectCollection<CommonTarget>
+
     val targets: MinecraftTargetContainer = objects.newInstance(MinecraftTargetContainer::class.java)
 
     val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
@@ -27,13 +32,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     private val usedTargetTypes = hashSetOf<Class<out MinecraftTarget>>()
 
     @JvmOverloads
-    fun common(name: String = ::common.name, configure: Action<CommonTarget>? = null): CommonTarget = commonTargets.findByName(name)
+    fun common(name: String = ::common.name, configure: Action<CommonTarget>? = null): CommonTarget = _commonTargets.findByName(name)
         ?.also { configure?.execute(it) }
-        ?: configure?.let { commonTargets.create(name, it) }
-        ?: commonTargets.create(name)
+        ?: configure?.let { _commonTargets.create(name, it) }
+        ?: _commonTargets.create(name)
 
     @JvmOverloads
-    fun fabric(name: String = ::fabric.name, configure: Action<FabricTarget>? = null) = target(name, {
+    fun fabric(name: String = ::fabric.name, configure: Action<MinecraftClientTarget>? = null): MinecraftClientTarget = target<FabricTarget>(name, {
         project.dependencies.components {
             it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
                 it.params(VARIANT_ATTRIBUTE, PublicationVariant.Common, PublicationVariant.Client, false)
@@ -42,14 +47,14 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }, configure)
 
     @JvmOverloads
-    fun forge(name: String = ::forge.name, configure: Action<ForgeTarget>? = null) = target(name, {
+    fun forge(name: String = ::forge.name, configure: Action<MinecraftNoClientTarget>? = null): MinecraftNoClientTarget = target<ForgeTarget>(name, {
     }, configure)
 
     @JvmOverloads
-    fun neoforge(name: String = ::neoforge.name, configure: Action<NeoForgeTarget>? = null) = target(name, {
+    fun neoforge(name: String = ::neoforge.name, configure: Action<MinecraftNoClientTarget>? = null): MinecraftNoClientTarget = target<NeoForgeTarget>(name, {
     }, configure)
 
-    fun <T : MinecraftTarget> target(name: String, type: Class<T>, setupTargetType: () -> Unit = {}, configure: Action<T>? = null): T {
+    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, setupTargetType: () -> Unit = {}, configure: Action<in T>? = null): T {
         if (usedTargetTypes.add(type)) {
             setupTargetType()
         }
@@ -62,9 +67,9 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }
 
     @JvmSynthetic
-    fun <T : MinecraftTarget> target(name: String, type: KClass<T>, setupTargetType: () -> Unit = {}, configure: Action<T>? = null) = target(name, type.java, setupTargetType, configure)
+    fun <T : MinecraftTarget> target(name: String, type: KClass<T>, setupTargetType: () -> Unit = {}, configure: Action<in T>? = null) = target(name, type.java, setupTargetType)
 
-    inline fun <reified T : MinecraftTarget> target(name: String, noinline setupTargetType: () -> Unit = {}, configure: Action<T>? = null) =
+    private inline fun <reified T : MinecraftTarget> target(name: String, noinline setupTargetType: () -> Unit = {}, configure: Action<in T>? = null) =
         target(name, T::class.java, setupTargetType, configure)
 
     fun mappings(action: Action<MappingsBuilder>) {

@@ -1,8 +1,7 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.ClocheTarget
-import earth.terrarium.cloche.target.CommonTarget
-import earth.terrarium.cloche.target.MinecraftTarget
+import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.MinecraftTargetInternal
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -19,6 +18,7 @@ import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.plugins.JavaPlugin
@@ -58,6 +58,8 @@ class ClochePlugin : Plugin<Project> {
         project: Project,
         target: MinecraftTarget,
     ) {
+        target as MinecraftTargetInternal
+
         target.minecraftVersion.convention(cloche.minecraftVersion)
 
         for (mappingAction in cloche.mappingActions) {
@@ -84,7 +86,6 @@ class ClochePlugin : Plugin<Project> {
 
         target.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
 
-        target.plugins.apply(JavaPlugin::class.java)
         target.plugins.apply(JavaLibraryPlugin::class.java)
         target.plugins.apply(ApplicationPlugin::class.java)
 
@@ -102,45 +103,73 @@ class ClochePlugin : Plugin<Project> {
         }
 
         target.afterEvaluate { project ->
-            val isSingleTargetMode = cloche.targets.size == 1 && cloche.commonTargets.isEmpty()
+            applyTargets(project, cloche)
+        }
+    }
 
-            cloche.isSingleTargetMode = isSingleTargetMode
+    private fun applyTargets(project: Project, cloche: ClocheExtension) {
+        val isSingleTargetMode = cloche.targets.size == 1 && cloche.commonTargets.isEmpty()
 
-            if (isSingleTargetMode) {
-                addTarget(cloche, project, cloche.targets.first())
-                return@afterEvaluate
-            }
+        cloche.isSingleTargetMode = isSingleTargetMode
 
-            val primaryCommon = cloche.common()
+        if (isSingleTargetMode) {
+            addTarget(cloche, project, cloche.targets.first())
+            return
+        }
 
-            cloche.targets.all {
-                addTarget(cloche, project, it)
+        val primaryCommon = cloche.common()
 
+        cloche.targets.all {
+            addTarget(cloche, project, it)
+
+            it.dependsOn(primaryCommon)
+        }
+
+        cloche.commonTargets.all {
+            if (it != primaryCommon) {
                 it.dependsOn(primaryCommon)
             }
+        }
 
-            cloche.commonTargets.all {
-                if (it != primaryCommon) {
-                    it.dependsOn(primaryCommon)
+        fun getDependencies(target: ClocheTarget): List<CommonTarget> =
+            target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
+
+        val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
+        val commonToTarget = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal>>()
+
+        for ((edgeTarget, dependencies) in targetDependencies) {
+            for (dependency in dependencies) {
+                commonToTarget.computeIfAbsent(dependency as CommonTargetInternal) { hashSetOf() }.add(edgeTarget as MinecraftTargetInternal)
+            }
+        }
+
+        val commons = commonToTarget.map { (common, edges) ->
+            var commonType: String? = null
+
+            for (target in edges) {
+                if (commonType == null) {
+                    commonType = target.commonType
+                } else if (target.commonType != commonType) {
+                    commonType = GENERAL_COMMON_TYPE
+                    break
                 }
             }
 
-            fun getDependencies(target: ClocheTarget): List<CommonTarget> =
-                target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
-
-            val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
-            val commonToTarget = hashMapOf<CommonTarget, MutableSet<MinecraftTarget>>()
-
-            for ((edgeTarget, dependencies) in targetDependencies) {
-                for (dependency in dependencies) {
-                    commonToTarget.computeIfAbsent(dependency) { hashSetOf() }.add(edgeTarget)
-                }
+            if (commonType == null) {
+                commonType = GENERAL_COMMON_TYPE
             }
 
-            with(project) {
-                for ((common, targets) in commonToTarget) {
-                    createCommonTarget(common, targets)
-                }
+            CommonInfo(
+                common,
+                edges,
+                getDependencies(common),
+                commonType,
+            )
+        }
+
+        with(project) {
+            for (common in commons) {
+                createCommonTarget(common, commons.count { it.type == common.type } == 1)
             }
         }
     }

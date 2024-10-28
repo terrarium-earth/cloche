@@ -1,32 +1,62 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.tasks.SourceSet
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
 
+fun Project.asDependency(configuration: String? = null) =
+    dependencies.project(mapOf("path" to path, "configuration" to configuration)) as ProjectDependency
+
 /**
- * Depend on the compiled output of [dependency], including the configuration dependencies for resolution to the proper variants
+ * Depend on the compiled output of [sourceSet], by requesting the capability to allow for resolution to the proper variants
  */
-context(Project)
-internal fun SourceSet.linkDynamically(dependency: SourceSet) {
-    compileClasspath += dependency.output
-    runtimeClasspath += dependency.output
+context(Project, ClocheTarget)
+private fun SourceSet.linkDynamically(sourceSet: SourceSet, dependency: ProjectDependency) {
+    project.extend(mixinsConfigurationName, sourceSet.mixinsConfigurationName)
+    project.extend(accessWidenersConfigurationName, sourceSet.accessWidenersConfigurationName)
 
-    project.extend(mixinsConfigurationName, dependency.mixinsConfigurationName)
-    project.extend(accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
+    val configurationName = if (project.configurations.findByName(apiConfigurationName) != null) {
+        apiConfigurationName
+    } else {
+        implementationConfigurationName
+    }
 
-    project.extend(apiConfigurationName, dependency.apiConfigurationName)
-    project.extend(compileOnlyApiConfigurationName, dependency.compileOnlyApiConfigurationName)
-    project.extend(implementationConfigurationName, dependency.implementationConfigurationName)
-    project.extend(runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
-    project.extend(compileOnlyConfigurationName, dependency.compileOnlyConfigurationName)
+    project.dependencies.add(configurationName, dependency)
+}
+
+/**
+ * Depend on the api configuration of [compilation]
+ */
+context(Project, CommonTarget)
+internal fun SourceSet.linkDynamically(compilation: CommonCompilation) {
+    val apiElements = compilation.sourceSet.apiElementsConfigurationName
+    val dependency = project.asDependency(apiElements)
+
+    linkDynamically(compilation.sourceSet, dependency)
+}
+
+/**
+ * Depend on the variant of [compilation]
+ */
+context(Project, MinecraftTarget)
+internal fun SourceSet.linkDynamically(compilation: RunnableCompilationInternal) {
+    val dependency = project.asDependency().apply {
+        capabilities {
+            it.requireCapability(compilation.capability)
+        }
+
+        attributes(compilation::attributes)
+    }
+
+    linkDynamically(compilation.sourceSet, dependency)
 }
 
 /**

@@ -1,19 +1,19 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.*
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
+import earth.terrarium.cloche.ClochePlugin.Companion.STUB_DEPENDENCY
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
-import net.msrandom.minecraftcodev.core.task.ResolveMinecraftMappings
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.forge.*
+import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
+import net.msrandom.minecraftcodev.forge.MinecraftForgeComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
+import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunsDefaultsContainer
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
-import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
@@ -26,28 +26,10 @@ import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
-import java.io.File
 
-abstract class ForgeTarget(private val name: String) : MinecraftTarget {
-    private val minecraftForgeClasspath = project.configurations.create(lowerCamelCaseGradleName(name, "minecraftForgeClasspath")) {
-        it.isCanBeConsumed = false
-
-        it.attributes { attributes ->
-            attributes.attribute(
-                TARGET_MINECRAFT_ATTRIBUTE,
-                this@ForgeTarget.name,
-            )
-        }
-    }
-
-    private val resolveClientMappings = project.tasks.register(lowerCamelCaseGradleName("resolve", name, "clientMappings"), ResolveMinecraftMappings::class.java) {
-        it.version.set(minecraftVersion)
-        it.server.set(false)
-    }
-
+internal abstract class ForgeTarget(private val name: String) : MinecraftTargetInternal, MinecraftNoClientTarget {
     private val resolvePatchedMinecraft = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("resolve", name, "patchedMinecraft")), ResolvePatchedMinecraft::class.java) {
         it.version.set(minecraftVersion)
-        it.clientMappings.set(resolveClientMappings.flatMap(ResolveMinecraftMappings::output))
     }
 
     final override val main: TargetCompilation
@@ -57,9 +39,6 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
     }
 
     final override val data: TargetCompilation
-
-    final override val accessWideners get() = main.accessWideners
-    final override val mixins get() = main.mixins
 
     private var hasMappings = false
 
@@ -79,19 +58,25 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
         @Internal
         get() = "forge"
 
-    override val loaderAttributeName get() = "forge"
+    override val loaderAttributeName get() = ClocheExtension::forge.name
+    override val commonType get() = ClocheExtension::forge.name
+
+    override val compilations: List<RunnableCompilationInternal>
+        get() = listOf(main, data)
 
     init {
+        val patchedMinecraftConfiguration = MinecraftConfiguration(this, name, resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output), name)
+
         main = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
                 SourceSet.MAIN_SOURCE_SET_NAME,
                 this,
-                resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output),
+                patchedMinecraftConfiguration,
+                PublicationVariant.Joined,
                 java.util.Optional.empty<TargetCompilation>(),
                 Side.UNKNOWN,
                 remapNamespace,
-                minecraftForgeClasspath,
             )
         }
 
@@ -100,25 +85,17 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 TargetCompilation::class.java,
                 ClochePlugin.DATA_COMPILATION_NAME,
                 this,
-                resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output),
+                patchedMinecraftConfiguration,
+                PublicationVariant.Data,
                 java.util.Optional.of(main),
                 Side.UNKNOWN,
                 remapNamespace,
-                minecraftForgeClasspath,
             )
         }
 
-        project.afterEvaluate {
-            resolvePatchedMinecraft.configure {
-                with(project) {
-                    it.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                }
-            }
-        }
+        project.dependencies.add(patchedMinecraftConfiguration.configurationName, project.dependencies.platform(STUB_DEPENDENCY))
 
         main.dependencies { dependencies ->
-            project.dependencies.add(minecraftForgeClasspath.name, project.dependencies.platform(ClochePlugin.STUB_DEPENDENCY))
-
             val userdev = minecraftVersion.flatMap { minecraftVersion ->
                 loaderVersion.flatMap { forgeVersion ->
                     userdevClassifier.orElse("userdev").map { userdev ->
@@ -127,77 +104,69 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 }
             }
 
-            with(project) {
-                project.configurations.named(main.sourceSet.compileClasspathConfigurationName) {
-                    minecraftForgeClasspath.shouldResolveConsistentlyWith(it)
-                }
+            project.dependencies.addProvider(dependencies.sourceSet.patchesConfigurationName, userdev)
 
-                project.configurations.named(main.sourceSet.runtimeClasspathConfigurationName) {
-                    minecraftForgeClasspath.shouldResolveConsistentlyWith(it)
-                }
+            resolvePatchedMinecraft.configure {
+                it.patches.from(project.configurations.named(dependencies.sourceSet.patchesConfigurationName))
+            }
 
-                project.dependencies.addProvider(main.sourceSet.patchesConfigurationName, userdev)
+            project.dependencies.addProvider(
+                dependencies.sourceSet.mappingsConfigurationName,
+                mcpConfigDependency(project, project.configurations.getByName(dependencies.sourceSet.patchesConfigurationName)),
+            )
 
-                project.dependencies.addProvider(
-                    main.sourceSet.mappingsConfigurationName,
-                    mcpConfigDependency(project, project.configurations.getByName(main.sourceSet.patchesConfigurationName)),
-                )
+            project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
+                patchedMinecraftConfiguration.useIn(it)
+            }
 
-                project.dependencies.components { components ->
-                    components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
-                        it.params(
-                            getCacheDirectory(project),
-                            minecraftVersion,
-                            project.provider { VERSION_MANIFEST_URL },
-                            project.provider { project.gradle.startParameter.isOffline },
-                            this@ForgeTarget.group,
-                            this@ForgeTarget.artifact,
-                            minecraftVersion.flatMap { minecraftVersion ->
-                                loaderVersion.map { forgeVersion ->
-                                    version(minecraftVersion, forgeVersion)
-                                }
-                            },
-                            userdevClassifier.orElse("userdev"),
-                            this@ForgeTarget.name,
-                            TARGET_MINECRAFT_ATTRIBUTE,
-                            this@ForgeTarget.name,
-                        )
-                    }
-                }
+            project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
+                patchedMinecraftConfiguration.useIn(it)
+            }
 
-                project.dependencies.add(main.sourceSet.mixinsConfigurationName, main.mixins)
-                project.dependencies.add(main.sourceSet.accessWidenersConfigurationName, main.accessWideners)
-
-                if (!hasMappings) {
-                    project.dependencies.add(main.sourceSet.mappingsConfigurationName, project.files(resolveClientMappings.flatMap(ResolveMinecraftMappings::output)))
-                }
-
-                project.tasks.named(main.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                    it.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
-                }
-
-                project.tasks.withType(ExtractNatives::class.java).named(main.sourceSet.extractNativesTaskName) {
-                    it.version.set(minecraftVersion)
-                }
-
-                project.tasks.withType(DownloadAssets::class.java).named(main.sourceSet.downloadAssetsTaskName) {
-                    it.version.set(minecraftVersion)
+            project.dependencies.components { components ->
+                components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
+                    it.params(
+                        getCacheDirectory(project),
+                        minecraftVersion,
+                        project.provider { VERSION_MANIFEST_URL },
+                        project.provider { project.gradle.startParameter.isOffline },
+                        this@ForgeTarget.group,
+                        this@ForgeTarget.artifact,
+                        minecraftVersion.flatMap { minecraftVersion ->
+                            loaderVersion.map { forgeVersion ->
+                                version(minecraftVersion, forgeVersion)
+                            }
+                        },
+                        userdevClassifier.orElse("userdev"),
+                        patchedMinecraftConfiguration.targetMinecraftAttribute,
+                        TARGET_MINECRAFT_ATTRIBUTE,
+                        patchedMinecraftConfiguration.targetMinecraftAttribute,
+                    )
                 }
             }
 
-            project.configurations.named(dependencies.implementation.configurationName) {
-                it.extendsFrom(minecraftForgeClasspath)
+            if (!hasMappings) {
+                val providers = buildList { MappingsBuilder(project, this).official() }
+
+                addMappings(providers)
+            }
+
+            project.tasks.named(dependencies.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+                it.from(project.configurations.named(dependencies.sourceSet.mixinsConfigurationName))
+            }
+
+            project.tasks.withType(ExtractNatives::class.java).named(dependencies.sourceSet.extractNativesTaskName) {
+                it.version.set(minecraftVersion)
+            }
+
+            project.tasks.withType(DownloadAssets::class.java).named(dependencies.sourceSet.downloadAssetsTaskName) {
+                it.version.set(minecraftVersion)
             }
         }
 
-        data.dependencies {
-            with(project) {
-                project.dependencies.add(data.sourceSet.mixinsConfigurationName, data.mixins)
-                project.dependencies.add(data.sourceSet.accessWidenersConfigurationName, data.accessWideners)
-
-                project.tasks.withType(DownloadAssets::class.java).named(data.sourceSet.downloadAssetsTaskName) {
-                    it.version.set(minecraftVersion)
-                }
+        data.dependencies { dependencies ->
+            project.tasks.withType(DownloadAssets::class.java).named(dependencies.sourceSet.downloadAssetsTaskName) {
+                it.version.set(minecraftVersion)
             }
         }
 
@@ -205,7 +174,7 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
             it.defaults.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
                 with(project) {
                     it.sourceSet(main.sourceSet)
-                    serverConfig.mixinConfigs.set(project.configurations.named(main.sourceSet.mixinsConfigurationName).map { it.files.map(File::getName) })
+                    serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
                 }
             }
         }
@@ -214,7 +183,9 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
             it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
                 with(project) {
                     it.sourceSet(main.sourceSet)
-                    clientConfig.mixinConfigs.set(project.configurations.named(main.sourceSet.mixinsConfigurationName).map { it.files.map(File::getName) })
+
+                    clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                    clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
                 }
             }
         }
@@ -224,7 +195,8 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
                 with(project) {
                     it.sourceSet(data.sourceSet)
 
-                    datagen.mixinConfigs.set(project.configurations.named(main.sourceSet.mixinsConfigurationName).map { it.files.map(File::getName) })
+                    datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                    datagen.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
                 }
 
                 datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
@@ -239,17 +211,6 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
     protected open fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"
 
-    override fun dependencies(action: Action<ClocheDependencyHandler>) = main.dependencies(action)
-    override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) = main.runConfiguration(action)
-
-    override fun data(action: Action<RunnableCompilation>?) {
-        action?.execute(data)
-    }
-
-    fun client(action: Action<Runnable>) {
-        action.execute(client)
-    }
-
     override fun mappings(action: Action<MappingsBuilder>) {
         hasMappings = true
 
@@ -258,11 +219,17 @@ abstract class ForgeTarget(private val name: String) : MinecraftTarget {
         action.execute(MappingsBuilder(project, mappings))
 
         main.dependencies {
-            with(project) {
-                for (mapping in mappings) {
-                    project.dependencies.addProvider(main.sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@ForgeTarget.name) })
-                }
-            }
+            addMappings(mappings)
+        }
+    }
+
+    private fun addMappings(providers: List<MappingDependencyProvider>) {
+        val sourceSet = with(project) {
+            main.sourceSet
+        }
+
+        for (mapping in providers) {
+            project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@ForgeTarget.name) })
         }
     }
 }

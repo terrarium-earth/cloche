@@ -27,6 +27,10 @@ class ClocheDependencyHandler(
     val modRuntimeOnly = ConfigurationHandler(sourceSet.runtimeOnlyConfigurationName, true)
     val modCompileOnly = ConfigurationHandler(sourceSet.compileOnlyConfigurationName, true)
 
+    fun fabricApi(apiVersion: String) {
+        modImplementation(group = "net.fabricmc.fabric-api", name = "fabric-api", version = apiVersion)
+    }
+
     inner class ConfigurationHandler(val configurationName: String, val mod: Boolean) {
         operator fun invoke(dependencyNotation: Any) = project.dependencies.add(configurationName, dependencyNotation)
         operator fun invoke(dependencyNotation: Provider<*>) = project.dependencies.addProvider(configurationName, dependencyNotation)

@@ -8,14 +8,17 @@ import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.Project
+import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
-import org.gradle.api.file.RegularFile
-import org.gradle.api.provider.Provider
+import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.jvm.tasks.Jar
+import org.gradle.util.internal.TextUtil
 
 interface Compilation : Named {
     val accessWideners: ConfigurableFileCollection
@@ -25,38 +28,47 @@ interface Compilation : Named {
         @InputFiles get
 
     fun dependencies(action: Action<ClocheDependencyHandler>)
+
+    fun java(action: Action<FeatureSpec>)
 }
 
-interface CompilationInternal : Compilation {
+internal interface CompilationInternal : Compilation {
     val dependencySetupActions: List<Action<ClocheDependencyHandler>>
+    val javaFeatureActions: List<Action<FeatureSpec>>
+
+    val capabilityGroup: String
+    val capabilityName: String
+
+    val capability
+        get() = "$capabilityGroup:$capabilityName"
 }
 
 interface Runnable : Named {
     fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>)
 }
 
-interface RunnableInternal : Runnable {
+internal interface RunnableInternal : Runnable {
     val runSetupActions: List<Action<MinecraftRunConfigurationBuilder>>
 }
 
 interface RunnableCompilation : Runnable, Compilation
 
-interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation, RunnableInternal {
-    val dependencyMinecraftFile: Provider<RegularFile>
-        @Internal get
-
+internal interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation, RunnableInternal {
     val finalMinecraftFiles: FileCollection
         @Internal get
+
+    val minecraftConfiguration: MinecraftConfiguration
+
+    fun attributes(attributes: AttributeContainer)
 }
 
 private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
     target.name == ClocheExtension::common.name -> compilation.name
     compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.name
-    '-' in target.name -> "${target.name}-${compilation.name}"
     else -> lowerCamelCaseGradleName(target.name, compilation.name)
 }
 
-context(Project, MinecraftTarget) val RunnableCompilationInternal.sourceSet: SourceSet
+context(Project, MinecraftTarget) internal val RunnableCompilationInternal.sourceSet: SourceSet
     get() {
         val cloche = project.extension<ClocheExtension>()
 
@@ -69,7 +81,38 @@ context(Project, MinecraftTarget) val RunnableCompilationInternal.sourceSet: Sou
         return project.extension<SourceSetContainer>().maybeCreate(name)
     }
 
-context(Project, CommonTarget) val CompilationInternal.sourceSet: SourceSet
+context(Project, CommonTarget) internal val CompilationInternal.sourceSet: SourceSet
     get() {
         return project.extension<SourceSetContainer>().maybeCreate(sourceSetName(this, this@CommonTarget))
     }
+
+internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarget, compilation: Compilation) {
+    val cloche = project.extension<ClocheExtension>()
+
+    if (!cloche.isSingleTargetMode) {
+        val compilationDirectory = project.layout.projectDirectory.dir("src").dir(target.name).dir(compilation.name)
+
+        sourceSet.java.srcDir(compilationDirectory.dir("java"))
+        sourceSet.resources.srcDir(compilationDirectory.dir("resources"))
+
+        plugins.withId("org.jetbrains.kotlin.jvm") {
+            val kotlin = (sourceSet.extensions.getByName("kotlin") as SourceDirectorySet)
+
+            kotlin.srcDir(compilationDirectory.dir("kotlin"))
+        }
+
+        // TODO Groovy + Scala?
+    }
+
+    project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
+        if (!cloche.isSingleTargetMode && target.name != ClocheExtension::common.name) {
+            val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
+                target.name
+            } else {
+                "${TextUtil.camelToKebabCase(target.name)}-${compilation.name}"
+            }
+
+            it.archiveClassifier.set(classifier)
+        }
+    }
+}
