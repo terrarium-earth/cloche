@@ -32,18 +32,38 @@ interface Compilation : Named {
 
     fun java(action: Action<FeatureSpec>)
 
-    // fun attributes(action: Action<AttributeContainer>)
+    fun attributes(action: Action<AttributeContainer>)
 }
 
+@JvmDefaultWithoutCompatibility
 internal interface CompilationInternal : Compilation {
-    val dependencySetupActions: List<Action<ClocheDependencyHandler>>
-    val javaFeatureActions: List<Action<FeatureSpec>>
+    val dependencySetupActions: MutableList<Action<ClocheDependencyHandler>>
+    val javaFeatureActions: MutableList<Action<FeatureSpec>>
+    val attributeActions: MutableList<Action<AttributeContainer>>
 
     val capabilityGroup: String
     val capabilityName: String
 
     val capability
         get() = "$capabilityGroup:$capabilityName"
+
+    override fun dependencies(action: Action<ClocheDependencyHandler>) {
+        dependencySetupActions.add(action)
+    }
+
+    override fun java(action: Action<FeatureSpec>) {
+        javaFeatureActions.add(action)
+    }
+
+    override fun attributes(action: Action<AttributeContainer>) {
+        attributeActions.add(action)
+    }
+
+    fun attributes(attributes: AttributeContainer) {
+        for (action in attributeActions) {
+            action.execute(attributes)
+        }
+    }
 }
 
 interface Runnable : Named {
@@ -63,8 +83,6 @@ internal interface RunnableCompilationInternal : CompilationInternal, RunnableCo
     val minecraftConfiguration: MinecraftConfiguration
 
     val target: MinecraftTargetInternal
-
-    fun attributes(attributes: AttributeContainer)
 }
 
 private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {

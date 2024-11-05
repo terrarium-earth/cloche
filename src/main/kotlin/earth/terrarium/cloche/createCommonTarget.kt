@@ -7,7 +7,6 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.intersection.JarIntersection
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
 import org.gradle.api.plugins.JavaPluginExtension
@@ -44,52 +43,6 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
         }
 
         return files(createIntersection.output)
-    }
-
-    fun SourceSet.addDependencyIntersection(edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>, configurationName: SourceSet.() -> String) {
-        if (project.configurations.findByName(configurationName()) == null) {
-            return
-        }
-
-        val edgeDependencies = edgeCompilations.map { (target, compilation) ->
-            with(target) {
-                val configuration = project.configurations.findByName(compilation.sourceSet.configurationName()) ?: return
-
-                configuration.dependencies.toList()
-            }
-        }
-
-        if (edgeDependencies.isEmpty()) {
-            return
-        }
-
-        val intersection = edgeDependencies.reduce { acc, dependencies ->
-            acc.mapNotNull { a ->
-                if (a.group == null || a !is ModuleDependency) {
-                    return@mapNotNull null
-                }
-
-                val b = dependencies.find { b ->
-                    a.group == b.group && a.name == b.name
-                } ?: return@mapNotNull null
-
-                if (a.version.isNullOrBlank()) {
-                    if (b.version.isNullOrBlank()) {
-                        a
-                    } else {
-                        b
-                    }
-                } else if (a.version!! > b.version!!) {
-                    b
-                } else {
-                    a
-                }
-            }
-        }
-
-        for (dependency in intersection) {
-            project.dependencies.add(configurationName(), dependency)
-        }
     }
 
     fun add(compilation: CommonCompilation, variant: PublicationVariant, edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>) {
@@ -136,42 +89,35 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
 
         project.dependencies.add(dependencyHolder.name, intersection(edgeCompilations))
 
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.extendsFrom(dependencyHolder)
-
-            it.attributes
-                .attribute(TargetAttributes.MOD_LOADER, ClocheExtension::common.name)
+        compilation.attributes {
+            it
                 .attribute(VARIANT_ATTRIBUTE, variant)
                 .attribute(CommonTargetAttributes.TYPE, common.type)
 
             if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name && !common.target.publish) {
-                it.attributes.attribute(CommonTargetAttributes.NAME, common.target.name)
+                it.attribute(CommonTargetAttributes.NAME, common.target.name)
             }
         }
 
-        for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName, sourceSet.javadocElementsConfigurationName, sourceSet.sourcesElementsConfigurationName)) {
-            project.configurations.findByName(name)?.attributes {
-                it
-                    .attribute(TargetAttributes.MOD_LOADER, ClocheExtension::common.name)
-                    .attribute(VARIANT_ATTRIBUTE, variant)
-                    .attribute(CommonTargetAttributes.TYPE, common.type)
+        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.extendsFrom(dependencyHolder)
 
-                if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name && !common.target.publish) {
-                    it.attributes.attribute(CommonTargetAttributes.NAME, common.target.name)
-                }
-            }
+            it.attributes(compilation::attributes)
+        }
+
+        for (name in listOf(
+            sourceSet.apiElementsConfigurationName,
+            sourceSet.runtimeElementsConfigurationName,
+            sourceSet.javadocElementsConfigurationName,
+            sourceSet.sourcesElementsConfigurationName
+        )) {
+            project.configurations.findByName(name)?.attributes(compilation::attributes)
         }
 
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:java-expect-actual-annotations:1.0.0")
         project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
         project.dependencies.add(sourceSet.accessWidenersConfigurationName, compilation.accessWideners)
         project.dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
-
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getImplementationConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getApiConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getCompileOnlyApiConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getCompileOnlyConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getRuntimeOnlyConfigurationName)
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
@@ -215,12 +161,22 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
             return
         }
 
-        // TODO: This is broken because edge targets statically depending on this common compilation will by extension dynamically link to the dependant common main
-        //  can be fixed by only linking dynamically in the api elements, since locally(in the compile classpath) they'll have the right dependants by static linking
-        /*
+        val compilationDependencyScope = configurations.create(lowerCamelCaseGradleName(common.target.name, compilation.name, "dependencyScope")) {
+            it.isCanBeResolved = false
+            it.isCanBeConsumed = false
+        }
+
+        project.configurations.named(sourceSet.apiElementsConfigurationName) {
+            it.extendsFrom(compilationDependencyScope)
+        }
+
+        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.extendsFrom(compilationDependencyScope)
+        }
+
         with(common.target) {
-            sourceSet.linkDynamically(common.target.main)
-        }*/
+            sourceSet.linkDynamically(common.target.main, compilationDependencyScope)
+        }
     }
 
     add(common.target.main, PublicationVariant.Common, main)

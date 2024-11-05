@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.ClochePlugin
 import org.gradle.api.Action
+import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.tasks.SourceSet
 
@@ -34,6 +35,7 @@ internal abstract class CommonTargetInternal : CommonTarget {
 
     override fun dependencies(action: Action<ClocheDependencyHandler>) = main.dependencies(action)
     override fun java(action: Action<FeatureSpec>) = main.java(action)
+    override fun attributes(action: Action<AttributeContainer>) = main.attributes(action)
 
     override fun withPublication() {
         publish = true

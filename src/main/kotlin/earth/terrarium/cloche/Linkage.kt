@@ -6,6 +6,7 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.tasks.SourceSet
 
@@ -18,15 +19,9 @@ fun Project.asDependency(configuration: String? = null) =
  * Depend on the compiled output of [sourceSet], by requesting the capability to allow for resolution to the proper variants
  */
 context(Project, ClocheTarget)
-private fun SourceSet.linkDynamically(sourceSet: SourceSet, dependency: ProjectDependency) {
+private fun SourceSet.linkDynamically(sourceSet: SourceSet, dependency: ProjectDependency, configurationName: String) {
     project.extend(mixinsConfigurationName, sourceSet.mixinsConfigurationName)
     project.extend(accessWidenersConfigurationName, sourceSet.accessWidenersConfigurationName)
-
-    val configurationName = if (project.configurations.findByName(apiConfigurationName) != null) {
-        apiConfigurationName
-    } else {
-        implementationConfigurationName
-    }
 
     project.dependencies.add(configurationName, dependency)
 }
@@ -35,13 +30,16 @@ private fun SourceSet.linkDynamically(sourceSet: SourceSet, dependency: ProjectD
  * Depend on the api configuration of [compilation]
  */
 context(Project, CommonTarget)
-internal fun SourceSet.linkDynamically(compilation: CommonCompilation) {
-    // FIXME we do a direct dependency as we do not care about requested capabilities or attributes for non-published dependencies
-    //  ... but this can be published, in the case of common/client -> common/main
-    val apiElements = compilation.sourceSet.apiElementsConfigurationName
-    val dependency = project.asDependency(apiElements)
+internal fun SourceSet.linkDynamically(compilation: CommonCompilation, dependencyScope: Configuration) {
+    val dependency = project.asDependency().apply {
+        capabilities {
+            it.requireCapability(compilation.capability)
+        }
 
-    linkDynamically(compilation.sourceSet, dependency)
+        attributes(compilation::attributes)
+    }
+
+    linkDynamically(compilation.sourceSet, dependency, dependencyScope.name)
 }
 
 /**
@@ -49,15 +47,21 @@ internal fun SourceSet.linkDynamically(compilation: CommonCompilation) {
  */
 context(Project, MinecraftTarget)
 internal fun SourceSet.linkDynamically(compilation: RunnableCompilationInternal) {
-    val dependency = project.asDependency(compilation.sourceSet.runtimeElementsConfigurationName).apply {
-/*        capabilities {
+    val dependency = project.asDependency().apply {
+        capabilities {
             it.requireCapability(compilation.capability)
         }
 
-        attributes(compilation::attributes)*/
+        attributes(compilation::attributes)
     }
 
-    linkDynamically(compilation.sourceSet, dependency)
+    val configurationName = if (project.configurations.findByName(apiConfigurationName) == null) {
+        implementationConfigurationName
+    } else {
+        apiConfigurationName
+    }
+
+    linkDynamically(compilation.sourceSet, dependency, configurationName)
 }
 
 /**

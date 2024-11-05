@@ -63,6 +63,7 @@ constructor(
 
     final override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
     final override val javaFeatureActions = mutableListOf<Action<FeatureSpec>>()
+    final override val attributeActions = mutableListOf<Action<AttributeContainer>>()
     final override val runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
 
     override val capabilityGroup = project.group.toString()
@@ -135,14 +136,6 @@ constructor(
         }
     }
 
-    override fun dependencies(action: Action<ClocheDependencyHandler>) {
-        dependencySetupActions.add(action)
-    }
-
-    override fun java(action: Action<FeatureSpec>) {
-        javaFeatureActions.add(action)
-    }
-
     override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) {
         runSetupActions.add(action)
     }
@@ -197,6 +190,8 @@ constructor(
     }
 
     override fun attributes(attributes: AttributeContainer) {
+        super.attributes(attributes)
+
         attributes.attribute(TargetAttributes.MOD_LOADER, target.loaderAttributeName)
             .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
             .attribute(VARIANT_ATTRIBUTE, variant)

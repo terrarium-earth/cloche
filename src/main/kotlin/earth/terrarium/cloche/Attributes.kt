@@ -31,7 +31,7 @@ object CommonTargetAttributes {
 
 class VariantCompatibilityRule : AttributeCompatibilityRule<PublicationVariant> {
     override fun execute(details: CompatibilityCheckDetails<PublicationVariant>) {
-        if (details.consumerValue == details.producerValue || details.producerValue == PublicationVariant.Common) {
+        if (details.consumerValue == details.producerValue || details.producerValue == PublicationVariant.Common || details.producerValue == PublicationVariant.Joined) {
             details.compatible()
         } else {
             details.incompatible()

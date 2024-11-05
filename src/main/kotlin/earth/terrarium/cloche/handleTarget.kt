@@ -80,7 +80,13 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {
                 project.configurations.named(name) {
-                    it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.REMAPPED))
+                    val state = if (target.remapNamespace != null) {
+                        States.REMAPPED
+                    } else {
+                        States.INCLUDES_EXTRACTED
+                    }
+
+                    it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
                 }
             }
         } else {

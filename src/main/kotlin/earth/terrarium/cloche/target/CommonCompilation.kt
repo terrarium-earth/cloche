@@ -1,8 +1,12 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
+import earth.terrarium.cloche.ClocheExtension
+import earth.terrarium.cloche.TargetAttributes
+import earth.terrarium.cloche.VARIANT_ATTRIBUTE
 import org.gradle.api.Action
 import org.gradle.api.Project
+import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
@@ -18,14 +22,13 @@ internal abstract class CommonCompilation @Inject constructor(private val name: 
 
     override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
     override val javaFeatureActions = mutableListOf<Action<FeatureSpec>>()
-
-    override fun dependencies(action: Action<ClocheDependencyHandler>) {
-        dependencySetupActions.add(action)
-    }
-
-    override fun java(action: Action<FeatureSpec>) {
-        javaFeatureActions.add(action)
-    }
+    override val attributeActions = mutableListOf<Action<AttributeContainer>>()
 
     override fun getName() = name
+
+    override fun attributes(attributes: AttributeContainer) {
+        super.attributes(attributes)
+
+        attributes.attribute(TargetAttributes.MOD_LOADER, ClocheExtension::common.name)
+    }
 }

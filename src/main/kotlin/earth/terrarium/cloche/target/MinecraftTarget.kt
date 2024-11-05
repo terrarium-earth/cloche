@@ -4,6 +4,7 @@ import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.PublicationVariant
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
+import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.provider.Property
@@ -13,6 +14,7 @@ import org.gradle.api.tasks.Internal
 
 const val GENERAL_COMMON_TYPE = "general"
 
+@JvmDefaultWithoutCompatibility
 interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
     val minecraftVersion: Property<String>
         @Input
@@ -40,6 +42,9 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
 
     override fun java(action: Action<FeatureSpec>) =
         main.java(action)
+
+    override fun attributes(action: Action<AttributeContainer>) =
+        main.attributes(action)
 
     override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) =
         main.runConfiguration(action)

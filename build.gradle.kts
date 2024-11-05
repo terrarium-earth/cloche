@@ -50,7 +50,7 @@ dependencies {
 }
 
 tasks.withType<KotlinCompile> {
-    compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
+    compilerOptions.freeCompilerArgs.addAll("-Xcontext-receivers", "-Xjvm-default=all")
 }
 
 publishing {
