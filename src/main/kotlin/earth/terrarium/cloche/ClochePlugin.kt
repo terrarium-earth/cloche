@@ -21,7 +21,6 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
-import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSetContainer
 
 fun Project.addSetupTask(name: String): String {
@@ -95,6 +94,16 @@ class ClochePlugin : Plugin<Project> {
             }
         }
 
+        target.dependencies.artifactTypes {
+            it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
+                jar.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
+            }
+
+            it.register(MINECRAFT_ARTIFACT_TYPE) { minecraft ->
+                minecraft.attributes.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.INITIAL)
+            }
+        }
+
         target.extension<SourceSetContainer>().all { sourceSet ->
             sourceSet.extension<VirtualExtension>().dependsOn.all { dependency ->
                 target.extend(sourceSet.accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
@@ -117,7 +126,7 @@ class ClochePlugin : Plugin<Project> {
             return
         }
 
-        val primaryCommon = cloche.common()
+        val primaryCommon = cloche.common {}
 
         cloche.targets.all {
             addTarget(cloche, project, it)

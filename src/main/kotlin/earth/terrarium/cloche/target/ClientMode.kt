@@ -1,6 +1,6 @@
 package earth.terrarium.cloche.target
 
-enum class ClientMode {
+internal enum class ClientMode {
     None,
     Separate,
     Included,

@@ -7,7 +7,6 @@ import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
-import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.tasks.SourceSet
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
@@ -37,6 +36,8 @@ private fun SourceSet.linkDynamically(sourceSet: SourceSet, dependency: ProjectD
  */
 context(Project, CommonTarget)
 internal fun SourceSet.linkDynamically(compilation: CommonCompilation) {
+    // FIXME we do a direct dependency as we do not care about requested capabilities or attributes for non-published dependencies
+    //  ... but this can be published, in the case of common/client -> common/main
     val apiElements = compilation.sourceSet.apiElementsConfigurationName
     val dependency = project.asDependency(apiElements)
 
@@ -48,12 +49,12 @@ internal fun SourceSet.linkDynamically(compilation: CommonCompilation) {
  */
 context(Project, MinecraftTarget)
 internal fun SourceSet.linkDynamically(compilation: RunnableCompilationInternal) {
-    val dependency = project.asDependency().apply {
-        capabilities {
+    val dependency = project.asDependency(compilation.sourceSet.runtimeElementsConfigurationName).apply {
+/*        capabilities {
             it.requireCapability(compilation.capability)
         }
 
-        attributes(compilation::attributes)
+        attributes(compilation::attributes)*/
     }
 
     linkDynamically(compilation.sourceSet, dependency)

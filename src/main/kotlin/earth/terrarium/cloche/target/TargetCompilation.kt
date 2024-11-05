@@ -17,53 +17,34 @@ import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
-import org.gradle.api.artifacts.type.ArtifactTypeDefinition
-import org.gradle.api.attributes.Attribute
-import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.attributes.CompatibilityCheckDetails
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.plugins.FeatureSpec
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.util.*
 import javax.inject.Inject
 
-class ModTransformationCompatibilityRule : AttributeCompatibilityRule<ModTransformationState> {
-    override fun execute(details: CompatibilityCheckDetails<ModTransformationState>) {
-        if (details.producerValue == null) {
-            details.compatible()
-        }
-    }
-}
-
-enum class ModTransformationState {
-    None,
-    IncludesExtracted,
-
-    // MixinsStripped,
-    Remapped,
-}
-
-enum class MinecraftTransformationState {
-    None,
-
-    // Mixin,
-    IncludesExtracted,
-    Remapped,
-    AccessWidened,
+internal object States {
+    const val INCLUDES_EXTRACTED = "includesExtracted"
+    const val MIXINS_STRIPPED = "mixinsStripped"
+    const val REMAPPED = "remapped"
+    const val MIXIN = "mixin"
+    const val ACCESS_WIDENED = "accessWidened"
 }
 
 internal abstract class TargetCompilation
 @Inject
 constructor(
     private val name: String,
-    private val target: MinecraftTargetInternal,
+    final override val target: MinecraftTargetInternal,
     final override val minecraftConfiguration: MinecraftConfiguration,
     private val variant: PublicationVariant,
     main: Optional<TargetCompilation>,
     side: Side,
-    remapNamespace: String?,
+    remapNamespace: Provider<String>,
+    private val patched: Boolean,
     project: Project,
 ) : RunnableCompilationInternal {
     private val namePart = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
@@ -93,38 +74,6 @@ constructor(
     }
 
     init {
-        val modTransformationStateAttribute =
-            Attribute.of(
-                lowerCamelCaseGradleName(target.name, namePart, "modTransformationState"),
-                ModTransformationState::class.java,
-            )
-
-        val minecraftTransformationStateAttribute =
-            Attribute.of(
-                lowerCamelCaseGradleName(target.name, namePart, "minecraftTransformationState"),
-                MinecraftTransformationState::class.java,
-            )
-
-        project.dependencies.attributesSchema { schema ->
-            schema.attribute(modTransformationStateAttribute) {
-                it.compatibilityRules.add(ModTransformationCompatibilityRule::class.java)
-            }
-
-            schema.attribute(minecraftTransformationStateAttribute)
-        }
-
-        project.dependencies.artifactTypes {
-            it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
-                jar.attributes.attribute(modTransformationStateAttribute, ModTransformationState.None)
-            }
-        }
-
-        minecraftConfiguration.attributes {
-            it
-                .attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.None)
-                .attribute(modTransformationStateAttribute, ModTransformationState.Remapped)
-        }
-
         dependencies { dependencies ->
             val sourceSet = dependencies.sourceSet
 
@@ -141,7 +90,9 @@ constructor(
                     }
 
                     it.attributes { attributes ->
-                        attributes.attribute(TARGET_MINECRAFT_ATTRIBUTE, minecraftConfiguration.targetMinecraftAttribute)
+                        attributes
+                            .attribute(TARGET_MINECRAFT_ATTRIBUTE, minecraftConfiguration.targetMinecraftAttribute)
+                            .attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
                     }
                 }
 
@@ -154,33 +105,32 @@ constructor(
             project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)
             project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
 
+            val remapNamespace = remapNamespace.takeIf(Provider<*>::isPresent)?.get()
+
+            val state = if (remapNamespace == null) {
+                States.INCLUDES_EXTRACTED
+            } else {
+                States.REMAPPED
+            }
+
             project.configurations.named(sourceSet.compileClasspathConfigurationName) {
                 it.attributes
-                    .attribute(modTransformationStateAttribute, ModTransformationState.Remapped)
-                    .attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.None)
-                    // .attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.AccessWidened)
+                    .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
+                    .attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
             }
 
             project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
                 it.attributes
-                    .attribute(modTransformationStateAttribute, ModTransformationState.Remapped)
-                    .attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.None)
-                    // .attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.AccessWidened)
+                    .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
+                    .attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
             }
 
             setupMinecraftTransformationPipeline(
                 project,
-                minecraftTransformationStateAttribute,
                 remapNamespace,
+                state,
                 main,
                 sourceSet,
-            )
-
-            setupModTransformationPipeline(
-                project,
-                modTransformationStateAttribute,
-                remapNamespace,
-                main,
             )
         }
     }
@@ -199,99 +149,56 @@ constructor(
 
     override fun getName() = name
 
-    private fun setupModTransformationPipeline(
-        project: Project,
-        modTransformationStateAttribute: Attribute<ModTransformationState>,
-        remapNamespace: String?,
-        main: SourceSet,
-    ) {
-        project.dependencies.registerTransform(ExtractIncludes::class.java) {
-            it.from
-                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(modTransformationStateAttribute, ModTransformationState.None)
-
-            it.to
-                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(modTransformationStateAttribute, ModTransformationState.IncludesExtracted)
-        }
-
-        project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from
-                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(modTransformationStateAttribute, ModTransformationState.IncludesExtracted)
-
-            it.to
-                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(modTransformationStateAttribute, ModTransformationState.Remapped)
-
-            it.parameters { parameters ->
-                parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
-
-                parameters.sourceNamespace.set(remapNamespace)
-                parameters.extraClasspath.from(project.files(minecraftConfiguration.artifact))
-
-                val patchesConfiguration = project.configurations.getByName(main.patchesConfigurationName)
-
-                if (patchesConfiguration.allDependencies.isNotEmpty()) {
-                    parameters.extraFiles.set(
-                        mcpConfigDependency(project, patchesConfiguration)
-                            .flatMap { file ->
-                                mcpConfigExtraRemappingFiles(project, file)
-                            },
-                    )
-                }
-            }
-        }
-    }
-
     private fun setupMinecraftTransformationPipeline(
         project: Project,
-        minecraftTransformationStateAttribute: Attribute<MinecraftTransformationState>,
         remapNamespace: String?,
+        lastState: String,
         main: SourceSet,
         sourceSet: SourceSet,
     ) {
         project.dependencies.registerTransform(ExtractIncludes::class.java) {
-            it.from.attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.None)
-            it.to.attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.IncludesExtracted)
-        }
-
-        project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from.attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.IncludesExtracted)
-            it.to.attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.Remapped)
-
-            it.parameters { parameters ->
-                parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
-
-                parameters.sourceNamespace.set(remapNamespace)
-
-                val patchesConfiguration = project.configurations.getByName(main.patchesConfigurationName)
-
-                if (patchesConfiguration.allDependencies.isNotEmpty()) {
-                    parameters.extraFiles.set(
-                        mcpConfigDependency(project, patchesConfiguration)
-                            .flatMap { file ->
-                                mcpConfigExtraRemappingFiles(project, file)
-                            },
-                    )
-                }
-            }
+            it.from.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.INITIAL)
+            it.to.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.INCLUDES_EXTRACTED))
         }
 
         project.dependencies.registerTransform(AccessWiden::class.java) {
-            it.from.attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.Remapped)
-            it.to.attribute(minecraftTransformationStateAttribute, MinecraftTransformationState.AccessWidened)
+            it.from.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, lastState))
+            it.to.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
 
             it.parameters { parameters ->
                 parameters.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
                 parameters.accessWideners.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
             }
         }
+
+        if (remapNamespace == null) {
+            return
+        }
+
+        project.dependencies.registerTransform(RemapAction::class.java) {
+            it.from.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.INCLUDES_EXTRACTED))
+            it.to.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.REMAPPED))
+
+            it.parameters { parameters ->
+                parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
+
+                parameters.sourceNamespace.set(remapNamespace)
+
+                if (patched) {
+                    parameters.extraFiles.set(
+                        mcpConfigDependency(project, project.configurations.getByName(main.patchesConfigurationName))
+                            .flatMap { file ->
+                                mcpConfigExtraRemappingFiles(project, file)
+                            },
+                    )
+                }
+            }
+        }
     }
 
     override fun attributes(attributes: AttributeContainer) {
-        attributes.attribute(MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
-            .attributeProvider(MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion)
+        attributes.attribute(TargetAttributes.MOD_LOADER, target.loaderAttributeName)
+            .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
             .attribute(VARIANT_ATTRIBUTE, variant)
     }
 }

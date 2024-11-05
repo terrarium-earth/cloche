@@ -19,9 +19,9 @@ open class MinecraftTargetContainer @Inject constructor(
 ) {
     init {
         apply {
-            addTargetType<FabricTarget>()
-            addTargetType<ForgeTarget>()
-            addTargetType<NeoForgeTarget>()
+            addTargetType<FabricTargetImpl>()
+            addTargetType<ForgeTargetImpl>()
+            addTargetType<NeoForgeTargetImpl>()
         }
     }
 

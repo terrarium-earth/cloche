@@ -10,7 +10,6 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
 import javax.inject.Inject
 import kotlin.properties.Delegates
-import kotlin.reflect.KClass
 
 open class ClocheExtension @Inject constructor(private val project: Project, objects: ObjectFactory) {
     val minecraftVersion: Property<String> = objects.property(String::class.java)
@@ -32,13 +31,12 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     private val usedTargetTypes = hashSetOf<Class<out MinecraftTarget>>()
 
     @JvmOverloads
-    fun common(name: String = ::common.name, configure: Action<CommonTarget>? = null): CommonTarget = _commonTargets.findByName(name)
-        ?.also { configure?.execute(it) }
-        ?: configure?.let { _commonTargets.create(name, it) }
-        ?: _commonTargets.create(name)
+    fun common(name: String = ::common.name, configure: Action<CommonTarget>): CommonTarget = _commonTargets.findByName(name)
+        ?.also(configure::execute)
+        ?: _commonTargets.create(name, configure)
 
     @JvmOverloads
-    fun fabric(name: String = ::fabric.name, configure: Action<MinecraftClientTarget>? = null): MinecraftClientTarget = target<FabricTarget>(name, {
+    fun fabric(name: String = ::fabric.name, configure: Action<FabricTarget>): FabricTarget = target<FabricTargetImpl>(name, {
         project.dependencies.components {
             it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
                 it.params(VARIANT_ATTRIBUTE, PublicationVariant.Common, PublicationVariant.Client, false)
@@ -47,29 +45,25 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }, configure)
 
     @JvmOverloads
-    fun forge(name: String = ::forge.name, configure: Action<MinecraftNoClientTarget>? = null): MinecraftNoClientTarget = target<ForgeTarget>(name, {
+    fun forge(name: String = ::forge.name, configure: Action<ForgeTarget>): ForgeTarget = target<ForgeTargetImpl>(name, {
     }, configure)
 
     @JvmOverloads
-    fun neoforge(name: String = ::neoforge.name, configure: Action<MinecraftNoClientTarget>? = null): MinecraftNoClientTarget = target<NeoForgeTarget>(name, {
+    fun neoforge(name: String = ::neoforge.name, configure: Action<ForgeTarget>): ForgeTarget = target<NeoForgeTargetImpl>(name, {
     }, configure)
 
-    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, setupTargetType: () -> Unit = {}, configure: Action<in T>? = null): T {
+    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, setupTargetType: () -> Unit = {}, configure: Action<in T>): T {
         if (usedTargetTypes.add(type)) {
             setupTargetType()
         }
 
         return targets.withType(type)
             .findByName(name)
-            ?.also { configure?.execute(it) }
-            ?: configure?.let { targets.create(name, type, it) }
-            ?: targets.create(name, type)
+            ?.also(configure::execute)
+            ?: targets.create(name, type, configure)
     }
 
-    @JvmSynthetic
-    fun <T : MinecraftTarget> target(name: String, type: KClass<T>, setupTargetType: () -> Unit = {}, configure: Action<in T>? = null) = target(name, type.java, setupTargetType)
-
-    private inline fun <reified T : MinecraftTarget> target(name: String, noinline setupTargetType: () -> Unit = {}, configure: Action<in T>? = null) =
+    private inline fun <reified T : MinecraftTarget> target(name: String, noinline setupTargetType: () -> Unit = {}, configure: Action<in T>) =
         target(name, T::class.java, setupTargetType, configure)
 
     fun mappings(action: Action<MappingsBuilder>) {

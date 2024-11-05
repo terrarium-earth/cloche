@@ -71,6 +71,8 @@ publishing {
 
 tasks.test {
     useJUnitPlatform()
+
+    dependsOn(tasks.pluginUnderTestMetadata)
 }
 
 kotlin {

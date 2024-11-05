@@ -3,10 +3,57 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
+import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
+import net.msrandom.minecraftcodev.forge.patchesConfigurationName
+import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.remapper.RemapAction
+import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.SourceSet
+
+private fun setupModTransformationPipeline(
+    project: Project,
+    target: MinecraftTargetInternal,
+    remapNamespace: String?,
+    main: SourceSet,
+    patched: Boolean,
+    minecraftConfiguration: MinecraftConfiguration,
+) {
+    project.dependencies.registerTransform(ExtractIncludes::class.java) {
+        it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
+        it.to.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED))
+    }
+
+    if (remapNamespace == null) {
+        return
+    }
+
+    project.dependencies.registerTransform(RemapAction::class.java) {
+        it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED))
+        it.to.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.REMAPPED))
+
+        it.parameters { parameters ->
+            parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
+
+            parameters.sourceNamespace.set(remapNamespace)
+
+            // TODO This won't need to exist if we inject MC as a dependency
+            parameters.extraClasspath.from(project.files(minecraftConfiguration.artifact))
+
+            if (patched) {
+                parameters.extraFiles.set(
+                    mcpConfigDependency(project, project.configurations.getByName(main.patchesConfigurationName))
+                        .flatMap { file ->
+                            mcpConfigExtraRemappingFiles(project, file)
+                        },
+                )
+            }
+        }
+    }
+}
 
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal) {
@@ -30,11 +77,26 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
         configureSourceSet(sourceSet, target, compilation)
 
-        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+        if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
+            for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {
+                project.configurations.named(name) {
+                    it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.REMAPPED))
+                }
+            }
+        } else {
             with(target) {
-                // sourceSet.linkDynamically(target.main)
+                sourceSet.linkDynamically(target.main)
             }
         }
+
+        setupModTransformationPipeline(
+            project,
+            target,
+            target.remapNamespace,
+            with(target) { target.main.sourceSet },
+            target is ForgeTarget,
+            target.main.minecraftConfiguration,
+        )
 
         val resolvableConfigurationNames = listOf(
             sourceSet.compileClasspathConfigurationName,

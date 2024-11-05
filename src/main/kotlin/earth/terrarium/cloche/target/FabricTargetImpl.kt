@@ -23,10 +23,10 @@ import org.gradle.api.tasks.SourceSet
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.util.*
 
-internal abstract class FabricTarget(
+internal abstract class FabricTargetImpl(
     private val name: String,
 ) : MinecraftTargetInternal,
-    MinecraftClientTarget {
+    FabricTarget {
     private val resolveCommonMinecraft =
         project.tasks.register(lowerCamelCaseGradleName("resolve", name, "common"), ResolveMinecraftCommon::class.java) {
             it.version.set(minecraftVersion)
@@ -72,7 +72,18 @@ internal abstract class FabricTarget(
     override val commonType get() = ClocheExtension::fabric.name
 
     override val compilations: List<RunnableCompilationInternal>
-        get() = listOf(main, client, data)
+        get() = if (clientMode == ClientMode.Separate) {
+            listOf(main, client, data)
+        } else {
+            listOf(main, data)
+        }
+
+    override val runnables: List<RunnableInternal>
+        get() = if (clientMode == ClientMode.None) {
+            listOf(main, data)
+        } else {
+            listOf(main, client, data)
+        }
 
     init {
         val minecraftCommonConfiguration = MinecraftConfiguration(this, name, remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile), name)
@@ -87,7 +98,8 @@ internal abstract class FabricTarget(
                 PublicationVariant.Common,
                 Optional.empty<TargetCompilation>(),
                 Side.SERVER,
-                remapNamespace,
+                project.provider { remapNamespace },
+                false,
             )
 
         client =
@@ -99,7 +111,8 @@ internal abstract class FabricTarget(
                 PublicationVariant.Client,
                 Optional.of(main),
                 Side.CLIENT,
-                remapNamespace,
+                project.provider { remapNamespace },
+                false,
             )
 
         data =
@@ -111,7 +124,8 @@ internal abstract class FabricTarget(
                 PublicationVariant.Data,
                 Optional.of(main),
                 Side.SERVER,
-                remapNamespace,
+                project.provider { remapNamespace },
+                false,
             )
 
         project.dependencies.add(minecraftCommonConfiguration.configurationName, project.dependencies.platform(STUB_DEPENDENCY))
@@ -153,6 +167,31 @@ internal abstract class FabricTarget(
                         TARGET_MINECRAFT_ATTRIBUTE,
                         minecraftCommonConfiguration.targetMinecraftAttribute,
                     )
+                }
+            }
+
+            if (clientMode == ClientMode.Included) {
+                project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
+                    minecraftClientConfiguration.useIn(it)
+                }
+
+                project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
+                    minecraftClientConfiguration.useIn(it)
+                }
+
+                project.dependencies.components { components ->
+                    components.withModule(ClochePlugin.STUB_MODULE, MinecraftComponentMetadataRule::class.java) {
+                        it.params(
+                            getCacheDirectory(project),
+                            minecraftVersion,
+                            project.provider { VERSION_MANIFEST_URL },
+                            project.provider { project.gradle.startParameter.isOffline },
+                            true,
+                            minecraftClientConfiguration.targetMinecraftAttribute,
+                            TARGET_MINECRAFT_ATTRIBUTE,
+                            minecraftClientConfiguration.targetMinecraftAttribute,
+                        )
+                    }
                 }
             }
 
@@ -214,7 +253,11 @@ internal abstract class FabricTarget(
             it.defaults.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
 
             with(project) {
-                it.sourceSet(client.sourceSet)
+                if (clientMode == ClientMode.Separate) {
+                    it.sourceSet(client.sourceSet)
+                } else {
+                    it.sourceSet(main.sourceSet)
+                }
             }
         }
 
@@ -242,8 +285,6 @@ internal abstract class FabricTarget(
     }
 
     override fun client(action: Action<RunnableCompilation>) {
-        clientMode = ClientMode.Separate
-
         action.execute(client)
     }
 
@@ -265,7 +306,7 @@ internal abstract class FabricTarget(
         }
 
         for (mapping in providers) {
-            project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@FabricTarget.name) })
+            project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@FabricTargetImpl.name) })
         }
     }
 }

@@ -19,15 +19,12 @@ import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
-import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 
-internal abstract class ForgeTarget(private val name: String) : MinecraftTargetInternal, MinecraftNoClientTarget {
+internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTargetInternal, ForgeTarget {
     private val resolvePatchedMinecraft = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("resolve", name, "patchedMinecraft")), ResolvePatchedMinecraft::class.java) {
         it.version.set(minecraftVersion)
     }
@@ -40,15 +37,10 @@ internal abstract class ForgeTarget(private val name: String) : MinecraftTargetI
 
     final override val data: TargetCompilation
 
-    private var hasMappings = false
+    protected var hasMappings = false
 
-    override val remapNamespace: String
+    override val remapNamespace: String?
         get() = MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE
-
-    abstract val userdevClassifier: Property<String>
-        @Input
-        @Optional
-        get
 
     open val group
         @Internal
@@ -64,6 +56,9 @@ internal abstract class ForgeTarget(private val name: String) : MinecraftTargetI
     override val compilations: List<RunnableCompilationInternal>
         get() = listOf(main, data)
 
+    override val runnables: List<RunnableInternal>
+        get() = compilations
+
     init {
         val patchedMinecraftConfiguration = MinecraftConfiguration(this, name, resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output), name)
 
@@ -76,7 +71,8 @@ internal abstract class ForgeTarget(private val name: String) : MinecraftTargetI
                 PublicationVariant.Joined,
                 java.util.Optional.empty<TargetCompilation>(),
                 Side.UNKNOWN,
-                remapNamespace,
+                project.provider { remapNamespace },
+                true,
             )
         }
 
@@ -89,7 +85,8 @@ internal abstract class ForgeTarget(private val name: String) : MinecraftTargetI
                 PublicationVariant.Data,
                 java.util.Optional.of(main),
                 Side.UNKNOWN,
-                remapNamespace,
+                project.provider { remapNamespace },
+                true,
             )
         }
 
@@ -130,8 +127,8 @@ internal abstract class ForgeTarget(private val name: String) : MinecraftTargetI
                         minecraftVersion,
                         project.provider { VERSION_MANIFEST_URL },
                         project.provider { project.gradle.startParameter.isOffline },
-                        this@ForgeTarget.group,
-                        this@ForgeTarget.artifact,
+                        this@ForgeTargetImpl.group,
+                        this@ForgeTargetImpl.artifact,
                         minecraftVersion.flatMap { minecraftVersion ->
                             loaderVersion.map { forgeVersion ->
                                 version(minecraftVersion, forgeVersion)
@@ -174,6 +171,7 @@ internal abstract class ForgeTarget(private val name: String) : MinecraftTargetI
             it.defaults.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
                 with(project) {
                     it.sourceSet(main.sourceSet)
+                    serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
                     serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
                 }
             }
@@ -229,7 +227,7 @@ internal abstract class ForgeTarget(private val name: String) : MinecraftTargetI
         }
 
         for (mapping in providers) {
-            project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@ForgeTarget.name) })
+            project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@ForgeTargetImpl.name) })
         }
     }
 }

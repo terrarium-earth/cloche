@@ -10,6 +10,8 @@ interface CommonTarget : ClocheTarget {
     val main: Compilation
     val data: Compilation
     val client: Compilation
+
+    fun withPublication()
 }
 
 internal abstract class CommonTargetInternal : CommonTarget {
@@ -25,9 +27,15 @@ internal abstract class CommonTargetInternal : CommonTarget {
         project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
     }
 
+    var publish = false
+
     override val accessWideners get() = main.accessWideners
     override val mixins get() = main.mixins
 
     override fun dependencies(action: Action<ClocheDependencyHandler>) = main.dependencies(action)
     override fun java(action: Action<FeatureSpec>) = main.java(action)
+
+    override fun withPublication() {
+        publish = true
+    }
 }

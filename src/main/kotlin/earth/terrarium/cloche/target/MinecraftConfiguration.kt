@@ -1,18 +1,17 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.MINECRAFT_VERSION_ATTRIBUTE
-import earth.terrarium.cloche.MOD_LOADER_ATTRIBUTE
-import earth.terrarium.cloche.TARGET_MINECRAFT_ATTRIBUTE
+import earth.terrarium.cloche.TargetAttributes
 import earth.terrarium.cloche.asDependency
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import org.gradle.api.Action
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.attributes.Bundling
 import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.LibraryElements
+import org.gradle.api.attributes.java.TargetJvmEnvironment
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
+
+internal const val MINECRAFT_ARTIFACT_TYPE = "minecraft"
 
 internal class MinecraftConfiguration(
     target: MinecraftTargetInternal,
@@ -39,9 +38,9 @@ internal class MinecraftConfiguration(
                 .attribute(Category.CATEGORY_ATTRIBUTE, target.project.objects.named(Category::class.java, Category.LIBRARY))
                 .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, target.project.objects.named(LibraryElements::class.java, LibraryElements.JAR))
                 .attribute(Bundling.BUNDLING_ATTRIBUTE, target.project.objects.named(Bundling::class.java, Bundling.EXTERNAL))
-                .attribute(TARGET_MINECRAFT_ATTRIBUTE, targetMinecraftAttribute)
-                .attribute(MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
-                .attributeProvider(MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion)
+                .attribute(TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE, target.project.objects.named(TargetJvmEnvironment::class.java, TargetJvmEnvironment.STANDARD_JVM))
+                .attribute(TargetAttributes.MOD_LOADER, target.loaderAttributeName)
+                .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
         }
     }
 
@@ -50,32 +49,21 @@ internal class MinecraftConfiguration(
         configuration.isCanBeConsumed = false
     }
 
-    val dependency = target.project.asDependency().apply {
-        capabilities {
-            it.requireCapability(capabilityName)
-        }
-
-        attributes {
-            it
-                .attribute(TARGET_MINECRAFT_ATTRIBUTE, targetMinecraftAttribute)
-                .attribute(MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
-                .attributeProvider(MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion)
-        }
-    }
+    val dependency = target.project.asDependency(consumableConfiguration.name)
 
     val configurationName: String
         get() = consumableConfiguration.name
 
     init {
         target.project.dependencies.add(dependencyHolder.name, dependency)
-        target.project.artifacts.add(consumableConfiguration.name, artifact)
+
+        target.project.artifacts.add(consumableConfiguration.name, artifact) {
+            it.extension = MINECRAFT_ARTIFACT_TYPE
+            it.type = MINECRAFT_ARTIFACT_TYPE
+        }
     }
 
     fun useIn(configuration: Configuration) {
         configuration.extendsFrom(dependencyHolder)
-    }
-
-    internal fun attributes(action: Action<AttributeContainer>) {
-        consumableConfiguration.attributes(action)
     }
 }

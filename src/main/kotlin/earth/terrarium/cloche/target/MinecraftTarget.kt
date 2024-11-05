@@ -61,4 +61,5 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
     val commonType: String
 
     val compilations: List<RunnableCompilationInternal>
+    val runnables: List<RunnableInternal>
 }

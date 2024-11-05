@@ -18,6 +18,7 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.jvm.tasks.Jar
+import org.gradle.util.internal.GUtil
 import org.gradle.util.internal.TextUtil
 
 interface Compilation : Named {
@@ -30,6 +31,8 @@ interface Compilation : Named {
     fun dependencies(action: Action<ClocheDependencyHandler>)
 
     fun java(action: Action<FeatureSpec>)
+
+    // fun attributes(action: Action<AttributeContainer>)
 }
 
 internal interface CompilationInternal : Compilation {
@@ -59,12 +62,14 @@ internal interface RunnableCompilationInternal : CompilationInternal, RunnableCo
 
     val minecraftConfiguration: MinecraftConfiguration
 
+    val target: MinecraftTargetInternal
+
     fun attributes(attributes: AttributeContainer)
 }
 
 private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
     target.name == ClocheExtension::common.name -> compilation.name
-    compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.name
+    compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> GUtil.toLowerCamelCase(target.name)
     else -> lowerCamelCaseGradleName(target.name, compilation.name)
 }
 

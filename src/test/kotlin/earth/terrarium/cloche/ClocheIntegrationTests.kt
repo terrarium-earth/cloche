@@ -12,7 +12,7 @@ class ClocheIntegrationTests {
         GradleRunner.create()
             .withProjectDir(File("integration-test"))
             .withPluginClasspath()
-            .withArguments("jar", "forgeJar", "neoforgeJar", "fabricJar", "-s")
+            .withArguments("jar", "forgeJar", "neoforgeJar", "fabricJar", "forgeDataJar", "neoforgeDataJar", "fabricDataJar", "fabricClientJar", "-s")
             .forwardOutput()
             .withDebug(true)
             .build()

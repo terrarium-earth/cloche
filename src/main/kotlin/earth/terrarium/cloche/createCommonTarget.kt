@@ -25,7 +25,7 @@ internal class CommonInfo(
 
 context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonOfType: Boolean) {
     val main = common.dependants.map { it to it.main }
-    val client = common.dependants.takeIf { it.any { it is MinecraftClientTarget } }?.map { it to ((it as? MinecraftClientTarget)?.client ?: it.main) as RunnableCompilationInternal }
+    val client = common.dependants.takeIf { it.any { it is FabricTarget } }?.map { it to ((it as? FabricTarget)?.client ?: it.main) as RunnableCompilationInternal }
     val data = common.dependants.map { it to it.data }
 
     fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): FileCollection {
@@ -102,7 +102,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
                 spec.usingSourceSet(sourceSet)
                 spec.capability(compilation.capabilityGroup, compilation.capabilityName, project.version.toString())
 
-                if (common.target.name != ClocheExtension::common.name) {
+                if (common.target.name != ClocheExtension::common.name && !common.target.publish) {
                     spec.disablePublication()
                 }
 
@@ -114,34 +114,53 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
 
         configureSourceSet(sourceSet, common.target, compilation)
 
-        // Common compilations are not runnable.
-        project.configurations.remove(project.configurations.getByName(sourceSet.runtimeElementsConfigurationName))
+        project.components.named("java") { java ->
+            java as AdhocComponentWithVariants
 
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes
-                .attribute(MOD_LOADER_ATTRIBUTE, ClocheExtension::common.name)
-                .attribute(VARIANT_ATTRIBUTE, variant)
-                .attribute(COMMON_TYPE_ATTRIBUTE, common.type)
-
-            if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name) {
-                it.attributes.attribute(COMMON_NAME_ATTRIBUTE, common.target.name)
+            java.addVariantsFromConfiguration(project.configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
+                // Common compilations are not runnable.
+                variant.skip()
             }
         }
 
-        for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.javadocElementsConfigurationName, sourceSet.sourcesElementsConfigurationName)) {
+        val dependencyHolder = project.configurations.create(
+            lowerCamelCaseGradleName(
+                common.target.name,
+                compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME },
+                "intersectionDependencies"
+            )
+        ) { configuration ->
+            configuration.isCanBeResolved = false
+            configuration.isCanBeConsumed = false
+        }
+
+        project.dependencies.add(dependencyHolder.name, intersection(edgeCompilations))
+
+        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.extendsFrom(dependencyHolder)
+
+            it.attributes
+                .attribute(TargetAttributes.MOD_LOADER, ClocheExtension::common.name)
+                .attribute(VARIANT_ATTRIBUTE, variant)
+                .attribute(CommonTargetAttributes.TYPE, common.type)
+
+            if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name && !common.target.publish) {
+                it.attributes.attribute(CommonTargetAttributes.NAME, common.target.name)
+            }
+        }
+
+        for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName, sourceSet.javadocElementsConfigurationName, sourceSet.sourcesElementsConfigurationName)) {
             project.configurations.findByName(name)?.attributes {
                 it
-                    .attribute(MOD_LOADER_ATTRIBUTE, ClocheExtension::common.name)
+                    .attribute(TargetAttributes.MOD_LOADER, ClocheExtension::common.name)
                     .attribute(VARIANT_ATTRIBUTE, variant)
-                    .attribute(COMMON_TYPE_ATTRIBUTE, common.type)
+                    .attribute(CommonTargetAttributes.TYPE, common.type)
 
-                if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name) {
-                    it.attributes.attribute(COMMON_NAME_ATTRIBUTE, common.target.name)
+                if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name && !common.target.publish) {
+                    it.attributes.attribute(CommonTargetAttributes.NAME, common.target.name)
                 }
             }
         }
-
-        sourceSet.compileClasspath += intersection(edgeCompilations)
 
         project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:java-expect-actual-annotations:1.0.0")
         project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
@@ -166,7 +185,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
 
         for (edge in common.dependants) {
             val edgeCompilation = when (compilation.name) {
-                ClochePlugin.CLIENT_COMPILATION_NAME -> (edge as? MinecraftClientTarget)?.client ?: edge.main
+                ClochePlugin.CLIENT_COMPILATION_NAME -> (edge as? FabricTarget)?.client ?: edge.main
                 ClochePlugin.DATA_COMPILATION_NAME -> edge.data
                 else -> edge.main
             } as RunnableCompilationInternal
