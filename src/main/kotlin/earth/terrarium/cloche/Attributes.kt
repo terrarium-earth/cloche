@@ -46,7 +46,7 @@ internal object ModTransformationStateAttribute {
     const val INITIAL = "none"
 
     fun of(target: MinecraftTarget, state: String) =
-        lowerCamelCaseName(target.name, state)
+        lowerCamelCaseName(target.featureName, state)
 }
 
 internal object MinecraftTransformationStateAttribute {
@@ -56,5 +56,5 @@ internal object MinecraftTransformationStateAttribute {
     const val INITIAL = "none"
 
     fun of(compilation: TargetCompilation, state: String) =
-        lowerCamelCaseName(compilation.target.name, compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, state)
+        lowerCamelCaseName(compilation.target.featureName, compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, state)
 }

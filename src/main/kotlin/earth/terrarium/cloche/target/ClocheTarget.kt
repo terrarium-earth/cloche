@@ -21,6 +21,9 @@ sealed interface ClocheTarget : Compilation {
         @Internal
         get() = null
 
+    val featureName
+        get() = name.replace('/', '-')
+
     fun dependsOn(vararg common: CommonTarget) {
         dependsOn.addAll(*common)
     }

@@ -87,8 +87,8 @@ internal interface RunnableCompilationInternal : CompilationInternal, RunnableCo
 
 private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
     target.name == ClocheExtension::common.name -> compilation.name
-    compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> GUtil.toLowerCamelCase(target.name)
-    else -> lowerCamelCaseGradleName(target.name, compilation.name)
+    compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> GUtil.toLowerCamelCase(target.featureName)
+    else -> lowerCamelCaseGradleName(target.featureName, compilation.name)
 }
 
 context(Project, MinecraftTarget) internal val RunnableCompilationInternal.sourceSet: SourceSet
@@ -130,9 +130,9 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
     project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
         if (!cloche.isSingleTargetMode && target.name != ClocheExtension::common.name) {
             val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-                target.name
+                target.featureName
             } else {
-                "${TextUtil.camelToKebabCase(target.name)}-${compilation.name}"
+                "${TextUtil.camelToKebabCase(target.featureName)}-${compilation.name}"
             }
 
             it.archiveClassifier.set(classifier)

@@ -55,6 +55,8 @@ internal abstract class FabricTargetImpl(
             it.inputFile.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
             it.sourceNamespace.set("obf")
             it.targetNamespace.set(remapNamespace)
+
+            // TODO Incorrect classpath. perhaps these should be also transforms? but then we have two layers of remaps in the same transform chain, which ig is fine?
             it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
         }
 

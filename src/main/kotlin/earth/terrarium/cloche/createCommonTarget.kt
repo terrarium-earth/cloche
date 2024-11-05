@@ -32,7 +32,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
             return compilations.first().second.finalMinecraftFiles
         }
 
-        val name = lowerCamelCaseGradleName("create", *compilations.map { (target) -> target.name }.sorted().toTypedArray(), "intersection")
+        val name = lowerCamelCaseGradleName("create", *compilations.map { (target) -> target.featureName }.sorted().toTypedArray(), "intersection")
 
         val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: run {
             project.tasks.create(project.addSetupTask(name), JarIntersection::class.java) {
@@ -78,7 +78,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
 
         val dependencyHolder = project.configurations.create(
             lowerCamelCaseGradleName(
-                common.target.name,
+                common.target.featureName,
                 compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME },
                 "intersectionDependencies"
             )
@@ -95,7 +95,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
                 .attribute(CommonTargetAttributes.TYPE, common.type)
 
             if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name && !common.target.publish) {
-                it.attribute(CommonTargetAttributes.NAME, common.target.name)
+                it.attribute(CommonTargetAttributes.NAME, common.target.featureName)
             }
         }
 
@@ -161,7 +161,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
             return
         }
 
-        val compilationDependencyScope = configurations.create(lowerCamelCaseGradleName(common.target.name, compilation.name, "dependencyScope")) {
+        val compilationDependencyScope = configurations.create(lowerCamelCaseGradleName(common.target.featureName, compilation.name, "dependencyScope")) {
             it.isCanBeResolved = false
             it.isCanBeConsumed = false
         }

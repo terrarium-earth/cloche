@@ -52,7 +52,7 @@ constructor(
     private val decompileMinecraft =
         project.tasks.register(
             // project.addSetupTask(
-            lowerCamelCaseGradleName("decompile", target.name, namePart, "minecraft"),
+            lowerCamelCaseGradleName("decompile", target.featureName, namePart, "minecraft"),
             // ),
             Decompile::class.java,
         ) {

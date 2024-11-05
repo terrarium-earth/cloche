@@ -140,7 +140,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
         project
             .extension<RunsContainer>()
-            .create(lowerCamelCaseGradleName(target.name, runnable.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
+            .create(lowerCamelCaseGradleName(target.featureName, runnable.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
                 for (runSetupAction in runnable.runSetupActions) {
                     runSetupAction.execute(builder)
                 }
