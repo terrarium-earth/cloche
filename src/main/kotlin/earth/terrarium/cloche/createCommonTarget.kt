@@ -19,20 +19,33 @@ internal class CommonInfo(
     val target: CommonTargetInternal,
     val dependants: Set<MinecraftTargetInternal>,
     val dependencies: List<CommonTarget>,
-    val type: String,
+    val type: String?,
+    val version: String?,
 )
 
 context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonOfType: Boolean) {
-    val main = common.dependants.map { it to it.main }
-    val client = common.dependants.takeIf { it.any { it is FabricTarget } }?.map { it to ((it as? FabricTarget)?.client ?: it.main) as RunnableCompilationInternal }
-    val data = common.dependants.map { it to it.data }
+    val hasClient = common.dependants.any { it is FabricTarget }
 
-    fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): FileCollection {
+    val main = common.dependants.associateWith(MinecraftTargetInternal::main)
+
+    val client = if (hasClient) {
+        common.dependants.associateWith {
+            ((it as? FabricTarget)?.client ?: it.main) as RunnableCompilationInternal
+        }
+    } else {
+        null
+    }
+
+    val data: Map<MinecraftTargetInternal, RunnableCompilationInternal> = common.dependants.associateWith(MinecraftTargetInternal::data)
+
+    fun intersection(compilations: Map<MinecraftTargetInternal, RunnableCompilationInternal>): FileCollection {
         if (compilations.size == 1) {
-            return compilations.first().second.finalMinecraftFiles
+            return compilations.values.first().finalMinecraftFiles
         }
 
-        val name = lowerCamelCaseGradleName("create", *compilations.map { (target) -> target.featureName }.sorted().toTypedArray(), "intersection")
+        val compilationName = compilations.values.first().name
+
+        val name = lowerCamelCaseGradleName("create", *compilations.map { (target) -> target.featureName }.sorted().toTypedArray(), compilationName, "intersection")
 
         val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: run {
             project.tasks.create(project.addSetupTask(name), JarIntersection::class.java) {
@@ -45,7 +58,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
         return files(createIntersection.output)
     }
 
-    fun add(compilation: CommonCompilation, variant: PublicationVariant, edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>) {
+    fun add(compilation: CommonCompilation, variant: PublicationVariant, intersection: FileCollection) {
         val sourceSet = with(common.target) {
             compilation.sourceSet
         }
@@ -87,12 +100,18 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
             configuration.isCanBeConsumed = false
         }
 
-        project.dependencies.add(dependencyHolder.name, intersection(edgeCompilations))
+        project.dependencies.add(dependencyHolder.name, intersection)
 
         compilation.attributes {
-            it
-                .attribute(VARIANT_ATTRIBUTE, variant)
-                .attribute(CommonTargetAttributes.TYPE, common.type)
+            it.attribute(VARIANT_ATTRIBUTE, variant)
+
+            if (common.type != null) {
+                it.attribute(CommonTargetAttributes.TYPE, common.type)
+            }
+
+           if (common.version != null) {
+               it.attribute(TargetAttributes.MINECRAFT_VERSION, common.version)
+           }
 
             if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name && !common.target.publish) {
                 it.attribute(CommonTargetAttributes.NAME, common.target.featureName)
@@ -175,14 +194,14 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
         }
 
         with(common.target) {
-            sourceSet.linkDynamically(common.target.main, compilationDependencyScope)
+            compilation.linkDynamically(common.target.main, compilationDependencyScope)
         }
     }
 
-    add(common.target.main, PublicationVariant.Common, main)
-    add(common.target.data, PublicationVariant.Data, data)
+    add(common.target.main, PublicationVariant.Common, intersection(main))
+    add(common.target.data, PublicationVariant.Data, intersection(data))
 
     client?.let {
-        add(common.target.client, PublicationVariant.Client, it)
+        add(common.target.client, PublicationVariant.Client, intersection(it))
     }
 }

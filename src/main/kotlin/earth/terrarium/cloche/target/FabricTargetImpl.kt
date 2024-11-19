@@ -96,7 +96,13 @@ internal abstract class FabricTargetImpl(
                 TargetCompilation::class.java,
                 SourceSet.MAIN_SOURCE_SET_NAME,
                 this,
-                minecraftCommonConfiguration,
+                {
+                    if (clientMode == ClientMode.Included) {
+                        minecraftClientConfiguration
+                    } else {
+                        minecraftCommonConfiguration
+                    }
+                },
                 PublicationVariant.Common,
                 Optional.empty<TargetCompilation>(),
                 Side.SERVER,
@@ -109,7 +115,7 @@ internal abstract class FabricTargetImpl(
                 TargetCompilation::class.java,
                 ClochePlugin.CLIENT_COMPILATION_NAME,
                 this,
-                minecraftClientConfiguration,
+                { minecraftClientConfiguration },
                 PublicationVariant.Client,
                 Optional.of(main),
                 Side.CLIENT,
@@ -122,7 +128,7 @@ internal abstract class FabricTargetImpl(
                 TargetCompilation::class.java,
                 ClochePlugin.DATA_COMPILATION_NAME,
                 this,
-                minecraftCommonConfiguration,
+                { minecraftCommonConfiguration },
                 PublicationVariant.Data,
                 Optional.of(main),
                 Side.SERVER,
@@ -131,7 +137,9 @@ internal abstract class FabricTargetImpl(
             )
 
         project.dependencies.add(minecraftCommonConfiguration.configurationName, project.dependencies.platform(STUB_DEPENDENCY))
-        project.dependencies.add(minecraftClientConfiguration.configurationName, minecraftCommonConfiguration.dependency)
+        project.dependencies.add(minecraftClientConfiguration.configurationName, project.dependencies.platform(STUB_DEPENDENCY))
+
+        // project.dependencies.add(minecraftClientConfiguration.configurationName, minecraftCommonConfiguration.dependency)
 
         main.dependencies { dependencies ->
             dependencies.implementation(loaderVersion.map { version -> "net.fabricmc:fabric-loader:$version" })
@@ -142,14 +150,6 @@ internal abstract class FabricTargetImpl(
 
             remapClientMinecraftIntermediary.configure {
                 it.mappings.from(project.configurations.named(dependencies.sourceSet.mappingsConfigurationName))
-            }
-
-            project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
-                minecraftCommonConfiguration.useIn(it)
-            }
-
-            project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
-                minecraftCommonConfiguration.useIn(it)
             }
 
             project.dependencies.addProvider(
@@ -166,21 +166,14 @@ internal abstract class FabricTargetImpl(
                         project.provider { project.gradle.startParameter.isOffline },
                         false,
                         minecraftCommonConfiguration.targetMinecraftAttribute,
-                        TARGET_MINECRAFT_ATTRIBUTE,
+                        MinecraftAttributes.TARGET_MINECRAFT,
                         minecraftCommonConfiguration.targetMinecraftAttribute,
+                        minecraftClientConfiguration.targetMinecraftAttribute,
                     )
                 }
             }
 
             if (clientMode == ClientMode.Included) {
-                project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
-                    minecraftClientConfiguration.useIn(it)
-                }
-
-                project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
-                    minecraftClientConfiguration.useIn(it)
-                }
-
                 project.dependencies.components { components ->
                     components.withModule(ClochePlugin.STUB_MODULE, MinecraftComponentMetadataRule::class.java) {
                         it.params(
@@ -190,7 +183,8 @@ internal abstract class FabricTargetImpl(
                             project.provider { project.gradle.startParameter.isOffline },
                             true,
                             minecraftClientConfiguration.targetMinecraftAttribute,
-                            TARGET_MINECRAFT_ATTRIBUTE,
+                            MinecraftAttributes.TARGET_MINECRAFT,
+                            minecraftCommonConfiguration.targetMinecraftAttribute,
                             minecraftClientConfiguration.targetMinecraftAttribute,
                         )
                     }
@@ -205,14 +199,6 @@ internal abstract class FabricTargetImpl(
         }
 
         client.dependencies { dependencies ->
-            project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
-                minecraftClientConfiguration.useIn(it)
-            }
-
-            project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
-                minecraftClientConfiguration.useIn(it)
-            }
-
             project.dependencies.components { components ->
                 components.withModule(ClochePlugin.STUB_MODULE, MinecraftComponentMetadataRule::class.java) {
                     it.params(
@@ -222,7 +208,8 @@ internal abstract class FabricTargetImpl(
                         project.provider { project.gradle.startParameter.isOffline },
                         true,
                         minecraftClientConfiguration.targetMinecraftAttribute,
-                        TARGET_MINECRAFT_ATTRIBUTE,
+                        MinecraftAttributes.TARGET_MINECRAFT,
+                        minecraftCommonConfiguration.targetMinecraftAttribute,
                         minecraftClientConfiguration.targetMinecraftAttribute,
                     )
                 }

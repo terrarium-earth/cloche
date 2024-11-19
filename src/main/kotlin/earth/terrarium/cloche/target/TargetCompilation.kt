@@ -16,8 +16,11 @@ import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.provider.Provider
@@ -39,7 +42,7 @@ internal abstract class TargetCompilation
 constructor(
     private val name: String,
     final override val target: MinecraftTargetInternal,
-    final override val minecraftConfiguration: MinecraftConfiguration,
+    private val minecraftConfigurationSupplier: () -> MinecraftConfiguration,
     private val variant: PublicationVariant,
     main: Optional<TargetCompilation>,
     side: Side,
@@ -66,6 +69,9 @@ constructor(
     final override val attributeActions = mutableListOf<Action<AttributeContainer>>()
     final override val runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
 
+    final override val minecraftConfiguration
+        get() = minecraftConfigurationSupplier()
+
     override val capabilityGroup = project.group.toString()
 
     override val capabilityName: String = if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
@@ -85,19 +91,25 @@ constructor(
             }
 
             val transformedView =
-                project.configurations.getByName(sourceSet.compileClasspathConfigurationName).incoming.artifactView {
-                    it.componentFilter {
-                        it is ProjectComponentIdentifier && it.projectPath == minecraftConfiguration.dependency.dependencyProject.path
-                    }
+                project.configurations.named(sourceSet.compileClasspathConfigurationName).map { configuration ->
+                    configuration.incoming.artifactView {
+                        it.componentFilter {
+                            it is ProjectComponentIdentifier && it.projectPath == minecraftConfiguration.dependency.dependencyProject.path
+                        }
 
-                    it.attributes { attributes ->
-                        attributes
-                            .attribute(TARGET_MINECRAFT_ATTRIBUTE, minecraftConfiguration.targetMinecraftAttribute)
-                            .attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
+                        it.attributes { attributes ->
+                            attributes
+                                .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, target.project.objects.named(LibraryElements::class.java, LibraryElements.JAR))
+                                .attribute(TargetAttributes.MOD_LOADER, target.loaderAttributeName)
+                                .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
+                                .attribute(MinecraftAttributes.TARGET_MINECRAFT, minecraftConfiguration.targetMinecraftAttribute)
+                                .attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
+                                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, MINECRAFT_ARTIFACT_TYPE)
+                        }
                     }
                 }
 
-            finalMinecraftFiles.from(transformedView.files)
+            finalMinecraftFiles.from(transformedView.map(ArtifactView::getFiles))
 
             decompileMinecraft.configure {
                 // it.classpath.from(this@TargetCompilation.sourceSet.compileClasspath)
@@ -118,12 +130,16 @@ constructor(
                 it.attributes
                     .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
                     .attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
+
+                minecraftConfiguration.useIn(it)
             }
 
             project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
                 it.attributes
                     .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
                     .attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.of(this, States.ACCESS_WIDENED))
+
+                minecraftConfiguration.useIn(it)
             }
 
             setupMinecraftTransformationPipeline(

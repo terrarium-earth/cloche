@@ -4,7 +4,10 @@ import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.core.MinecraftDependenciesOperatingSystemMetadataRule
+import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
@@ -96,7 +99,8 @@ class ClochePlugin : Plugin<Project> {
 
         target.dependencies.artifactTypes {
             it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
-                jar.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
+                jar.attributes
+                    .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
             }
 
             it.register(MINECRAFT_ARTIFACT_TYPE) { minecraft ->
@@ -134,6 +138,19 @@ class ClochePlugin : Plugin<Project> {
             it.dependsOn(primaryCommon)
         }
 
+        val versions = project.objects.listProperty(String::class.java).also {
+            cloche.targets.map(MinecraftTarget::minecraftVersion).forEach(it::add)
+        }
+
+        project.dependencies.components.all(MinecraftDependenciesOperatingSystemMetadataRule::class.java) {
+            it.params(
+                getCacheDirectory(project),
+                versions,
+                project.provider { VERSION_MANIFEST_URL },
+                project.provider { project.gradle.startParameter.isOffline },
+            )
+        }
+
         cloche.commonTargets.all {
             if (it != primaryCommon) {
                 it.dependsOn(primaryCommon)
@@ -154,18 +171,21 @@ class ClochePlugin : Plugin<Project> {
 
         val commons = commonToTarget.map { (common, edges) ->
             var commonType: String? = null
+            var minecraftVersion: String? = null
 
             for (target in edges) {
+                if (minecraftVersion == null) {
+                    minecraftVersion = target.minecraftVersion.get()
+                } else if (minecraftVersion != target.minecraftVersion.get()) {
+                    minecraftVersion = null
+                }
+
                 if (commonType == null) {
                     commonType = target.commonType
                 } else if (target.commonType != commonType) {
-                    commonType = GENERAL_COMMON_TYPE
+                    commonType = null
                     break
                 }
-            }
-
-            if (commonType == null) {
-                commonType = GENERAL_COMMON_TYPE
             }
 
             CommonInfo(
@@ -173,6 +193,7 @@ class ClochePlugin : Plugin<Project> {
                 edges,
                 getDependencies(common),
                 commonType,
+                minecraftVersion,
             )
         }
 
@@ -187,7 +208,10 @@ class ClochePlugin : Plugin<Project> {
         const val CLIENT_COMPILATION_NAME = "client"
         const val DATA_COMPILATION_NAME = "data"
 
-        const val STUB_MODULE = "net.msrandom:stub"
-        const val STUB_DEPENDENCY = "$STUB_MODULE:0.0.0"
+        const val STUB_GROUP = "net.msrandom"
+        const val STUB_NAME = "stub"
+        const val STUB_VERSION = "0.0.0"
+        const val STUB_MODULE = "$STUB_GROUP:$STUB_NAME"
+        const val STUB_DEPENDENCY = "$STUB_MODULE:$STUB_VERSION"
     }
 }

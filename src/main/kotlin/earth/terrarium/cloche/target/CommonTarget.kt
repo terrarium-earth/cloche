@@ -7,25 +7,34 @@ import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.tasks.SourceSet
 
+@JvmDefaultWithoutCompatibility
 interface CommonTarget : ClocheTarget {
     val main: Compilation
     val data: Compilation
     val client: Compilation
+
+    fun data(action: Action<Compilation>) {
+        action.execute(data)
+    }
+
+    fun client(action: Action<Compilation>) {
+        action.execute(client)
+    }
 
     fun withPublication()
 }
 
 internal abstract class CommonTargetInternal : CommonTarget {
     override val main: CommonCompilation = run {
-        project.objects.newInstance(CommonCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME)
+        project.objects.newInstance(CommonCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME, this)
     }
 
     override val data: CommonCompilation = run {
-        project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.DATA_COMPILATION_NAME)
+        project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.DATA_COMPILATION_NAME, this)
     }
 
     override val client: CommonCompilation = run {
-        project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
+        project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.CLIENT_COMPILATION_NAME, this)
     }
 
     var publish = false

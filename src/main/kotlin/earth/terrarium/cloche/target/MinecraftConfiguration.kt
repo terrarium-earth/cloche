@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.MinecraftAttributes
 import earth.terrarium.cloche.TargetAttributes
 import earth.terrarium.cloche.asDependency
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -20,7 +21,7 @@ internal class MinecraftConfiguration(
     targetName: String,
     name: String? = null,
 ) {
-    private val capabilityName = if (name == null) {
+    val capabilityName = if (name == null) {
         "net.minecraft:$targetName"
     } else {
         "net.minecraft:$targetName-$name"
@@ -41,6 +42,7 @@ internal class MinecraftConfiguration(
                 .attribute(TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE, target.project.objects.named(TargetJvmEnvironment::class.java, TargetJvmEnvironment.STANDARD_JVM))
                 .attribute(TargetAttributes.MOD_LOADER, target.loaderAttributeName)
                 .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
+                .attribute(MinecraftAttributes.TARGET_MINECRAFT, targetMinecraftAttribute)
         }
     }
 
@@ -49,7 +51,21 @@ internal class MinecraftConfiguration(
         configuration.isCanBeConsumed = false
     }
 
-    val dependency = target.project.asDependency(consumableConfiguration.name)
+    val dependency = target.project.asDependency {
+        because("Dependency on Minecraft($targetMinecraftAttribute)")
+
+        capabilities { capabilities ->
+            capabilities.requireCapability(capabilityName)
+        }
+
+        attributes { attributes ->
+            attributes
+                .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, target.project.objects.named(LibraryElements::class.java, LibraryElements.JAR))
+                .attribute(TargetAttributes.MOD_LOADER, target.loaderAttributeName)
+                .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
+                .attribute(MinecraftAttributes.TARGET_MINECRAFT, targetMinecraftAttribute)
+        }
+    }
 
     val configurationName: String
         get() = consumableConfiguration.name

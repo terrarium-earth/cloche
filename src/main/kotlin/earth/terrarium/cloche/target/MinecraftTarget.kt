@@ -1,7 +1,6 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
-import earth.terrarium.cloche.PublicationVariant
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.attributes.AttributeContainer
@@ -11,8 +10,6 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
-
-const val GENERAL_COMMON_TYPE = "general"
 
 @JvmDefaultWithoutCompatibility
 interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {

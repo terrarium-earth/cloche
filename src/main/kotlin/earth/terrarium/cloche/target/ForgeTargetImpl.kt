@@ -19,6 +19,8 @@ import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
+import org.gradle.api.artifacts.ArtifactView
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
@@ -67,7 +69,7 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                 TargetCompilation::class.java,
                 SourceSet.MAIN_SOURCE_SET_NAME,
                 this,
-                patchedMinecraftConfiguration,
+                { patchedMinecraftConfiguration },
                 PublicationVariant.Joined,
                 java.util.Optional.empty<TargetCompilation>(),
                 Side.UNKNOWN,
@@ -81,7 +83,7 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                 TargetCompilation::class.java,
                 ClochePlugin.DATA_COMPILATION_NAME,
                 this,
-                patchedMinecraftConfiguration,
+                { patchedMinecraftConfiguration },
                 PublicationVariant.Data,
                 java.util.Optional.of(main),
                 Side.UNKNOWN,
@@ -101,24 +103,28 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                 }
             }
 
+            project.dependencies.add(dependencies.sourceSet.runtimeOnlyConfigurationName, project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)))
             project.dependencies.addProvider(dependencies.sourceSet.patchesConfigurationName, userdev)
 
             resolvePatchedMinecraft.configure {
+                val compile = project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName)
+
+                val libraries = compile.map { configuration ->
+                    configuration.incoming.artifactView { view ->
+                        view.componentFilter { id ->
+                            id is ModuleComponentIdentifier && id.group == ClochePlugin.STUB_GROUP && id.module == ClochePlugin.STUB_NAME && id.version == ClochePlugin.STUB_VERSION
+                        }
+                    }
+                }
+
                 it.patches.from(project.configurations.named(dependencies.sourceSet.patchesConfigurationName))
+                it.libraries.from(libraries.map(ArtifactView::getFiles))
             }
 
             project.dependencies.addProvider(
                 dependencies.sourceSet.mappingsConfigurationName,
                 mcpConfigDependency(project, project.configurations.getByName(dependencies.sourceSet.patchesConfigurationName)),
             )
-
-            project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
-                patchedMinecraftConfiguration.useIn(it)
-            }
-
-            project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
-                patchedMinecraftConfiguration.useIn(it)
-            }
 
             project.dependencies.components { components ->
                 components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
@@ -136,7 +142,7 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                         },
                         userdevClassifier.orElse("userdev"),
                         patchedMinecraftConfiguration.targetMinecraftAttribute,
-                        TARGET_MINECRAFT_ATTRIBUTE,
+                        MinecraftAttributes.TARGET_MINECRAFT,
                         patchedMinecraftConfiguration.targetMinecraftAttribute,
                     )
                 }
@@ -174,6 +180,8 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                     serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
                     serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
                 }
+
+                serverConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
             }
         }
 
@@ -185,6 +193,8 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                     clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
                     clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
                 }
+
+                clientConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
             }
         }
 

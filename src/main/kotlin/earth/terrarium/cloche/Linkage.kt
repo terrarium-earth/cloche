@@ -5,6 +5,7 @@ import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
+import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ProjectDependency
@@ -12,8 +13,8 @@ import org.gradle.api.tasks.SourceSet
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
 
-fun Project.asDependency(configuration: String? = null) =
-    dependencies.project(mapOf("path" to path, "configuration" to configuration)) as ProjectDependency
+internal fun Project.asDependency(configure: ProjectDependency.() -> Unit) =
+    (dependencies.project(mapOf("path" to path)) as ProjectDependency).also(configure)
 
 /**
  * Depend on the compiled output of [sourceSet], by requesting the capability to allow for resolution to the proper variants
@@ -30,8 +31,10 @@ private fun SourceSet.linkDynamically(sourceSet: SourceSet, dependency: ProjectD
  * Depend on the api configuration of [compilation]
  */
 context(Project, CommonTarget)
-internal fun SourceSet.linkDynamically(compilation: CommonCompilation, dependencyScope: Configuration) {
-    val dependency = project.asDependency().apply {
+internal fun CommonCompilation.linkDynamically(compilation: CommonCompilation, dependencyScope: Configuration) {
+    val dependency = project.asDependency {
+        because("Dependency from ${target.name}:${this@linkDynamically.name} to ${compilation.target.name}:${compilation.name}")
+
         capabilities {
             it.requireCapability(compilation.capability)
         }
@@ -39,15 +42,17 @@ internal fun SourceSet.linkDynamically(compilation: CommonCompilation, dependenc
         attributes(compilation::attributes)
     }
 
-    linkDynamically(compilation.sourceSet, dependency, dependencyScope.name)
+    sourceSet.linkDynamically(compilation.sourceSet, dependency, dependencyScope.name)
 }
 
 /**
  * Depend on the variant of [compilation]
  */
 context(Project, MinecraftTarget)
-internal fun SourceSet.linkDynamically(compilation: RunnableCompilationInternal) {
-    val dependency = project.asDependency().apply {
+internal fun RunnableCompilationInternal.linkDynamically(compilation: RunnableCompilationInternal) {
+    val dependency = project.asDependency {
+        because("Dependency from ${target.name}:${this@linkDynamically.name} to ${compilation.target.name}:${compilation.name}")
+
         capabilities {
             it.requireCapability(compilation.capability)
         }
@@ -55,13 +60,15 @@ internal fun SourceSet.linkDynamically(compilation: RunnableCompilationInternal)
         attributes(compilation::attributes)
     }
 
-    val configurationName = if (project.configurations.findByName(apiConfigurationName) == null) {
-        implementationConfigurationName
+    val sourceSet = sourceSet
+
+    val configurationName = if (project.configurations.findByName(sourceSet.apiConfigurationName) == null) {
+        sourceSet.implementationConfigurationName
     } else {
-        apiConfigurationName
+        sourceSet.apiConfigurationName
     }
 
-    linkDynamically(compilation.sourceSet, dependency, configurationName)
+    sourceSet.linkDynamically(compilation.sourceSet, dependency, configurationName)
 }
 
 /**

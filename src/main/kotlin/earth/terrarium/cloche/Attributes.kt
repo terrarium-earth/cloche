@@ -9,8 +9,10 @@ import org.gradle.api.tasks.SourceSet
 @JvmField
 val VARIANT_ATTRIBUTE: Attribute<PublicationVariant> = Attribute.of("earth.terrarium.cloche.variant", PublicationVariant::class.java)
 
-@JvmField
-internal val TARGET_MINECRAFT_ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.targetMinecraft", String::class.java)
+internal object MinecraftAttributes {
+    @JvmField
+    val TARGET_MINECRAFT: Attribute<String> = Attribute.of("earth.terrarium.cloche.targetMinecraft", String::class.java)
+}
 
 // Edge target attributes
 object TargetAttributes {

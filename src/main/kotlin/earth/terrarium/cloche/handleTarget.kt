@@ -1,7 +1,10 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
+import net.msrandom.minecraftcodev.core.MinecraftDependenciesOperatingSystemMetadataRule
+import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
@@ -11,8 +14,14 @@ import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
+import org.gradle.api.component.AdhocComponentWithVariants
+import org.gradle.api.internal.tasks.JvmConstants
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.SourceSet
+import org.gradle.nativeplatform.OperatingSystemFamily
+import org.gradle.nativeplatform.TargetMachine
+import org.gradle.nativeplatform.platform.OperatingSystem
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 
 private fun setupModTransformationPipeline(
     project: Project,
@@ -79,19 +88,37 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
         if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {
-                project.configurations.named(name) {
-                    val state = if (target.remapNamespace != null) {
-                        States.REMAPPED
-                    } else {
-                        States.INCLUDES_EXTRACTED
+                val configuration = project.configurations.getByName(name)
+
+                val state = if (target.remapNamespace != null) {
+                    States.REMAPPED
+                } else {
+                    States.INCLUDES_EXTRACTED
+                }
+
+                configuration.outgoing.variants { variants ->
+                    variants.register("transformedJar") { variant ->
+                        variant.artifact(tasks.named(sourceSet.jarTaskName))
                     }
 
-                    it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
+                    variants.all { variant ->
+                        variant.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
+                    }
+                }
+
+                project.components.named(JvmConstants.JAVA_MAIN_COMPONENT_NAME) { component ->
+                    component as AdhocComponentWithVariants
+
+                    component.withVariantsFromConfiguration(configuration) {
+                        if (it.configurationVariant.name == "transformedJar") {
+                            it.skip()
+                        }
+                    }
                 }
             }
         } else {
             with(target) {
-                sourceSet.linkDynamically(target.main)
+                // compilation.linkDynamically(target.main)
             }
         }
 
@@ -120,7 +147,12 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
         for (name in resolvableConfigurationNames) {
             project.configurations.named(name) { configuration ->
-                configuration.attributes.attribute(TARGET_MINECRAFT_ATTRIBUTE, compilation.minecraftConfiguration.targetMinecraftAttribute)
+                configuration.attributes.attribute(MinecraftAttributes.TARGET_MINECRAFT, compilation.minecraftConfiguration.targetMinecraftAttribute)
+
+                configuration.attributes.attribute(
+                    OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                    objects.named(OperatingSystemFamily::class.java, DefaultNativePlatform.host().operatingSystem.toFamilyName()),
+                )
             }
         }
 
