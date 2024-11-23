@@ -1,13 +1,15 @@
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClocheDependencyHandler
-import earth.terrarium.cloche.ClocheExtension
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.ConfigurableFileCollection
@@ -84,37 +86,55 @@ internal interface RunnableCompilationInternal : CompilationInternal, RunnableCo
     val minecraftConfiguration: MinecraftConfiguration
 
     val target: MinecraftTargetInternal
+
+    val sourceSet: SourceSet
 }
 
-private fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
-    target.name == ClocheExtension::common.name -> compilation.name
+internal fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
+    target.name == COMMON -> compilation.name
     compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> GUtil.toLowerCamelCase(target.featureName)
     else -> lowerCamelCaseGradleName(target.featureName, compilation.name)
 }
-
-context(Project, MinecraftTarget) internal val RunnableCompilationInternal.sourceSet: SourceSet
-    get() {
-        val cloche = project.extension<ClocheExtension>()
-
-        val name = if (cloche.isSingleTargetMode) {
-            name
-        } else {
-            sourceSetName(this, this@MinecraftTarget)
-        }
-
-        return project.extension<SourceSetContainer>().maybeCreate(name)
-    }
 
 context(Project, CommonTarget) internal val CompilationInternal.sourceSet: SourceSet
     get() {
         return project.extension<SourceSetContainer>().maybeCreate(sourceSetName(this, this@CommonTarget))
     }
 
-internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarget, compilation: Compilation) {
-    val cloche = project.extension<ClocheExtension>()
+fun ConfigurationContainer.withName(name: String, action: Action<Configuration>) = named(name::equals).all(action)
 
-    if (!cloche.isSingleTargetMode) {
-        val compilationDirectory = project.layout.projectDirectory.dir("src").dir(target.name).dir(compilation.name)
+internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarget, compilation: Compilation, singleTarget: Boolean) {
+    if (sourceSet.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+        val main = project.extension<SourceSetContainer>().getByName(SourceSet.MAIN_SOURCE_SET_NAME)
+
+        val configurationNames = listOf(
+            SourceSet::getCompileClasspathConfigurationName,
+            SourceSet::getRuntimeClasspathConfigurationName,
+            SourceSet::getApiElementsConfigurationName,
+            SourceSet::getRuntimeElementsConfigurationName,
+            SourceSet::getJavadocElementsConfigurationName,
+            SourceSet::getSourcesElementsConfigurationName,
+        )
+
+        for (name in configurationNames) {
+            project.configurations.withName(name(main)) { mainConfiguration ->
+                project.configurations.withName(name(sourceSet)) { configuration ->
+                    mainConfiguration.attributes { mainAttributes ->
+                        configuration.attributes { attributes ->
+                            for (attribute in mainAttributes.keySet()) {
+                                // TODO This isn't live, thus new attributes won't be copied
+                                @Suppress("UNCHECKED_CAST")
+                                attributes.attributeProvider(attribute as Attribute<Any>, provider { mainAttributes.getAttribute(attribute)!! })
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!singleTarget) {
+        val compilationDirectory = project.layout.projectDirectory.dir("src").dir(target.namePath).dir(compilation.name)
 
         sourceSet.java.srcDir(compilationDirectory.dir("java"))
         sourceSet.resources.srcDir(compilationDirectory.dir("resources"))
@@ -129,7 +149,7 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
     }
 
     project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
-        if (!cloche.isSingleTargetMode && target.name != ClocheExtension::common.name) {
+        if (!singleTarget && target.name != COMMON) {
             val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
                 target.featureName
             } else {

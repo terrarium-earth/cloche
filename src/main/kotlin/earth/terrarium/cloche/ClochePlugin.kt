@@ -54,25 +54,26 @@ fun Project.extend(
     project.configurations.findByName(base)?.extendsFrom(it)
 }
 
-class ClochePlugin : Plugin<Project> {
-    private fun addTarget(
-        cloche: ClocheExtension,
-        project: Project,
-        target: MinecraftTarget,
-    ) {
-        target as MinecraftTargetInternal
+internal fun addTarget(
+    cloche: ClocheExtension,
+    project: Project,
+    target: MinecraftTarget,
+    singleTarget: Boolean,
+) {
+    target as MinecraftTargetInternal
 
-        target.minecraftVersion.convention(cloche.minecraftVersion)
+    target.minecraftVersion.convention(cloche.minecraftVersion)
 
-        for (mappingAction in cloche.mappingActions) {
-            target.mappings(mappingAction)
-        }
-
-        with(project) {
-            handleTarget(target)
-        }
+    for (mappingAction in cloche.mappingActions) {
+        target.mappings(mappingAction)
     }
 
+    with(project) {
+        handleTarget(target, singleTarget)
+    }
+}
+
+class ClochePlugin : Plugin<Project> {
     override fun apply(target: Project) {
         val cloche = target.extensions.create("cloche", ClocheExtension::class.java)
 
@@ -99,8 +100,7 @@ class ClochePlugin : Plugin<Project> {
 
         target.dependencies.artifactTypes {
             it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
-                jar.attributes
-                    .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
+                jar.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
             }
 
             it.register(MINECRAFT_ARTIFACT_TYPE) { minecraft ->
@@ -115,91 +115,79 @@ class ClochePlugin : Plugin<Project> {
             }
         }
 
-        target.afterEvaluate { project ->
-            applyTargets(project, cloche)
-        }
+        applyTargets(target, cloche)
     }
 
     private fun applyTargets(project: Project, cloche: ClocheExtension) {
-        val isSingleTargetMode = cloche.targets.size == 1 && cloche.commonTargets.isEmpty()
-
-        cloche.isSingleTargetMode = isSingleTargetMode
-
-        if (isSingleTargetMode) {
-            addTarget(cloche, project, cloche.targets.first())
-            return
-        }
-
-        val primaryCommon = cloche.common {}
-
         cloche.targets.all {
-            addTarget(cloche, project, it)
-
-            it.dependsOn(primaryCommon)
+            (it as MinecraftTargetInternal).initialize(false)
+            addTarget(cloche, project, it, false)
         }
 
-        val versions = project.objects.listProperty(String::class.java).also {
-            cloche.targets.map(MinecraftTarget::minecraftVersion).forEach(it::add)
-        }
-
-        project.dependencies.components.all(MinecraftDependenciesOperatingSystemMetadataRule::class.java) {
-            it.params(
-                getCacheDirectory(project),
-                versions,
-                project.provider { VERSION_MANIFEST_URL },
-                project.provider { project.gradle.startParameter.isOffline },
-            )
-        }
-
-        cloche.commonTargets.all {
-            if (it != primaryCommon) {
-                it.dependsOn(primaryCommon)
-            }
-        }
-
-        fun getDependencies(target: ClocheTarget): List<CommonTarget> =
-            target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
-
-        val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
-        val commonToTarget = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal>>()
-
-        for ((edgeTarget, dependencies) in targetDependencies) {
-            for (dependency in dependencies) {
-                commonToTarget.computeIfAbsent(dependency as CommonTargetInternal) { hashSetOf() }.add(edgeTarget as MinecraftTargetInternal)
-            }
-        }
-
-        val commons = commonToTarget.map { (common, edges) ->
-            var commonType: String? = null
-            var minecraftVersion: String? = null
-
-            for (target in edges) {
-                if (minecraftVersion == null) {
-                    minecraftVersion = target.minecraftVersion.get()
-                } else if (minecraftVersion != target.minecraftVersion.get()) {
-                    minecraftVersion = null
+        project.afterEvaluate {
+            project.dependencies.components.all(MinecraftDependenciesOperatingSystemMetadataRule::class.java) {
+                val versions = if (cloche.singleTargetConfigurator.target == null) {
+                    cloche.targets.map { it.minecraftVersion.get() }
+                } else {
+                    listOf(cloche.singleTargetConfigurator.target!!.minecraftVersion.get())
                 }
 
-                if (commonType == null) {
-                    commonType = target.commonType
-                } else if (target.commonType != commonType) {
-                    commonType = null
-                    break
+                it.params(
+                    getCacheDirectory(project),
+                    versions,
+                    VERSION_MANIFEST_URL,
+                    project.gradle.startParameter.isOffline,
+                )
+            }
+
+            if (cloche.singleTargetConfigurator.target != null) {
+                return@afterEvaluate
+            }
+
+            fun getDependencies(target: ClocheTarget): List<CommonTarget> =
+                target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
+
+            val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
+            val commonToTarget = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal>>()
+
+            for ((edgeTarget, dependencies) in targetDependencies) {
+                for (dependency in dependencies) {
+                    commonToTarget.computeIfAbsent(dependency as CommonTargetInternal) { hashSetOf() }.add(edgeTarget as MinecraftTargetInternal)
                 }
             }
 
-            CommonInfo(
-                common,
-                edges,
-                getDependencies(common),
-                commonType,
-                minecraftVersion,
-            )
-        }
+            val commons = commonToTarget.map { (common, edges) ->
+                var commonType: String? = null
+                var minecraftVersion: String? = null
 
-        with(project) {
-            for (common in commons) {
-                createCommonTarget(common, commons.count { it.type == common.type } == 1)
+                for (target in edges) {
+                    if (minecraftVersion == null) {
+                        minecraftVersion = target.minecraftVersion.get()
+                    } else if (minecraftVersion != target.minecraftVersion.get()) {
+                        minecraftVersion = null
+                    }
+
+                    if (commonType == null) {
+                        commonType = target.commonType
+                    } else if (target.commonType != commonType) {
+                        commonType = null
+                        break
+                    }
+                }
+
+                CommonInfo(
+                    common,
+                    edges,
+                    getDependencies(common),
+                    commonType,
+                    minecraftVersion,
+                )
+            }
+
+            with(it) {
+                for (common in commons) {
+                    createCommonTarget(common, commons.count { it.type == common.type } == 1)
+                }
             }
         }
     }

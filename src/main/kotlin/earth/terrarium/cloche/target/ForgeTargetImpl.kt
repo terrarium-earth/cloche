@@ -25,19 +25,22 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
+import javax.inject.Inject
 
-internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTargetInternal, ForgeTarget {
+internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal, ForgeTarget {
     private val resolvePatchedMinecraft = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("resolve", name, "patchedMinecraft")), ResolvePatchedMinecraft::class.java) {
         it.version.set(minecraftVersion)
     }
 
-    final override val main: TargetCompilation
+    private val patchedMinecraftConfiguration = MinecraftConfiguration(this, name, resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output), name)
+
+    final override lateinit var main: TargetCompilation
 
     final override val client: SimpleRunnable = run {
         project.objects.newInstance(SimpleRunnable::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
     }
 
-    final override val data: TargetCompilation
+    final override lateinit var data: TargetCompilation
 
     protected var hasMappings = false
 
@@ -52,8 +55,8 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
         @Internal
         get() = "forge"
 
-    override val loaderAttributeName get() = ClocheExtension::forge.name
-    override val commonType get() = ClocheExtension::forge.name
+    override val loaderAttributeName get() = FORGE
+    override val commonType get() = FORGE
 
     override val compilations: List<RunnableCompilationInternal>
         get() = listOf(main, data)
@@ -61,9 +64,7 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
     override val runnables: List<RunnableInternal>
         get() = compilations
 
-    init {
-        val patchedMinecraftConfiguration = MinecraftConfiguration(this, name, resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output), name)
-
+    override fun initialize(isSingleTarget: Boolean) {
         main = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
@@ -73,6 +74,7 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                 PublicationVariant.Joined,
                 java.util.Optional.empty<TargetCompilation>(),
                 Side.UNKNOWN,
+                isSingleTarget,
                 project.provider { remapNamespace },
                 true,
             )
@@ -87,6 +89,7 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                 PublicationVariant.Data,
                 java.util.Optional.of(main),
                 Side.UNKNOWN,
+                isSingleTarget,
                 project.provider { remapNamespace },
                 true,
             )
@@ -107,18 +110,16 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
             project.dependencies.addProvider(dependencies.sourceSet.patchesConfigurationName, userdev)
 
             resolvePatchedMinecraft.configure {
-                val compile = project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName)
+                val configuration = project.configurations.getByName(dependencies.sourceSet.compileClasspathConfigurationName)
 
-                val libraries = compile.map { configuration ->
-                    configuration.incoming.artifactView { view ->
-                        view.componentFilter { id ->
-                            id is ModuleComponentIdentifier && id.group == ClochePlugin.STUB_GROUP && id.module == ClochePlugin.STUB_NAME && id.version == ClochePlugin.STUB_VERSION
-                        }
+                val libraries = configuration.incoming.artifactView { view ->
+                    view.componentFilter { id ->
+                        id is ModuleComponentIdentifier && id.group == ClochePlugin.STUB_GROUP && id.module == ClochePlugin.STUB_NAME && id.version == ClochePlugin.STUB_VERSION
                     }
                 }
 
                 it.patches.from(project.configurations.named(dependencies.sourceSet.patchesConfigurationName))
-                it.libraries.from(libraries.map(ArtifactView::getFiles))
+                it.libraries.from(libraries.files)
             }
 
             project.dependencies.addProvider(
@@ -126,25 +127,23 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
                 mcpConfigDependency(project, project.configurations.getByName(dependencies.sourceSet.patchesConfigurationName)),
             )
 
-            project.dependencies.components { components ->
-                components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
-                    it.params(
-                        getCacheDirectory(project),
-                        minecraftVersion,
-                        project.provider { VERSION_MANIFEST_URL },
-                        project.provider { project.gradle.startParameter.isOffline },
-                        this@ForgeTargetImpl.group,
-                        this@ForgeTargetImpl.artifact,
-                        minecraftVersion.flatMap { minecraftVersion ->
-                            loaderVersion.map { forgeVersion ->
-                                version(minecraftVersion, forgeVersion)
-                            }
-                        },
-                        userdevClassifier.orElse("userdev"),
-                        patchedMinecraftConfiguration.targetMinecraftAttribute,
-                        MinecraftAttributes.TARGET_MINECRAFT,
-                        patchedMinecraftConfiguration.targetMinecraftAttribute,
-                    )
+            project.afterEvaluate { project ->
+                project.dependencies.components { components ->
+                    components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
+                        it.params(
+                            getCacheDirectory(project),
+                            minecraftVersion.get(),
+                            VERSION_MANIFEST_URL,
+                            project.gradle.startParameter.isOffline,
+                            this@ForgeTargetImpl.group,
+                            this@ForgeTargetImpl.artifact,
+                            version(minecraftVersion.get(), loaderVersion.get()),
+                            userdevClassifier.getOrElse("userdev"),
+                            patchedMinecraftConfiguration.targetMinecraftAttribute,
+                            MinecraftAttributes.TARGET_MINECRAFT,
+                            patchedMinecraftConfiguration.targetMinecraftAttribute,
+                        )
+                    }
                 }
             }
 
@@ -174,38 +173,33 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
         }
 
         main.runConfiguration {
+            it.sourceSet(main.sourceSet)
+
             it.defaults.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
-                with(project) {
-                    it.sourceSet(main.sourceSet)
-                    serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                    serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
-                }
+                serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
 
                 serverConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
             }
         }
 
         client.runConfiguration {
-            it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
-                with(project) {
-                    it.sourceSet(main.sourceSet)
+            it.sourceSet(main.sourceSet)
 
-                    clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                    clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
-                }
+            it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
+                clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
 
                 clientConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
             }
         }
 
         data.runConfiguration {
-            it.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
-                with(project) {
-                    it.sourceSet(data.sourceSet)
+            it.sourceSet(data.sourceSet)
 
-                    datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                    datagen.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
-                }
+            it.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
+                datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                datagen.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
 
                 datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
 
@@ -232,9 +226,7 @@ internal abstract class ForgeTargetImpl(private val name: String) : MinecraftTar
     }
 
     private fun addMappings(providers: List<MappingDependencyProvider>) {
-        val sourceSet = with(project) {
-            main.sourceSet
-        }
+        val sourceSet = main.sourceSet
 
         for (mapping in providers) {
             project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@ForgeTargetImpl.name) })

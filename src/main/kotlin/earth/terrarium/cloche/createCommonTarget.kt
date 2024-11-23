@@ -63,12 +63,12 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
             compilation.sourceSet
         }
 
-        if (common.target.name != ClocheExtension::common.name || compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+        if (common.target.name != COMMON || compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             project.extension<JavaPluginExtension>().registerFeature(sourceSet.name) { spec ->
                 spec.usingSourceSet(sourceSet)
                 spec.capability(compilation.capabilityGroup, compilation.capabilityName, project.version.toString())
 
-                if (common.target.name != ClocheExtension::common.name && !common.target.publish) {
+                if (common.target.name != COMMON && !common.target.publish) {
                     spec.disablePublication()
                 }
 
@@ -78,7 +78,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
             }
         }
 
-        configureSourceSet(sourceSet, common.target, compilation)
+        configureSourceSet(sourceSet, common.target, compilation, false)
 
         project.components.named("java") { java ->
             java as AdhocComponentWithVariants
@@ -113,7 +113,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
                it.attribute(TargetAttributes.MINECRAFT_VERSION, common.version)
            }
 
-            if (!onlyCommonOfType && common.target.name != ClocheExtension::common.name && !common.target.publish) {
+            if (!onlyCommonOfType && common.target.name != COMMON && !common.target.publish) {
                 it.attribute(CommonTargetAttributes.NAME, common.target.featureName)
             }
         }

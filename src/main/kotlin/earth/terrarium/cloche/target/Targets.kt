@@ -15,11 +15,15 @@ interface FabricTarget : MinecraftTarget {
     fun client(action: Action<RunnableCompilation>)
 }
 
-interface ForgeTarget : MinecraftTarget {
+interface ForgeLikeTarget : MinecraftTarget {
+    fun client(action: Action<Runnable>) = action.execute(client)
+}
+
+interface ForgeTarget : ForgeLikeTarget {
     val userdevClassifier: Property<String>
         @Input
         @Optional
         get
-
-    fun client(action: Action<Runnable>) = action.execute(client)
 }
+
+interface NeoforgeTarget : ForgeLikeTarget

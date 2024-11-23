@@ -7,6 +7,8 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
+internal const val TARGET_NAME_PATH_SEPARATOR = ':'
+
 sealed interface ClocheTarget : Compilation {
     val dependsOn: ListProperty<CommonTarget>
         @Optional
@@ -22,7 +24,10 @@ sealed interface ClocheTarget : Compilation {
         get() = null
 
     val featureName
-        get() = name.replace('/', '-')
+        get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '-')
+
+    val namePath
+        get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '/')
 
     fun dependsOn(vararg common: CommonTarget) {
         dependsOn.addAll(*common)

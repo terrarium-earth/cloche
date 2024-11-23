@@ -6,6 +6,7 @@ import org.gradle.api.Action
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.tasks.SourceSet
+import javax.inject.Inject
 
 @JvmDefaultWithoutCompatibility
 interface CommonTarget : ClocheTarget {
@@ -24,7 +25,7 @@ interface CommonTarget : ClocheTarget {
     fun withPublication()
 }
 
-internal abstract class CommonTargetInternal : CommonTarget {
+internal abstract class CommonTargetInternal @Inject constructor(private val name: String) : CommonTarget {
     override val main: CommonCompilation = run {
         project.objects.newInstance(CommonCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME, this)
     }
@@ -41,6 +42,8 @@ internal abstract class CommonTargetInternal : CommonTarget {
 
     override val accessWideners get() = main.accessWideners
     override val mixins get() = main.mixins
+
+    override fun getName() = name
 
     override fun dependencies(action: Action<ClocheDependencyHandler>) = main.dependencies(action)
     override fun java(action: Action<FeatureSpec>) = main.java(action)

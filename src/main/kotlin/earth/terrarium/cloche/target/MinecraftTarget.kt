@@ -64,4 +64,6 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
 
     val compilations: List<RunnableCompilationInternal>
     val runnables: List<RunnableInternal>
+
+    fun initialize(isSingleTarget: Boolean)
 }

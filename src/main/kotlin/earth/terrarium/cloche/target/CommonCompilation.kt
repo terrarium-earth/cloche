@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClocheDependencyHandler
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.TargetAttributes
 import org.gradle.api.Action
 import org.gradle.api.Project
@@ -32,6 +32,6 @@ internal abstract class CommonCompilation @Inject constructor(
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
 
-        attributes.attribute(TargetAttributes.MOD_LOADER, ClocheExtension::common.name)
+        attributes.attribute(TargetAttributes.MOD_LOADER, COMMON)
     }
 }

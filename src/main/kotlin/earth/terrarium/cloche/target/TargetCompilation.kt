@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.*
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
@@ -25,6 +26,7 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.SourceSetContainer
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import java.util.*
 import javax.inject.Inject
@@ -46,6 +48,7 @@ constructor(
     private val variant: PublicationVariant,
     main: Optional<TargetCompilation>,
     side: Side,
+    isSingleTarget: Boolean,
     remapNamespace: Provider<String>,
     private val patched: Boolean,
     project: Project,
@@ -80,15 +83,21 @@ constructor(
         "${project.name}-$name"
     }
 
+    final override val sourceSet: SourceSet
+
     init {
+        val name = if (isSingleTarget) {
+            name
+        } else {
+            sourceSetName(this, target)
+        }
+
+        sourceSet = project.extension<SourceSetContainer>().maybeCreate(name)
+
         dependencies { dependencies ->
             val sourceSet = dependencies.sourceSet
 
-            val main = with(project) {
-                with(target) {
-                    main.map { it.sourceSet }.orElse(this@TargetCompilation.sourceSet)
-                }
-            }
+            val main = main.map { it.sourceSet }.orElse(this@TargetCompilation.sourceSet)
 
             val transformedView =
                 project.configurations.named(sourceSet.compileClasspathConfigurationName).map { configuration ->

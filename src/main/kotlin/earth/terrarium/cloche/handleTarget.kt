@@ -65,15 +65,11 @@ private fun setupModTransformationPipeline(
 }
 
 context(Project)
-internal fun handleTarget(target: MinecraftTargetInternal) {
-    val cloche = project.extension<ClocheExtension>()
-
+internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
     fun add(compilation: RunnableCompilationInternal) {
-        val sourceSet = with(target) {
-            compilation.sourceSet
-        }
+        val sourceSet = compilation.sourceSet
 
-        if (!cloche.isSingleTargetMode || compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+        if (!singleTarget || compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             project.extension<JavaPluginExtension>().registerFeature(sourceSet.name) { spec ->
                 spec.usingSourceSet(sourceSet)
                 spec.capability(compilation.capabilityGroup, compilation.capabilityName, project.version.toString())
@@ -84,7 +80,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             }
         }
 
-        configureSourceSet(sourceSet, target, compilation)
+        configureSourceSet(sourceSet, target, compilation, singleTarget)
 
         if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {
@@ -170,9 +166,15 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
     fun addRunnable(runnable: Runnable) {
         runnable as RunnableInternal
 
+        val runnableName = if (runnable.name == SourceSet.MAIN_SOURCE_SET_NAME) {
+            "server"
+        } else {
+            runnable.name
+        }
+
         project
             .extension<RunsContainer>()
-            .create(lowerCamelCaseGradleName(target.featureName, runnable.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
+            .create(target.name + TARGET_NAME_PATH_SEPARATOR + runnableName) { builder ->
                 for (runSetupAction in runnable.runSetupActions) {
                     runSetupAction.execute(builder)
                 }
