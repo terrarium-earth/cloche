@@ -58,12 +58,12 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
     override fun neoforge(name: String, configure: Action<NeoforgeTarget>) = target(name, NeoForgeTargetImpl::class.java, configure)
 
     private fun <T : MinecraftTarget> target(name: String, type: Class<out T>, configure: Action<T>): T {
-        if (extension.targets.isNotEmpty()) {
-            throw UnsupportedOperationException("A target or multiple targets have already been configured. Can not set single target to $name")
+        extension.targets.all {
+            throw UnsupportedOperationException("Target ${it.name} has been configured. Can not set single target to $name")
         }
 
-        if (extension.commonTargets.isNotEmpty()) {
-            throw UnsupportedOperationException("A common target has been configured. Can not use single target mode with target $name")
+        extension.commonTargets.all {
+            throw UnsupportedOperationException("Common target ${it.name} has been configured. Can not use single target mode with target $name")
         }
 
         target?.let {
@@ -94,11 +94,11 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
 open class ClocheExtension @Inject constructor(private val project: Project, objects: ObjectFactory) : TargetContainer {
     val minecraftVersion: Property<String> = objects.property(String::class.java)
 
-    internal val commonTargets = objects.domainObjectContainer(CommonTarget::class.java) {
+    val commonTargets = objects.domainObjectContainer(CommonTarget::class.java) {
         objects.newInstance(CommonTargetInternal::class.java, it)
     }
 
-    internal val targets: PolymorphicDomainObjectContainer<MinecraftTarget> = objects.polymorphicDomainObjectContainer(MinecraftTarget::class.java).apply {
+    val targets: PolymorphicDomainObjectContainer<MinecraftTarget> = objects.polymorphicDomainObjectContainer(MinecraftTarget::class.java).apply {
         registerFactory(FabricTarget::class.java) {
             objects.newInstance(FabricTargetImpl::class.java, it)
         }
@@ -118,7 +118,31 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     internal val mappingActions = mutableListOf<Action<MappingsBuilder>>()
 
-    private val usedTargetTypes = hashSetOf<Class<out MinecraftTarget>>()
+    init {
+        var fabricConfigured = false
+
+        targets.withType(FabricTarget::class.java).whenObjectAdded {
+            if (!fabricConfigured) {
+                fabricConfigured = true
+
+                project.dependencies.components {
+                    it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
+                        it.params(VARIANT_ATTRIBUTE, PublicationVariant.Common, PublicationVariant.Client, false)
+                    }
+                }
+            }
+        }
+
+        targets.all {
+            it.dependsOn(common())
+        }
+
+        commonTargets.all {
+            if (it.name != COMMON) {
+                it.dependsOn(common())
+            }
+        }
+    }
 
     fun common(): CommonTarget = common(COMMON)
     fun common(name: String): CommonTarget = common(name) {}
@@ -126,59 +150,22 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     fun common(configure: Action<CommonTarget>): CommonTarget = common(NEOFORGE, configure)
     fun common(name: String, @DelegatesTo(CommonTarget::class) configure: Closure<*>): CommonTarget = common(name, configure::call)
 
-    fun common(name: String, configure: Action<CommonTarget>): CommonTarget {
-        singleTargetConfigurator.target?.let {
-            throw UnsupportedOperationException("Can not create common target $name, single target already configured as ${it.name}")
-        }
-
-        val target = commonTargets.findByName(name)
-            ?.also(configure::execute)
-            ?: commonTargets.create(name, configure)
-
-        if (name != COMMON) {
-            target.dependsOn(common())
-        }
-
-        return target
-    }
+    fun common(name: String, configure: Action<CommonTarget>): CommonTarget =
+        commonTargets.maybeCreate(name).also(configure::execute)
 
     fun <T : MinecraftTarget> singleTarget(configurator: SingleTargetConfigurator.() -> T) = singleTargetConfigurator.configurator()
 
-    override fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget = target(name, {
-        project.dependencies.components {
-            it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                it.params(VARIANT_ATTRIBUTE, PublicationVariant.Common, PublicationVariant.Client, false)
-            }
-        }
-    }, configure)
+    override fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget = target(name, configure)
 
-    override fun forge(name: String, configure: Action<ForgeTarget>): ForgeTarget = target(name, {}, configure)
+    override fun forge(name: String, configure: Action<ForgeTarget>): ForgeTarget = target(name, configure)
 
-    override fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget = target(name, {}, configure)
+    override fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget = target(name, configure)
 
-    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, setupTargetType: () -> Unit = {}, configure: Action<in T>): T {
-        singleTargetConfigurator.target?.let {
-            throw UnsupportedOperationException("Can not create new target $name, single target already configured as ${it.name}")
-        }
+    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, configure: Action<in T>) =
+        targets.maybeCreate(name, type).also(configure::execute)
 
-        if (usedTargetTypes.add(type)) {
-            setupTargetType()
-        }
-
-        val common = common()
-
-        return targets.withType(type)
-            .findByName(name)
-            ?.also(configure::execute)
-            ?: targets.create(name, type) {
-                configure.execute(it)
-
-                it.dependsOn(common)
-            }
-    }
-
-    private inline fun <reified T : MinecraftTarget> target(name: String, noinline setupTargetType: () -> Unit = {}, configure: Action<in T>) =
-        target(name, T::class.java, setupTargetType, configure)
+    private inline fun <reified T : MinecraftTarget> target(name: String, configure: Action<in T>) =
+        target(name, T::class.java, configure)
 
     fun mappings(action: Action<MappingsBuilder>) {
         mappingActions.add(action)

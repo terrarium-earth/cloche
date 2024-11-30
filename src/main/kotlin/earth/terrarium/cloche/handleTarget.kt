@@ -1,11 +1,7 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
-import net.msrandom.minecraftcodev.core.MinecraftDependenciesOperatingSystemMetadataRule
-import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
@@ -19,8 +15,6 @@ import org.gradle.api.internal.tasks.JvmConstants
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.SourceSet
 import org.gradle.nativeplatform.OperatingSystemFamily
-import org.gradle.nativeplatform.TargetMachine
-import org.gradle.nativeplatform.platform.OperatingSystem
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 
 private fun setupModTransformationPipeline(
@@ -81,6 +75,12 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
+/*
+        project.tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
+            compile.javaCompiler.set(project.serviceOf<JavaToolchainService>().compilerFor {
+                it.languageVersion.set(JavaLanguageVersion.of())
+            })
+        }*/
 
         if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {
@@ -122,7 +122,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             project,
             target,
             target.remapNamespace,
-            with(target) { target.main.sourceSet },
+            target.main.sourceSet,
             target is ForgeTarget,
             target.main.minecraftConfiguration,
         )
@@ -158,8 +158,8 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
 
-        for (action in compilation.dependencySetupActions) {
-            action.execute(dependencyHandler)
+        compilation.dependencySetupActions.all {
+            it.execute(dependencyHandler)
         }
     }
 

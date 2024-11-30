@@ -6,6 +6,7 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Named
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
@@ -40,9 +41,9 @@ interface Compilation : Named {
 
 @JvmDefaultWithoutCompatibility
 internal interface CompilationInternal : Compilation {
-    val dependencySetupActions: MutableList<Action<ClocheDependencyHandler>>
-    val javaFeatureActions: MutableList<Action<FeatureSpec>>
-    val attributeActions: MutableList<Action<AttributeContainer>>
+    val dependencySetupActions: DomainObjectCollection<Action<ClocheDependencyHandler>>
+    val javaFeatureActions: DomainObjectCollection<Action<FeatureSpec>>
+    val attributeActions: DomainObjectCollection<Action<AttributeContainer>>
 
     val capabilityGroup: String
     val capabilityName: String

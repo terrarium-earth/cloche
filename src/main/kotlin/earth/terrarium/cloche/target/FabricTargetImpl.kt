@@ -58,8 +58,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
         }
 
-    private val minecraftCommonConfiguration = MinecraftConfiguration(this, name, remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile), name)
-    private val minecraftClientConfiguration = MinecraftConfiguration(this, lowerCamelCaseName(name, "client"), remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile), name, "client")
+    private val minecraftCommonConfiguration = MinecraftConfiguration(this, name, remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile), featureName)
+    private val minecraftClientConfiguration = MinecraftConfiguration(this, lowerCamelCaseName(name, "client"), remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile), featureName, "client")
 
     final override lateinit var main: TargetCompilation
     final override lateinit var client: TargetCompilation
@@ -222,17 +222,17 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                 }
             }
 
-            project.tasks.withType(DownloadAssets::class.java).named(dependencies.sourceSet.downloadAssetsTaskName) {
+            project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
                 it.version.set(minecraftVersion)
             }
 
-            project.tasks.withType(ExtractNatives::class.java).named(dependencies.sourceSet.extractNativesTaskName) {
+            project.tasks.named(dependencies.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
                 it.version.set(minecraftVersion)
             }
         }
 
         data.dependencies { dependencies ->
-            project.tasks.withType(DownloadAssets::class.java).named(dependencies.sourceSet.downloadAssetsTaskName) {
+            project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
                 it.version.set(minecraftVersion)
             }
         }
@@ -290,9 +290,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
     }
 
     private fun addMappings(providers: List<MappingDependencyProvider>) {
-        val sourceSet = with(project) {
-            main.sourceSet
-        }
+        val sourceSet = main.sourceSet
 
         for (mapping in providers) {
             project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@FabricTargetImpl.name) })

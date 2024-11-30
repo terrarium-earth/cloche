@@ -16,6 +16,7 @@ import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
@@ -67,9 +68,9 @@ constructor(
 
     final override val finalMinecraftFiles: ConfigurableFileCollection = project.files()
 
-    final override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
-    final override val javaFeatureActions = mutableListOf<Action<FeatureSpec>>()
-    final override val attributeActions = mutableListOf<Action<AttributeContainer>>()
+    override val dependencySetupActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<ClocheDependencyHandler>>
+    override val javaFeatureActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<FeatureSpec>>
+    override val attributeActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
     final override val runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
 
     final override val minecraftConfiguration

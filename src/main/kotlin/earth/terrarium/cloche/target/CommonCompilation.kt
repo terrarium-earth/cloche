@@ -4,6 +4,7 @@ import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClocheDependencyHandler
 import earth.terrarium.cloche.TargetAttributes
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.plugins.FeatureSpec
@@ -23,9 +24,9 @@ internal abstract class CommonCompilation @Inject constructor(
         "${project.name}-$name"
     }
 
-    override val dependencySetupActions = mutableListOf<Action<ClocheDependencyHandler>>()
-    override val javaFeatureActions = mutableListOf<Action<FeatureSpec>>()
-    override val attributeActions = mutableListOf<Action<AttributeContainer>>()
+    override val dependencySetupActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<ClocheDependencyHandler>>
+    override val javaFeatureActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<FeatureSpec>>
+    override val attributeActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
 
     override fun getName() = name
 

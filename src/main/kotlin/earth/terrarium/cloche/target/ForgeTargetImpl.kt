@@ -27,12 +27,25 @@ import org.gradle.language.jvm.tasks.ProcessResources
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
-internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal, ForgeTarget {
-    private val resolvePatchedMinecraft = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("resolve", name, "patchedMinecraft")), ResolvePatchedMinecraft::class.java) {
+internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal,
+    ForgeTarget {
+    private val resolvePatchedMinecraft = project.tasks.register(
+        project.addSetupTask(lowerCamelCaseGradleName("resolve", name, "patchedMinecraft")),
+        ResolvePatchedMinecraft::class.java
+    ) {
         it.version.set(minecraftVersion)
+
+        it.output.set(minecraftVersion.flatMap { mc ->
+            project.layout.file(
+                loaderVersion.map { forge ->
+                    it.temporaryDir.resolve("forge-$mc-$forge.jar")
+                }
+            )
+        })
     }
 
-    private val patchedMinecraftConfiguration = MinecraftConfiguration(this, name, resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output), name)
+    private val patchedMinecraftConfiguration =
+        MinecraftConfiguration(this, name, resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output), featureName)
 
     final override lateinit var main: TargetCompilation
 
@@ -95,7 +108,10 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             )
         }
 
-        project.dependencies.add(patchedMinecraftConfiguration.configurationName, project.dependencies.platform(STUB_DEPENDENCY))
+        project.dependencies.add(
+            patchedMinecraftConfiguration.configurationName,
+            project.dependencies.platform(STUB_DEPENDENCY)
+        )
 
         main.dependencies { dependencies ->
             val userdev = minecraftVersion.flatMap { minecraftVersion ->
@@ -106,11 +122,15 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 }
             }
 
-            project.dependencies.add(dependencies.sourceSet.runtimeOnlyConfigurationName, project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)))
+            project.dependencies.add(
+                dependencies.sourceSet.runtimeOnlyConfigurationName,
+                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
+            )
             project.dependencies.addProvider(dependencies.sourceSet.patchesConfigurationName, userdev)
 
             resolvePatchedMinecraft.configure {
-                val configuration = project.configurations.getByName(dependencies.sourceSet.compileClasspathConfigurationName)
+                val configuration =
+                    project.configurations.getByName(dependencies.sourceSet.compileClasspathConfigurationName)
 
                 val libraries = configuration.incoming.artifactView { view ->
                     view.componentFilter { id ->
@@ -124,7 +144,10 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
             project.dependencies.addProvider(
                 dependencies.sourceSet.mappingsConfigurationName,
-                mcpConfigDependency(project, project.configurations.getByName(dependencies.sourceSet.patchesConfigurationName)),
+                mcpConfigDependency(
+                    project,
+                    project.configurations.getByName(dependencies.sourceSet.patchesConfigurationName)
+                ),
             )
 
             project.afterEvaluate { project ->
@@ -157,17 +180,17 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 it.from(project.configurations.named(dependencies.sourceSet.mixinsConfigurationName))
             }
 
-            project.tasks.withType(ExtractNatives::class.java).named(dependencies.sourceSet.extractNativesTaskName) {
+            project.tasks.named(dependencies.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
                 it.version.set(minecraftVersion)
             }
 
-            project.tasks.withType(DownloadAssets::class.java).named(dependencies.sourceSet.downloadAssetsTaskName) {
+            project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
                 it.version.set(minecraftVersion)
             }
         }
 
         data.dependencies { dependencies ->
-            project.tasks.withType(DownloadAssets::class.java).named(dependencies.sourceSet.downloadAssetsTaskName) {
+            project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
                 it.version.set(minecraftVersion)
             }
         }
@@ -199,7 +222,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
             it.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
                 datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                datagen.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
+                datagen.mixinConfigs.from(project.configurations.named(data.sourceSet.mixinsConfigurationName))
 
                 datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
 
@@ -229,7 +252,9 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         val sourceSet = main.sourceSet
 
         for (mapping in providers) {
-            project.dependencies.addProvider(sourceSet.mappingsConfigurationName, minecraftVersion.map { mapping(it, this@ForgeTargetImpl.name) })
+            project.dependencies.addProvider(
+                sourceSet.mappingsConfigurationName,
+                minecraftVersion.map { mapping(it, this@ForgeTargetImpl.name) })
         }
     }
 }

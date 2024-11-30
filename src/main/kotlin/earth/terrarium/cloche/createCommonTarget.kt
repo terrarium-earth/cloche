@@ -144,8 +144,8 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
 
         val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
 
-        for (dependencySetupAction in compilation.dependencySetupActions) {
-            dependencySetupAction.execute(dependencyHandler)
+        compilation.dependencySetupActions.all {
+            it.execute(dependencyHandler)
         }
 
         for (edge in common.dependants) {
