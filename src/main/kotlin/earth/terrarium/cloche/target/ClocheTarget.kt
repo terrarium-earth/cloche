@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target
 
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
@@ -24,6 +25,9 @@ sealed interface ClocheTarget : Compilation {
         get() = null
 
     val featureName
+        get() = lowerCamelCaseGradleName(name)
+
+    val classifierName
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '-')
 
     val namePath

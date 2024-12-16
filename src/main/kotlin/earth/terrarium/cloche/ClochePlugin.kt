@@ -11,6 +11,7 @@ import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
+import net.msrandom.minecraftcodev.forge.MinecraftForgeComponentClassifierMetadataRule
 import net.msrandom.minecraftcodev.includes.MinecraftCodevIncludesPlugin
 import net.msrandom.minecraftcodev.intersection.MinecraftCodevIntersectionPlugin
 import net.msrandom.minecraftcodev.mixins.MinecraftCodevMixinsPlugin
@@ -100,11 +101,10 @@ class ClochePlugin : Plugin<Project> {
 
         target.dependencies.artifactTypes {
             it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
-                jar.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
-            }
-
-            it.register(MINECRAFT_ARTIFACT_TYPE) { minecraft ->
-                minecraft.attributes.attribute(MinecraftTransformationStateAttribute.ATTRIBUTE, MinecraftTransformationStateAttribute.INITIAL)
+                jar.attributes.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.INITIAL
+                )
             }
         }
 
@@ -125,23 +125,76 @@ class ClochePlugin : Plugin<Project> {
         }
 
         project.afterEvaluate {
-            project.dependencies.components.all(MinecraftDependenciesOperatingSystemMetadataRule::class.java) {
-                val versions = if (cloche.singleTargetConfigurator.target == null) {
-                    cloche.targets.map { it.minecraftVersion.get() }
-                } else {
-                    listOf(cloche.singleTargetConfigurator.target!!.minecraftVersion.get())
-                }
+            val targets = if (cloche.singleTargetConfigurator.target == null) {
+                cloche.targets
+            } else {
+                listOf(cloche.singleTargetConfigurator.target!!)
+            }
 
+            project.dependencies.components.all(MinecraftDependenciesOperatingSystemMetadataRule::class.java) {
                 it.params(
                     getCacheDirectory(project),
-                    versions,
+                    targets.map { it.minecraftVersion.get() },
                     VERSION_MANIFEST_URL,
                     project.gradle.startParameter.isOffline,
                 )
             }
 
+            project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
+                val userdevs = targets.filterIsInstance<ForgeTargetImpl>().map(ForgeTargetImpl::getUserdev)
+
+                if (userdevs.isNotEmpty()) {
+                    project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
+                        it.params(userdevs)
+                    }
+                }
+            }
+
             if (cloche.singleTargetConfigurator.target != null) {
                 return@afterEvaluate
+            }
+
+            cloche.targets.all {
+                it as MinecraftTargetInternal
+
+                for (dependency in it.dependsOn.get()) {
+                    dependency as CommonTargetInternal
+
+                    with(dependency) {
+                        with(project) {
+                            it.main.sourceSet.linkStatically(dependency.main.sourceSet)
+                            it.data.sourceSet.linkStatically(dependency.data.sourceSet)
+
+                            if (it.client is RunnableCompilationInternal) {
+                                (it.client as RunnableCompilationInternal).sourceSet.linkStatically(dependency.client.sourceSet)
+                            }
+                        }
+                    }
+                }
+            }
+
+            cloche.commonTargets.all {
+                it as CommonTargetInternal
+
+                for (dependency in it.dependsOn.get()) {
+                    dependency as CommonTargetInternal
+
+                    with(project) {
+                        fun add(compilation: CommonTargetInternal.() -> CompilationInternal) {
+                            val sourceSet = with(it) {
+                                it.compilation().sourceSet
+                            }
+
+                            with(dependency) {
+                                sourceSet.linkStatically(dependency.compilation().sourceSet)
+                            }
+                        }
+
+                        add(CommonTargetInternal::main)
+                        add(CommonTargetInternal::client)
+                        add(CommonTargetInternal::data)
+                    }
+                }
             }
 
             fun getDependencies(target: ClocheTarget): List<CommonTarget> =
@@ -152,7 +205,8 @@ class ClochePlugin : Plugin<Project> {
 
             for ((edgeTarget, dependencies) in targetDependencies) {
                 for (dependency in dependencies) {
-                    commonToTarget.computeIfAbsent(dependency as CommonTargetInternal) { hashSetOf() }.add(edgeTarget as MinecraftTargetInternal)
+                    commonToTarget.computeIfAbsent(dependency as CommonTargetInternal) { hashSetOf() }
+                        .add(edgeTarget as MinecraftTargetInternal)
                 }
             }
 
@@ -178,7 +232,6 @@ class ClochePlugin : Plugin<Project> {
                 CommonInfo(
                     common,
                     edges,
-                    getDependencies(common),
                     commonType,
                     minecraftVersion,
                 )

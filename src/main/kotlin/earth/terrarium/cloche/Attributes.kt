@@ -1,10 +1,8 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.MinecraftTarget
-import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import org.gradle.api.attributes.*
-import org.gradle.api.tasks.SourceSet
 
 @JvmField
 val VARIANT_ATTRIBUTE: Attribute<PublicationVariant> = Attribute.of("earth.terrarium.cloche.variant", PublicationVariant::class.java)
@@ -49,14 +47,4 @@ internal object ModTransformationStateAttribute {
 
     fun of(target: MinecraftTarget, state: String) =
         lowerCamelCaseName(target.featureName, state)
-}
-
-internal object MinecraftTransformationStateAttribute {
-    @JvmField
-    val ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.minecraftState", String::class.java)
-
-    const val INITIAL = "none"
-
-    fun of(compilation: TargetCompilation, state: String) =
-        lowerCamelCaseName(compilation.target.featureName, compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, state)
 }

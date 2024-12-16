@@ -18,7 +18,6 @@ private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 internal class CommonInfo(
     val target: CommonTargetInternal,
     val dependants: Set<MinecraftTargetInternal>,
-    val dependencies: List<CommonTarget>,
     val type: String?,
     val version: String?,
 )
@@ -40,17 +39,17 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
 
     fun intersection(compilations: Map<MinecraftTargetInternal, RunnableCompilationInternal>): FileCollection {
         if (compilations.size == 1) {
-            return compilations.values.first().finalMinecraftFiles
+            return project.files(compilations.values.first().finalMinecraftFile)
         }
 
-        val compilationName = compilations.values.first().name
+        val compilationName = compilations.values.first().name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
         val name = lowerCamelCaseGradleName("create", *compilations.map { (target) -> target.featureName }.sorted().toTypedArray(), compilationName, "intersection")
 
         val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: run {
             project.tasks.create(project.addSetupTask(name), JarIntersection::class.java) {
                 for ((_, compilation) in compilations) {
-                    it.files.from(compilation.finalMinecraftFiles)
+                    it.files.from(compilation.finalMinecraftFile)
                 }
             }
         }
@@ -114,7 +113,7 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
            }
 
             if (!onlyCommonOfType && common.target.name != COMMON && !common.target.publish) {
-                it.attribute(CommonTargetAttributes.NAME, common.target.featureName)
+                it.attribute(CommonTargetAttributes.NAME, common.target.name)
             }
         }
 
@@ -146,34 +145,6 @@ context(Project) internal fun createCommonTarget(common: CommonInfo, onlyCommonO
 
         compilation.dependencySetupActions.all {
             it.execute(dependencyHandler)
-        }
-
-        for (edge in common.dependants) {
-            val edgeCompilation = when (compilation.name) {
-                ClochePlugin.CLIENT_COMPILATION_NAME -> (edge as? FabricTarget)?.client ?: edge.main
-                ClochePlugin.DATA_COMPILATION_NAME -> edge.data
-                else -> edge.main
-            } as RunnableCompilationInternal
-
-            val edgeDependant = with(edge) {
-                edgeCompilation.sourceSet
-            }
-
-            edgeDependant.linkStatically(sourceSet)
-        }
-
-        for (dependency in common.dependencies) {
-            val dependencyCompilation = when (compilation.name) {
-                ClochePlugin.CLIENT_COMPILATION_NAME -> dependency.client
-                ClochePlugin.DATA_COMPILATION_NAME -> dependency.data
-                else -> dependency.main
-            } as CommonCompilation
-
-            val dependencySourceSet = with(dependency) {
-                dependencyCompilation.sourceSet
-            }
-
-            sourceSet.linkStatically(dependencySourceSet)
         }
 
         if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {

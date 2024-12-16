@@ -11,8 +11,10 @@ import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
 import org.gradle.api.component.AdhocComponentWithVariants
+import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.internal.tasks.JvmConstants
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
@@ -23,7 +25,7 @@ private fun setupModTransformationPipeline(
     remapNamespace: String?,
     main: SourceSet,
     patched: Boolean,
-    minecraftConfiguration: MinecraftConfiguration,
+    intermediaryMinecraft: Provider<FileSystemLocation>,
 ) {
     project.dependencies.registerTransform(ExtractIncludes::class.java) {
         it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
@@ -43,8 +45,7 @@ private fun setupModTransformationPipeline(
 
             parameters.sourceNamespace.set(remapNamespace)
 
-            // TODO This won't need to exist if we inject MC as a dependency
-            parameters.extraClasspath.from(project.files(minecraftConfiguration.artifact))
+            parameters.extraClasspath.from(project.files(intermediaryMinecraft))
 
             if (patched) {
                 parameters.extraFiles.set(
@@ -114,7 +115,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
         } else {
             with(target) {
-                // compilation.linkDynamically(target.main)
+                compilation.linkDynamically(target.main)
             }
         }
 
@@ -124,7 +125,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             target.remapNamespace,
             target.main.sourceSet,
             target is ForgeTarget,
-            target.main.minecraftConfiguration,
+            compilation.intermediaryMinecraftFile,
         )
 
         val resolvableConfigurationNames = listOf(
@@ -143,7 +144,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         for (name in resolvableConfigurationNames) {
             project.configurations.named(name) { configuration ->
-                configuration.attributes.attribute(MinecraftAttributes.TARGET_MINECRAFT, compilation.minecraftConfiguration.targetMinecraftAttribute)
+                configuration.attributes.attributeProvider(MinecraftAttributes.TARGET_MINECRAFT, compilation.targetMinecraftAttribute)
 
                 configuration.attributes.attribute(
                     OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,

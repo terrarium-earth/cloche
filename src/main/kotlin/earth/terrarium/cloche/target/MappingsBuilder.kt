@@ -5,14 +5,14 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 
-typealias MappingDependencyProvider = (minecraftVersion: String, targetName: String) -> Dependency
+typealias MappingDependencyProvider = (minecraftVersion: String, targetFeatureName: String) -> Dependency
 
 class MappingsBuilder(private val project: Project, private val dependencies: MutableList<MappingDependencyProvider>) {
     fun official(minecraftVersion: String? = null) {
-        dependencies.add { resolvedMinecraftVersion, targetName ->
+        dependencies.add { resolvedMinecraftVersion, targetFeatureName ->
             val version = minecraftVersion ?: resolvedMinecraftVersion
 
-            val taskName = lowerCamelCaseGradleName("resolve", targetName, "clientMappings")
+            val taskName = lowerCamelCaseGradleName("resolve", targetFeatureName, "clientMappings")
 
             val task = project.tasks.withType(ResolveMinecraftMappings::class.java).findByName(taskName)
                 ?: project.tasks.create(taskName, ResolveMinecraftMappings::class.java) {

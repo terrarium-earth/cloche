@@ -14,16 +14,14 @@ import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.FileCollection
+import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.plugins.FeatureSpec
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.jvm.tasks.Jar
-import org.gradle.util.internal.GUtil
-import org.gradle.util.internal.TextUtil
 
 interface Compilation : Named {
     val accessWideners: ConfigurableFileCollection
@@ -81,10 +79,10 @@ internal interface RunnableInternal : Runnable {
 interface RunnableCompilation : Runnable, Compilation
 
 internal interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation, RunnableInternal {
-    val finalMinecraftFiles: FileCollection
-        @Internal get
+    val targetMinecraftAttribute: Provider<String>
 
-    val minecraftConfiguration: MinecraftConfiguration
+    val intermediaryMinecraftFile: Provider<FileSystemLocation>
+    val finalMinecraftFile: Provider<FileSystemLocation>
 
     val target: MinecraftTargetInternal
 
@@ -93,7 +91,7 @@ internal interface RunnableCompilationInternal : CompilationInternal, RunnableCo
 
 internal fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
     target.name == COMMON -> compilation.name
-    compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> GUtil.toLowerCamelCase(target.featureName)
+    compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName
     else -> lowerCamelCaseGradleName(target.featureName, compilation.name)
 }
 
@@ -152,9 +150,9 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
     project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
         if (!singleTarget && target.name != COMMON) {
             val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-                target.featureName
+                target.classifierName
             } else {
-                "${TextUtil.camelToKebabCase(target.featureName)}-${compilation.name}"
+                "${target.classifierName}-${compilation.name}"
             }
 
             it.archiveClassifier.set(classifier)
