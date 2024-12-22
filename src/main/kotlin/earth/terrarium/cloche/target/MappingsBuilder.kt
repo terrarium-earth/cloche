@@ -14,13 +14,16 @@ class MappingsBuilder(private val project: Project, private val dependencies: Mu
 
             val taskName = lowerCamelCaseGradleName("resolve", targetFeatureName, "clientMappings")
 
-            val task = project.tasks.withType(ResolveMinecraftMappings::class.java).findByName(taskName)
-                ?: project.tasks.create(taskName, ResolveMinecraftMappings::class.java) {
+            val task = if (taskName in project.tasks.names) {
+                project.tasks.named(taskName, ResolveMinecraftMappings::class.java)
+            } else {
+                project.tasks.register(taskName, ResolveMinecraftMappings::class.java) {
                     it.server.set(false)
                     it.version.set(version)
                 }
+            }
 
-            project.dependencies.create(project.files(task.output))
+            project.dependencies.create(project.files(task.flatMap(ResolveMinecraftMappings::output)))
         }
     }
 

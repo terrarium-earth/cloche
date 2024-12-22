@@ -4,7 +4,7 @@ import earth.terrarium.cloche.*
 import earth.terrarium.cloche.ClochePlugin.Companion.STUB_DEPENDENCY
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.CLASSIFIER_ATTRIBUTE
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
@@ -23,6 +23,7 @@ import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.Usage
@@ -34,9 +35,10 @@ import javax.inject.Inject
 
 internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal,
     ForgeTarget {
-    private val minecraftLibrariesConfiguration = project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
-        it.isCanBeConsumed = false
-    }
+    private val minecraftLibrariesConfiguration =
+        project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
+            it.isCanBeConsumed = false
+        }
 
     private val resolvePatchedMinecraft = project.tasks.register(
         project.addSetupTask(lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft")),
@@ -174,12 +176,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                                 version.strictly(version(minecraftVersion, forgeVersion))
                             }
 
-                            attributes { attributes ->
-                                attributes
-                                    .attribute(CLASSIFIER_ATTRIBUTE, userdev)
-                                    .attribute(Category.CATEGORY_ATTRIBUTE, project.objects.named(Category::class.java, Category.LIBRARY))
-                                    .attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, Usage.JAVA_API))
-                            }
+                            userdevDependency(userdev)
                         }
                     }
                 }
@@ -209,7 +206,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 project.dependencies.components { components ->
                     components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
                         it.params(
-                            getCacheDirectory(project),
+                            getGlobalCacheDirectory(project),
                             minecraftVersion.get(),
                             VERSION_MANIFEST_URL,
                             project.gradle.startParameter.isOffline,
@@ -284,6 +281,21 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     }
 
     override fun getName() = name
+
+    protected open fun ExternalModuleDependency.userdevDependency(userdev: String) {
+        artifact {
+            it.classifier = userdev
+        }
+/*        attributes { attributes ->
+            attributes
+                .attribute(CLASSIFIER_ATTRIBUTE, userdev)
+                .attribute(
+                    Category.CATEGORY_ATTRIBUTE,
+                    project.objects.named(Category::class.java, Category.LIBRARY)
+                )
+                .attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, Usage.JAVA_API))
+        }*/
+    }
 
     protected open fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"

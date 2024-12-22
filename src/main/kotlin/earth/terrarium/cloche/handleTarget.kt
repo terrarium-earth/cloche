@@ -1,7 +1,11 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
+import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
+import net.msrandom.minecraftcodev.core.getVersionList
 import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectoryProvider
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
@@ -16,6 +20,10 @@ import org.gradle.api.internal.tasks.JvmConstants
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.configurationcache.extensions.serviceOf
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 
@@ -47,6 +55,8 @@ private fun setupModTransformationPipeline(
 
             parameters.extraClasspath.from(project.files(intermediaryMinecraft))
 
+            parameters.cacheDirectory.set(getGlobalCacheDirectoryProvider(project))
+
             if (patched) {
                 parameters.extraFiles.set(
                     mcpConfigDependency(project, project.configurations.getByName(main.patchesConfigurationName))
@@ -76,12 +86,23 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
-/*
+
         project.tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
-            compile.javaCompiler.set(project.serviceOf<JavaToolchainService>().compilerFor {
-                it.languageVersion.set(JavaLanguageVersion.of())
-            })
-        }*/
+            val javaVersion = target.minecraftVersion.map {
+                getVersionList(getGlobalCacheDirectory(project).toPath(), VERSION_MANIFEST_URL, project.gradle.startParameter.isOffline)
+                    .version(it)
+                    .javaVersion
+                    .majorVersion
+            }
+
+            val javaCompiler = javaVersion.flatMap { version ->
+                project.serviceOf<JavaToolchainService>().compilerFor {
+                    it.languageVersion.set(JavaLanguageVersion.of(version))
+                }
+            }
+
+            compile.javaCompiler.set(javaCompiler)
+        }
 
         if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {

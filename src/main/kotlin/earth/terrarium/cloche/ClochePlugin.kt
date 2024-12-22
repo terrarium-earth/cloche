@@ -7,11 +7,10 @@ import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftDependenciesOperatingSystemMetadataRule
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
-import net.msrandom.minecraftcodev.forge.MinecraftForgeComponentClassifierMetadataRule
 import net.msrandom.minecraftcodev.includes.MinecraftCodevIncludesPlugin
 import net.msrandom.minecraftcodev.intersection.MinecraftCodevIntersectionPlugin
 import net.msrandom.minecraftcodev.mixins.MinecraftCodevMixinsPlugin
@@ -25,6 +24,8 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSetContainer
 
 fun Project.addSetupTask(name: String): String {
@@ -119,98 +120,43 @@ class ClochePlugin : Plugin<Project> {
     }
 
     private fun applyTargets(project: Project, cloche: ClocheExtension) {
-        cloche.targets.all {
-            (it as MinecraftTargetInternal).initialize(false)
-            addTarget(cloche, project, it, false)
+        fun getDependencies(target: ClocheTarget): List<CommonTargetInternal> {
+            return (target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)).map { it as CommonTargetInternal }
         }
 
-        project.afterEvaluate {
-            val targets = if (cloche.singleTargetConfigurator.target == null) {
-                cloche.targets
-            } else {
-                listOf(cloche.singleTargetConfigurator.target!!)
+        val targetsProvider = project.provider {
+            cloche.targets.map { it as MinecraftTargetInternal }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val targetDependencies = targetsProvider.flatMap { targets ->
+            val association = project.objects.mapProperty(MinecraftTargetInternal::class.java, List::class.java) as MapProperty<MinecraftTargetInternal, List<CommonTargetInternal>>
+
+            for (target in targets) {
+                association.put(target, getDependencies(target))
             }
 
-            project.dependencies.components.all(MinecraftDependenciesOperatingSystemMetadataRule::class.java) {
-                it.params(
-                    getCacheDirectory(project),
-                    targets.map { it.minecraftVersion.get() },
-                    VERSION_MANIFEST_URL,
-                    project.gradle.startParameter.isOffline,
-                )
-            }
+            association
+        }
 
-            project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
-                val userdevs = targets.filterIsInstance<ForgeTargetImpl>().map(ForgeTargetImpl::getUserdev)
+        @Suppress("UNCHECKED_CAST")
+        val commonToTarget = targetDependencies.map {
+            val association = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal>>()
 
-                if (userdevs.isNotEmpty()) {
-                    project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
-                        it.params(userdevs)
-                    }
-                }
-            }
-
-            if (cloche.singleTargetConfigurator.target != null) {
-                return@afterEvaluate
-            }
-
-            cloche.targets.all {
-                it as MinecraftTargetInternal
-
-                for (dependency in it.dependsOn.get()) {
-                    dependency as CommonTargetInternal
-
-                    with(dependency) {
-                        with(project) {
-                            it.main.sourceSet.linkStatically(dependency.main.sourceSet)
-                            it.data.sourceSet.linkStatically(dependency.data.sourceSet)
-
-                            if (it.client is RunnableCompilationInternal) {
-                                (it.client as RunnableCompilationInternal).sourceSet.linkStatically(dependency.client.sourceSet)
-                            }
-                        }
-                    }
-                }
-            }
-
-            cloche.commonTargets.all {
-                it as CommonTargetInternal
-
-                for (dependency in it.dependsOn.get()) {
-                    dependency as CommonTargetInternal
-
-                    with(project) {
-                        fun add(compilation: CommonTargetInternal.() -> CompilationInternal) {
-                            val sourceSet = with(it) {
-                                it.compilation().sourceSet
-                            }
-
-                            with(dependency) {
-                                sourceSet.linkStatically(dependency.compilation().sourceSet)
-                            }
-                        }
-
-                        add(CommonTargetInternal::main)
-                        add(CommonTargetInternal::client)
-                        add(CommonTargetInternal::data)
-                    }
-                }
-            }
-
-            fun getDependencies(target: ClocheTarget): List<CommonTarget> =
-                target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)
-
-            val targetDependencies = cloche.targets.toList().associateWith(::getDependencies)
-            val commonToTarget = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal>>()
-
-            for ((edgeTarget, dependencies) in targetDependencies) {
+            for ((edgeTarget, dependencies) in it) {
                 for (dependency in dependencies) {
-                    commonToTarget.computeIfAbsent(dependency as CommonTargetInternal) { hashSetOf() }
-                        .add(edgeTarget as MinecraftTargetInternal)
+                    association.computeIfAbsent(dependency) { hashSetOf() }.add(edgeTarget as MinecraftTargetInternal)
                 }
             }
 
-            val commons = commonToTarget.map { (common, edges) ->
+            association as Map<CommonTargetInternal, Set<MinecraftTargetInternal>>
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val commons = project.objects.mapProperty(CommonTargetInternal::class.java, CommonInfo::class.java)
+
+        commons.putAll(commonToTarget.map {
+            it.mapValues { (_, edges) ->
                 var commonType: String? = null
                 var minecraftVersion: String? = null
 
@@ -230,17 +176,92 @@ class ClochePlugin : Plugin<Project> {
                 }
 
                 CommonInfo(
-                    common,
                     edges,
                     commonType,
                     minecraftVersion,
                 )
             }
+        })
 
-            with(it) {
-                for (common in commons) {
-                    createCommonTarget(common, commons.count { it.type == common.type } == 1)
+        cloche.targets.all {
+            it as MinecraftTargetInternal
+
+            it.initialize(false)
+
+            addTarget(cloche, project, it, false)
+
+            for (dependency in it.dependsOn.get()) {
+                dependency as CommonTargetInternal
+
+                with(dependency) {
+                    with(project) {
+                        it.main.sourceSet.linkStatically(dependency.main.sourceSet)
+                        it.data.sourceSet.linkStatically(dependency.data.sourceSet)
+
+                        if (it.client is RunnableCompilationInternal) {
+                            (it.client as RunnableCompilationInternal).sourceSet.linkStatically(dependency.client.sourceSet)
+                        }
+                    }
                 }
+            }
+        }
+
+        cloche.commonTargets.all { commonTarget ->
+            commonTarget as CommonTargetInternal
+
+            for (dependency in commonTarget.dependsOn.get()) {
+                dependency as CommonTargetInternal
+
+                with(project) {
+                    fun add(compilation: CommonTargetInternal.() -> CompilationInternal) {
+                        val sourceSet = with(commonTarget) {
+                            commonTarget.compilation().sourceSet
+                        }
+
+                        with(dependency) {
+                            sourceSet.linkStatically(dependency.compilation().sourceSet)
+                        }
+                    }
+
+                    add(CommonTargetInternal::main)
+                    add(CommonTargetInternal::client)
+                    add(CommonTargetInternal::data)
+                }
+            }
+
+            with(project) {
+                val commonInfo = commons.getting(commonTarget)
+
+                val onlyCommonOfType = commons.zip(commonInfo, ::Pair).map { (commons, info) ->
+                    commons.count { it.value.type == info.type } == 1
+                }
+
+                createCommonTarget(commonTarget, commonInfo, onlyCommonOfType)
+            }
+        }
+
+        project.afterEvaluate {
+            val targets = if (cloche.singleTargetConfigurator.target == null) {
+                cloche.targets
+            } else {
+                listOf(cloche.singleTargetConfigurator.target!!)
+            }
+
+            project.dependencies.components.all(MinecraftDependenciesOperatingSystemMetadataRule::class.java) {
+                it.params(
+                    getGlobalCacheDirectory(project),
+                    targets.map { it.minecraftVersion.get() },
+                    VERSION_MANIFEST_URL,
+                    project.gradle.startParameter.isOffline,
+                )
+            }
+
+            val userdevs = targets.filterIsInstance<ForgeTargetImpl>().map(ForgeTargetImpl::getUserdev)
+
+            if (userdevs.isNotEmpty()) {
+/*                project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
+                    it.params(userdevs)
+                }*/
             }
         }
     }

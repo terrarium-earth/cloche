@@ -7,7 +7,7 @@ import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.getCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
@@ -211,7 +211,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                 project.dependencies.components { components ->
                     components.withModule(ClochePlugin.STUB_MODULE, MinecraftComponentMetadataRule::class.java) {
                         it.params(
-                            getCacheDirectory(project),
+                            getGlobalCacheDirectory(project),
                             minecraftVersion.get(),
                             VERSION_MANIFEST_URL,
                             project.gradle.startParameter.isOffline,
@@ -227,7 +227,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                     project.dependencies.components { components ->
                         components.withModule(ClochePlugin.STUB_MODULE, MinecraftComponentMetadataRule::class.java) {
                             it.params(
-                                getCacheDirectory(project),
+                                getGlobalCacheDirectory(project),
                                 minecraftVersion.get(),
                                 VERSION_MANIFEST_URL,
                                 project.gradle.startParameter.isOffline,
@@ -273,7 +273,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                 project.dependencies.components { components ->
                     components.withModule(ClochePlugin.STUB_MODULE, MinecraftComponentMetadataRule::class.java) {
                         it.params(
-                            getCacheDirectory(project),
+                            getGlobalCacheDirectory(project),
                             minecraftVersion.get(),
                             VERSION_MANIFEST_URL,
                             project.gradle.startParameter.isOffline,

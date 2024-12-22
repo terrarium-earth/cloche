@@ -103,7 +103,7 @@ context(Project, CommonTarget) internal val CompilationInternal.sourceSet: Sourc
 fun ConfigurationContainer.withName(name: String, action: Action<Configuration>) = named(name::equals).all(action)
 
 internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarget, compilation: Compilation, singleTarget: Boolean) {
-    if (sourceSet.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+/*    if (sourceSet.name != SourceSet.MAIN_SOURCE_SET_NAME) {
         val main = project.extension<SourceSetContainer>().getByName(SourceSet.MAIN_SOURCE_SET_NAME)
 
         val configurationNames = listOf(
@@ -130,7 +130,7 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
                 }
             }
         }
-    }
+    }*/
 
     if (!singleTarget) {
         val compilationDirectory = project.layout.projectDirectory.dir("src").dir(target.namePath).dir(compilation.name)
