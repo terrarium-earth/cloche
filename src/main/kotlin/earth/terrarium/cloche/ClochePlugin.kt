@@ -66,9 +66,7 @@ internal fun addTarget(
 
     target.minecraftVersion.convention(cloche.minecraftVersion)
 
-    for (mappingAction in cloche.mappingActions) {
-        target.mappings(mappingAction)
-    }
+    cloche.mappingActions.all(target::mappings)
 
     with(project) {
         handleTarget(target, singleTarget)
@@ -121,7 +119,8 @@ class ClochePlugin : Plugin<Project> {
 
     private fun applyTargets(project: Project, cloche: ClocheExtension) {
         fun getDependencies(target: ClocheTarget): List<CommonTargetInternal> {
-            return (target.dependsOn.get() + target.dependsOn.get().flatMap(::getDependencies)).map { it as CommonTargetInternal }
+            return (target.dependsOn.get() + target.dependsOn.get()
+                .flatMap(::getDependencies)).map { it as CommonTargetInternal }
         }
 
         val targetsProvider = project.provider {
@@ -130,7 +129,10 @@ class ClochePlugin : Plugin<Project> {
 
         @Suppress("UNCHECKED_CAST")
         val targetDependencies = targetsProvider.flatMap { targets ->
-            val association = project.objects.mapProperty(MinecraftTargetInternal::class.java, List::class.java) as MapProperty<MinecraftTargetInternal, List<CommonTargetInternal>>
+            val association = project.objects.mapProperty(
+                MinecraftTargetInternal::class.java,
+                List::class.java
+            ) as MapProperty<MinecraftTargetInternal, List<CommonTargetInternal>>
 
             for (target in targets) {
                 association.put(target, getDependencies(target))
@@ -240,6 +242,7 @@ class ClochePlugin : Plugin<Project> {
             }
         }
 
+        // afterEvaluate needed because of the component rule using providers
         project.afterEvaluate {
             val targets = if (cloche.singleTargetConfigurator.target == null) {
                 cloche.targets
@@ -259,9 +262,9 @@ class ClochePlugin : Plugin<Project> {
             val userdevs = targets.filterIsInstance<ForgeTargetImpl>().map(ForgeTargetImpl::getUserdev)
 
             if (userdevs.isNotEmpty()) {
-/*                project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
-                    it.params(userdevs)
-                }*/
+                /*                project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
+                                    it.params(userdevs)
+                                }*/
             }
         }
     }

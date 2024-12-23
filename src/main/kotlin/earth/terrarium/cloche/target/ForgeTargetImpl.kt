@@ -6,7 +6,6 @@ import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.forge.CLASSIFIER_ATTRIBUTE
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.MinecraftForgeComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.UserdevPath
@@ -23,13 +22,16 @@ import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
-import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
-import org.gradle.api.attributes.Category
-import org.gradle.api.attributes.Usage
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
+import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
+import org.gradle.nativeplatform.OperatingSystemFamily
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
@@ -38,6 +40,14 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     private val minecraftLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
             it.isCanBeConsumed = false
+
+            it.attributes.attribute(
+                OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                project.objects.named(
+                    OperatingSystemFamily::class.java,
+                    DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                ),
+            )
         }
 
     private val resolvePatchedMinecraft = project.tasks.register(
@@ -47,13 +57,14 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         it.version.set(minecraftVersion)
 
         if (this !is NeoforgeTarget) {
-            it.output.set(minecraftVersion.flatMap { mc ->
+            it.output.set(
                 project.layout.file(
-                    loaderVersion.map { forge ->
-                        it.temporaryDir.resolve("forge-$mc-$forge.jar")
-                    }
-                )
-            })
+                    minecraftVersion.flatMap { mc ->
+                        loaderVersion.map { forge ->
+                            it.temporaryDir.resolve("forge-$mc-$forge.jar")
+                        }
+                    })
+            )
         }
     }
 
@@ -65,10 +76,15 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
     final override lateinit var data: TargetCompilation
 
-    protected var hasMappings = false
+    protected var hasMappings: Property<Boolean> = project.objects.property(Boolean::class.javaObjectType).apply {
+        convention(false)
+    }
 
-    override val remapNamespace: String?
-        get() = MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE
+    protected abstract val providerFactory: ProviderFactory
+        @Inject get
+
+    override val remapNamespace: Provider<String>
+        get() = providerFactory.provider { MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE }
 
     open val group
         @Internal
@@ -81,47 +97,51 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     override val loaderAttributeName get() = FORGE
     override val commonType get() = FORGE
 
-    override val compilations: List<RunnableCompilationInternal>
-        get() = listOf(main, data)
+    override val compilations = project.objects.domainObjectSet(RunnableCompilationInternal::class.java)
+    override val runnables = project.objects.domainObjectSet(RunnableInternal::class.java)
 
-    override val runnables: List<RunnableInternal>
-        get() = compilations
+    abstract val mappingProviders: ListProperty<MappingDependencyProvider>
+        @Internal get
 
     init {
-        project.dependencies.add(minecraftLibrariesConfiguration.name, project.dependencies.platform(STUB_DEPENDENCY))
+        val stub = project.dependencies.enforcedPlatform(STUB_DEPENDENCY) as ExternalModuleDependency
+
+        stub.capabilities {
+            it.requireCapability("net.msrandom:$featureName")
+        }
+
+        project.dependencies.add(minecraftLibrariesConfiguration.name, stub)
     }
 
     override fun initialize(isSingleTarget: Boolean) {
-        val minecraftFile = project.objects.fileProperty()
+        val remapTask = project.tasks.register(
+            lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
+            RemapTask::class.java,
+        ) {
+            it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
 
-        project.afterEvaluate {
-            if (remapNamespace == null) {
-                minecraftFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
+            it.classpath.from(minecraftLibrariesConfiguration)
+
+            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+
+            it.sourceNamespace.set(remapNamespace)
+
+            it.extraFiles.set(
+                mcpConfigDependency(
+                    project,
+                    project.configurations.getByName(main.sourceSet.patchesConfigurationName)
+                )
+                    .flatMap { file ->
+                        mcpConfigExtraRemappingFiles(project, file)
+                    },
+            )
+        }
+
+        val minecraftFile = remapNamespace.flatMap {
+            if (it.isEmpty()) {
+                resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
             } else {
-                val remapTask = project.tasks.register(
-                    lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
-                    RemapTask::class.java,
-                ) {
-                    it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
-
-                    it.classpath.from(minecraftLibrariesConfiguration)
-
-                    it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
-
-                    it.sourceNamespace.set(remapNamespace)
-
-                    it.extraFiles.set(
-                        mcpConfigDependency(
-                            project,
-                            project.configurations.getByName(main.sourceSet.patchesConfigurationName)
-                        )
-                            .flatMap { file ->
-                                mcpConfigExtraRemappingFiles(project, file)
-                            },
-                    )
-                }
-
-                minecraftFile.set(remapTask.flatMap(RemapTask::outputFile))
+                remapTask.flatMap(RemapTask::outputFile)
             }
         }
 
@@ -136,7 +156,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 PublicationVariant.Joined,
                 Side.UNKNOWN,
                 isSingleTarget,
-                project.provider { remapNamespace },
+                remapNamespace,
             )
         }
 
@@ -151,9 +171,16 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 PublicationVariant.Data,
                 Side.UNKNOWN,
                 isSingleTarget,
-                project.provider { remapNamespace },
+                remapNamespace,
             )
         }
+
+        compilations.add(main)
+        compilations.add(data)
+
+        runnables.add(main)
+        runnables.add(client)
+        runnables.add(data)
 
         main.dependencies { dependencies ->
             minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(dependencies.sourceSet.runtimeClasspathConfigurationName))
@@ -202,6 +229,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 ),
             )
 
+            // afterEvaluate needed because of the component rules using providers
             project.afterEvaluate { project ->
                 project.dependencies.components { components ->
                     components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
@@ -211,18 +239,30 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                             VERSION_MANIFEST_URL,
                             project.gradle.startParameter.isOffline,
                             getUserdev(),
-                            name,
-                            MinecraftAttributes.TARGET_MINECRAFT,
-                            name,
+                            featureName,
                         )
                     }
                 }
             }
 
-            if (!hasMappings) {
-                val providers = buildList { MappingsBuilder(project, this).official() }
+            mappingProviders.addAll(hasMappings.map {
+                if (it) {
+                    emptyList()
+                } else {
+                    buildList { MappingsBuilder(project, this).official() }
+                }
+            })
 
-                addMappings(providers)
+            project.configurations.named(dependencies.sourceSet.mappingsConfigurationName) {
+                val mappingDependencyList = minecraftVersion.flatMap { minecraftVersion ->
+                    mappingProviders.map { providers ->
+                        providers.map { mapping ->
+                            mapping(minecraftVersion, featureName)
+                        }
+                    }
+                }
+
+                it.dependencies.addAllLater(mappingDependencyList)
             }
 
             project.tasks.named(dependencies.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -286,30 +326,28 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         artifact {
             it.classifier = userdev
         }
-/*        attributes { attributes ->
-            attributes
-                .attribute(CLASSIFIER_ATTRIBUTE, userdev)
-                .attribute(
-                    Category.CATEGORY_ATTRIBUTE,
-                    project.objects.named(Category::class.java, Category.LIBRARY)
-                )
-                .attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, Usage.JAVA_API))
-        }*/
+        /*        attributes { attributes ->
+                    attributes
+                        .attribute(CLASSIFIER_ATTRIBUTE, userdev)
+                        .attribute(
+                            Category.CATEGORY_ATTRIBUTE,
+                            project.objects.named(Category::class.java, Category.LIBRARY)
+                        )
+                        .attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, Usage.JAVA_API))
+                }*/
     }
 
     protected open fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"
 
     override fun mappings(action: Action<MappingsBuilder>) {
-        hasMappings = true
+        hasMappings.set(true)
 
         val mappings = mutableListOf<MappingDependencyProvider>()
 
         action.execute(MappingsBuilder(project, mappings))
 
-        main.dependencies {
-            addMappings(mappings)
-        }
+        addMappings(mappings)
     }
 
     fun getUserdev() = UserdevPath(
@@ -320,12 +358,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     )
 
     private fun addMappings(providers: List<MappingDependencyProvider>) {
-        val sourceSet = main.sourceSet
-
-        for (mapping in providers) {
-            project.dependencies.addProvider(
-                sourceSet.mappingsConfigurationName,
-                minecraftVersion.map { mapping(it, this@ForgeTargetImpl.featureName) })
-        }
+        mappingProviders.addAll(providers)
     }
 }

@@ -6,6 +6,7 @@ import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectCollection
 import org.gradle.api.PolymorphicDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
@@ -116,7 +117,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     internal val singleTargetConfigurator = SingleTargetConfigurator(project, this)
 
-    internal val mappingActions = mutableListOf<Action<MappingsBuilder>>()
+    internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
         var fabricConfigured = false

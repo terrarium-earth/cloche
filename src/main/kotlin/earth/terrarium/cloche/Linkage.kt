@@ -5,44 +5,37 @@ import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.VirtualExtension
-import org.gradle.api.Action
 import org.gradle.api.Project
-import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.tasks.SourceSet
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
-
-internal fun Project.asDependency(configure: ProjectDependency.() -> Unit) =
-    (dependencies.project(mapOf("path" to path)) as ProjectDependency).also(configure)
 
 /**
  * Depend on the compiled output of [sourceSet], by requesting the capability to allow for resolution to the proper variants
  */
 context(Project, ClocheTarget)
-private fun SourceSet.linkDynamically(sourceSet: SourceSet, dependency: ProjectDependency, configurationName: String) {
+private fun SourceSet.linkDynamically(sourceSet: SourceSet) {
+    project.extend(implementationConfigurationName, sourceSet.implementationConfigurationName)
+    project.extend(apiConfigurationName, sourceSet.apiConfigurationName)
+    project.extend(runtimeOnlyConfigurationName, sourceSet.runtimeOnlyConfigurationName)
+    project.extend(compileOnlyConfigurationName, sourceSet.compileOnlyConfigurationName)
+    project.extend(compileOnlyApiConfigurationName, sourceSet.compileOnlyApiConfigurationName)
     project.extend(mixinsConfigurationName, sourceSet.mixinsConfigurationName)
     project.extend(accessWidenersConfigurationName, sourceSet.accessWidenersConfigurationName)
-
-    project.dependencies.add(configurationName, dependency)
 }
 
 /**
  * Depend on the api configuration of [compilation]
  */
-context(Project, CommonTarget)
-internal fun CommonCompilation.linkDynamically(compilation: CommonCompilation, dependencyScope: Configuration) {
-    val dependency = project.asDependency {
-        because("Dependency from ${target.name}:${this@linkDynamically.name} to ${compilation.target.name}:${compilation.name}")
+context(Project, CommonTargetInternal)
+internal fun CommonCompilation.linkDynamically(compilation: CommonCompilation) {
+    sourceSet.compileClasspath += compilation.sourceSet.output
 
-        capabilities {
-            it.requireCapability(compilation.capability)
-        }
-
-        attributes(compilation::attributes)
+    artifacts {
+        it.add(sourceSet.apiElementsConfigurationName, tasks.named(compilation.sourceSet.jarTaskName))
     }
 
-    sourceSet.linkDynamically(compilation.sourceSet, dependency, dependencyScope.name)
+    sourceSet.linkDynamically(compilation.sourceSet)
 }
 
 /**
@@ -50,25 +43,15 @@ internal fun CommonCompilation.linkDynamically(compilation: CommonCompilation, d
  */
 context(Project, MinecraftTarget)
 internal fun RunnableCompilationInternal.linkDynamically(compilation: RunnableCompilationInternal) {
-    val dependency = project.asDependency {
-        because("Dependency from ${target.name}:${this@linkDynamically.name} to ${compilation.target.name}:${compilation.name}")
+    sourceSet.compileClasspath += compilation.sourceSet.output
+    sourceSet.runtimeClasspath += compilation.sourceSet.output
 
-        capabilities {
-            it.requireCapability(compilation.capability)
-        }
-
-        attributes(compilation::attributes)
+    artifacts {
+        it.add(sourceSet.apiElementsConfigurationName, tasks.named(compilation.sourceSet.jarTaskName))
+        it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(compilation.sourceSet.jarTaskName))
     }
 
-    val sourceSet = sourceSet
-
-    val configurationName = if (project.configurations.findByName(sourceSet.apiConfigurationName) == null) {
-        sourceSet.implementationConfigurationName
-    } else {
-        sourceSet.apiConfigurationName
-    }
-
-    sourceSet.linkDynamically(compilation.sourceSet, dependency, configurationName)
+    sourceSet.linkDynamically(compilation.sourceSet)
 }
 
 /**

@@ -11,10 +11,10 @@ import org.gradle.api.Named
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationContainer
-import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.file.RegularFile
 import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.provider.Provider
@@ -30,31 +30,31 @@ interface Compilation : Named {
     val mixins: ConfigurableFileCollection
         @InputFiles get
 
+    fun withJavadocJar()
+    fun withSourcesJar()
+
     fun dependencies(action: Action<ClocheDependencyHandler>)
-
-    fun java(action: Action<FeatureSpec>)
-
     fun attributes(action: Action<AttributeContainer>)
 }
 
 @JvmDefaultWithoutCompatibility
 internal interface CompilationInternal : Compilation {
     val dependencySetupActions: DomainObjectCollection<Action<ClocheDependencyHandler>>
-    val javaFeatureActions: DomainObjectCollection<Action<FeatureSpec>>
     val attributeActions: DomainObjectCollection<Action<AttributeContainer>>
 
-    val capabilityGroup: String
-    val capabilityName: String
+    var withJavadoc: Boolean
+    var withSources: Boolean
 
-    val capability
-        get() = "$capabilityGroup:$capabilityName"
+    override fun withJavadocJar() {
+        withJavadoc = true
+    }
+
+    override fun withSourcesJar() {
+        withSources = true
+    }
 
     override fun dependencies(action: Action<ClocheDependencyHandler>) {
         dependencySetupActions.add(action)
-    }
-
-    override fun java(action: Action<FeatureSpec>) {
-        javaFeatureActions.add(action)
     }
 
     override fun attributes(action: Action<AttributeContainer>) {
@@ -62,8 +62,8 @@ internal interface CompilationInternal : Compilation {
     }
 
     fun attributes(attributes: AttributeContainer) {
-        for (action in attributeActions) {
-            action.execute(attributes)
+        attributeActions.all {
+            it.execute(attributes)
         }
     }
 }
@@ -73,7 +73,7 @@ interface Runnable : Named {
 }
 
 internal interface RunnableInternal : Runnable {
-    val runSetupActions: List<Action<MinecraftRunConfigurationBuilder>>
+    val runSetupActions: DomainObjectCollection<Action<MinecraftRunConfigurationBuilder>>
 }
 
 interface RunnableCompilation : Runnable, Compilation
@@ -82,7 +82,7 @@ internal interface RunnableCompilationInternal : CompilationInternal, RunnableCo
     val targetMinecraftAttribute: Provider<String>
 
     val intermediaryMinecraftFile: Provider<FileSystemLocation>
-    val finalMinecraftFile: Provider<FileSystemLocation>
+    val finalMinecraftFile: Provider<RegularFile>
 
     val target: MinecraftTargetInternal
 

@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClocheDependencyHandler
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectCollection
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
 import org.gradle.api.plugins.FeatureSpec
@@ -34,11 +35,11 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
     override val mixins get() =
         main.mixins
 
+    override fun withJavadocJar() = main.withJavadocJar()
+    override fun withSourcesJar() = main.withSourcesJar()
+
     override fun dependencies(action: Action<ClocheDependencyHandler>) =
         main.dependencies(action)
-
-    override fun java(action: Action<FeatureSpec>) =
-        main.java(action)
 
     override fun attributes(action: Action<AttributeContainer>) =
         main.attributes(action)
@@ -62,8 +63,11 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
     val loaderAttributeName: String
     val commonType: String
 
-    val compilations: List<RunnableCompilationInternal>
-    val runnables: List<RunnableInternal>
+    val compilations: DomainObjectCollection<RunnableCompilationInternal>
+    val runnables: DomainObjectCollection<RunnableInternal>
+
+    val remapNamespace: Provider<String>
+        @Internal get
 
     fun initialize(isSingleTarget: Boolean)
 }

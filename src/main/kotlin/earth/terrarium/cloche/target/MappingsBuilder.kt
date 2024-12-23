@@ -12,6 +12,7 @@ class MappingsBuilder(private val project: Project, private val dependencies: Mu
         dependencies.add { resolvedMinecraftVersion, targetFeatureName ->
             val version = minecraftVersion ?: resolvedMinecraftVersion
 
+            // TODO Should always be registered, but just unused if mappings are configured
             val taskName = lowerCamelCaseGradleName("resolve", targetFeatureName, "clientMappings")
 
             val task = if (taskName in project.tasks.names) {

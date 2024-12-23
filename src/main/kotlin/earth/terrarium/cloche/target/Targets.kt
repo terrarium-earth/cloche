@@ -8,9 +8,8 @@ import org.gradle.api.tasks.Optional
 interface FabricTarget : MinecraftTarget {
     override val client: RunnableCompilation
 
-    fun noClient()
-
-    fun includeClient()
+    fun client()
+    fun includedClient()
 
     fun client(action: Action<RunnableCompilation>)
 }

@@ -26,11 +26,12 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 private fun setupModTransformationPipeline(
     project: Project,
     target: MinecraftTargetInternal,
-    remapNamespace: String?,
+    remapNamespace: Provider<String>,
     main: SourceSet,
     patched: Boolean,
     intermediaryMinecraft: Provider<FileSystemLocation>,
@@ -40,30 +41,34 @@ private fun setupModTransformationPipeline(
         it.to.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED))
     }
 
-    if (remapNamespace == null) {
-        return
-    }
+    // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
+    //  this can potentially be changed to a no-op transform but that's far slower
+    project.afterEvaluate {
+        if (remapNamespace.get().isEmpty()) {
+            return@afterEvaluate
+        }
 
-    project.dependencies.registerTransform(RemapAction::class.java) {
-        it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED))
-        it.to.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.REMAPPED))
+        project.dependencies.registerTransform(RemapAction::class.java) {
+            it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED))
+            it.to.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.REMAPPED))
 
-        it.parameters { parameters ->
-            parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
+            it.parameters { parameters ->
+                parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
 
-            parameters.sourceNamespace.set(remapNamespace)
+                parameters.sourceNamespace.set(remapNamespace)
 
-            parameters.extraClasspath.from(project.files(intermediaryMinecraft))
+                parameters.extraClasspath.from(project.files(intermediaryMinecraft))
 
-            parameters.cacheDirectory.set(getGlobalCacheDirectoryProvider(project))
+                parameters.cacheDirectory.set(getGlobalCacheDirectoryProvider(project))
 
-            if (patched) {
-                parameters.extraFiles.set(
-                    mcpConfigDependency(project, project.configurations.getByName(main.patchesConfigurationName))
-                        .flatMap { file ->
-                            mcpConfigExtraRemappingFiles(project, file)
-                        },
-                )
+                if (patched) {
+                    parameters.extraFiles.set(
+                        mcpConfigDependency(project, project.configurations.getByName(main.patchesConfigurationName))
+                            .flatMap { file ->
+                                mcpConfigExtraRemappingFiles(project, file)
+                            },
+                    )
+                }
             }
         }
     }
@@ -74,27 +79,19 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     fun add(compilation: RunnableCompilationInternal) {
         val sourceSet = compilation.sourceSet
 
-        if (!singleTarget || compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            project.extension<JavaPluginExtension>().registerFeature(sourceSet.name) { spec ->
-                spec.usingSourceSet(sourceSet)
-                spec.capability(compilation.capabilityGroup, compilation.capabilityName, project.version.toString())
-
-                for (featureAction in compilation.javaFeatureActions) {
-                    featureAction.execute(spec)
-                }
-            }
-        }
+        project.createCompilationVariants(compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
-        project.tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
-            val javaVersion = target.minecraftVersion.map {
-                getVersionList(getGlobalCacheDirectory(project).toPath(), VERSION_MANIFEST_URL, project.gradle.startParameter.isOffline)
-                    .version(it)
-                    .javaVersion
-                    .majorVersion
-            }
+        val javaVersion = target.minecraftVersion.map {
+            getVersionList(getGlobalCacheDirectory(project).toPath(), VERSION_MANIFEST_URL, project.gradle.startParameter.isOffline)
+                .version(it)
+                .javaVersion
+                .majorVersion
+        }
 
+        // TODO do the same for the javadoc tasks
+        project.tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
             val javaCompiler = javaVersion.flatMap { version ->
                 project.serviceOf<JavaToolchainService>().compilerFor {
                     it.languageVersion.set(JavaLanguageVersion.of(version))
@@ -104,14 +101,30 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             compile.javaCompiler.set(javaCompiler)
         }
 
+        project.plugins.withId("org.jetbrains.kotlin.jvm") {
+            project.tasks.named(sourceSet.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
+                val javaLauncher = javaVersion.flatMap { version ->
+                    project.serviceOf<JavaToolchainService>().launcherFor {
+                        it.languageVersion.set(JavaLanguageVersion.of(version))
+                    }
+                }
+
+                it.kotlinJavaToolchain.toolchain.use(javaLauncher)
+            }
+        }
+
         if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {
                 val configuration = project.configurations.getByName(name)
 
-                val state = if (target.remapNamespace != null) {
-                    States.REMAPPED
-                } else {
-                    States.INCLUDES_EXTRACTED
+                val state = target.remapNamespace.map {
+                    val state = if (it.isEmpty()) {
+                        States.INCLUDES_EXTRACTED
+                    } else {
+                        States.REMAPPED
+                    }
+
+                    ModTransformationStateAttribute.of(target, state)
                 }
 
                 configuration.outgoing.variants { variants ->
@@ -120,7 +133,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
                     }
 
                     variants.all { variant ->
-                        variant.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
+                        variant.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
                     }
                 }
 
@@ -165,8 +178,6 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         for (name in resolvableConfigurationNames) {
             project.configurations.named(name) { configuration ->
-                configuration.attributes.attributeProvider(MinecraftAttributes.TARGET_MINECRAFT, compilation.targetMinecraftAttribute)
-
                 configuration.attributes.attribute(
                     OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
                     objects.named(OperatingSystemFamily::class.java, DefaultNativePlatform.host().operatingSystem.toFamilyName()),
@@ -197,15 +208,12 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         project
             .extension<RunsContainer>()
             .create(target.name + TARGET_NAME_PATH_SEPARATOR + runnableName) { builder ->
-                for (runSetupAction in runnable.runSetupActions) {
-                    runSetupAction.execute(builder)
+                runnable.runSetupActions.all {
+                    it.execute(builder)
                 }
             }
     }
 
-    target.compilations.forEach(::add)
-
-    addRunnable(target.main)
-    addRunnable(target.data)
-    addRunnable(target.client)
+    target.compilations.all(::add)
+    target.runnables.all(::addRunnable)
 }

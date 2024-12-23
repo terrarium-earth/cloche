@@ -38,6 +38,7 @@ internal abstract class CommonTargetInternal @Inject constructor(private val nam
         project.objects.newInstance(CommonCompilation::class.java, ClochePlugin.CLIENT_COMPILATION_NAME, this)
     }
 
+    // Not lazy as it has to happen once at configuration time
     var publish = false
 
     override val accessWideners get() = main.accessWideners
@@ -45,8 +46,10 @@ internal abstract class CommonTargetInternal @Inject constructor(private val nam
 
     override fun getName() = name
 
+    override fun withJavadocJar() = main.withJavadocJar()
+    override fun withSourcesJar() = main.withSourcesJar()
+
     override fun dependencies(action: Action<ClocheDependencyHandler>) = main.dependencies(action)
-    override fun java(action: Action<FeatureSpec>) = main.java(action)
     override fun attributes(action: Action<AttributeContainer>) = main.attributes(action)
 
     override fun withPublication() {

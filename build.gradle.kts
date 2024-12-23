@@ -45,6 +45,8 @@ dependencies {
 
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")
 
+    implementation(group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version = "2.0.21")
+
     testImplementation(kotlin("test"))
     testImplementation(gradleTestKit())
 }
@@ -76,5 +78,5 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(8)
 }

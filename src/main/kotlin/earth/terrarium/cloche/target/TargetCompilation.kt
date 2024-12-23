@@ -15,7 +15,6 @@ import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.RegularFile
-import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
@@ -52,30 +51,15 @@ constructor(
         it.accessWideners.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
     }
 
-    private val decompileMinecraft =
-        project.tasks.register(
-            // project.addSetupTask(
-            lowerCamelCaseGradleName("decompile", target.featureName, namePart, "minecraft"),
-            // ),
-            Decompile::class.java,
-        ) {
-            // it.inputFile.set(project.layout.file(project.provider { finalMinecraftFiles.singleFile }))
-        }
-
-    final override val finalMinecraftFile: Provider<FileSystemLocation> = accessWidenTask.flatMap(AccessWiden::outputFile)
+    final override val finalMinecraftFile: Provider<RegularFile> = accessWidenTask.flatMap(AccessWiden::outputFile)
 
     override val dependencySetupActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<ClocheDependencyHandler>>
-    override val javaFeatureActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<FeatureSpec>>
     override val attributeActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
-    final override val runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
 
-    override val capabilityGroup = project.group.toString()
+    override var withJavadoc: Boolean = false
+    override var withSources: Boolean = false
 
-    override val capabilityName: String = if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
-        project.name
-    } else {
-        "${project.name}-$name"
-    }
+    override val runSetupActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MinecraftRunConfigurationBuilder>>
 
     final override val sourceSet: SourceSet
 
@@ -88,12 +72,18 @@ constructor(
 
         sourceSet = project.extension<SourceSetContainer>().maybeCreate(name)
 
+        project.tasks.register(
+            //project.addSetupTask(
+                lowerCamelCaseGradleName("decompile", target.featureName, namePart, "minecraft")
+            //)
+            , Decompile::class.java,
+        ) {
+            it.inputFile.set(finalMinecraftFile)
+            it.classpath.from(this@TargetCompilation.sourceSet.compileClasspath)
+        }
+
         dependencies { dependencies ->
             val sourceSet = dependencies.sourceSet
-
-            decompileMinecraft.configure {
-                // it.classpath.from(this@TargetCompilation.sourceSet.compileClasspath)
-            }
 
             project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)
             project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)

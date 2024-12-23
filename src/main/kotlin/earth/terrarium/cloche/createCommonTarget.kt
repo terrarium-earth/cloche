@@ -1,15 +1,19 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.ClochePlugin.Companion.STUB_MODULE
 import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
-import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
+import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.intersection.JarIntersection
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
-import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
@@ -23,6 +27,25 @@ internal class CommonInfo(
 )
 
 context(Project) internal fun createCommonTarget(commonTarget: CommonTargetInternal, commonInfo: Provider<CommonInfo>, onlyCommonOfType: Provider<Boolean>) {
+    val featureName = commonTarget.featureName
+    val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
+
+    project.afterEvaluate {
+        it.dependencies.components.withModule(
+            STUB_MODULE,
+            MinecraftComponentMetadataRule::class.java
+        ) {
+            it.params(
+                getGlobalCacheDirectory(project),
+                commonInfo.get().dependants.map { it.minecraftVersion.get() },
+                VERSION_MANIFEST_URL,
+                project.gradle.startParameter.isOffline,
+                featureName,
+                clientTargetMinecraftName,
+            )
+        }
+    }
+
     val main = commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal::main) }
 
     val client: Provider<Map<MinecraftTargetInternal, RunnableCompilationInternal>> = commonInfo.map {
@@ -61,25 +84,12 @@ context(Project) internal fun createCommonTarget(commonTarget: CommonTargetInter
         return files(createIntersection.flatMap(JarIntersection::output))
     }
 
-    fun add(compilation: CommonCompilation, variant: PublicationVariant, intersection: FileCollection) {
+    fun add(compilation: CommonCompilation, variant: PublicationVariant, intersection: FileCollection, targetIntersection: String) {
         val sourceSet = with(commonTarget) {
             compilation.sourceSet
         }
 
-        if (commonTarget.name != COMMON || compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            project.extension<JavaPluginExtension>().registerFeature(sourceSet.name) { spec ->
-                spec.usingSourceSet(sourceSet)
-                spec.capability(compilation.capabilityGroup, compilation.capabilityName, project.version.toString())
-
-                if (commonTarget.name != COMMON && !commonTarget.publish) {
-                    spec.disablePublication()
-                }
-
-                for (featureAction in compilation.javaFeatureActions) {
-                    featureAction.execute(spec)
-                }
-            }
-        }
+        project.createCompilationVariants(compilation, sourceSet, commonTarget.name == COMMON || commonTarget.publish)
 
         configureSourceSet(sourceSet, commonTarget, compilation, false)
 
@@ -103,11 +113,19 @@ context(Project) internal fun createCommonTarget(commonTarget: CommonTargetInter
             configuration.isCanBeConsumed = false
         }
 
+        val stub = project.dependencies.enforcedPlatform(ClochePlugin.STUB_DEPENDENCY) as ExternalModuleDependency
+
+        stub.capabilities {
+            it.requireCapability("net.msrandom:$targetIntersection")
+        }
+
+        project.dependencies.add(dependencyHolder.name, stub)
         project.dependencies.add(dependencyHolder.name, intersection)
 
         compilation.attributes {
             it.attribute(VARIANT_ATTRIBUTE, variant)
 
+            // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
             afterEvaluate { project ->
                 val commonInfo = commonInfo.get()
 
@@ -159,26 +177,13 @@ context(Project) internal fun createCommonTarget(commonTarget: CommonTargetInter
             return
         }
 
-        val compilationDependencyScope = configurations.create(lowerCamelCaseGradleName(commonTarget.featureName, compilation.name, "dependencyScope")) {
-            it.isCanBeResolved = false
-            it.isCanBeConsumed = false
-        }
-
-        project.configurations.named(sourceSet.apiElementsConfigurationName) {
-            it.extendsFrom(compilationDependencyScope)
-        }
-
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.extendsFrom(compilationDependencyScope)
-        }
-
         with(commonTarget) {
-            compilation.linkDynamically(commonTarget.main, compilationDependencyScope)
+            compilation.linkDynamically(commonTarget.main)
         }
     }
 
-    add(commonTarget.main, PublicationVariant.Common, intersection(commonTarget.main.name, main))
-    add(commonTarget.data, PublicationVariant.Data, intersection(commonTarget.data.name, data))
+    add(commonTarget.main, PublicationVariant.Common, intersection(commonTarget.main.name, main), featureName)
+    add(commonTarget.data, PublicationVariant.Data, intersection(commonTarget.data.name, data), featureName)
 
-    add(commonTarget.client, PublicationVariant.Client, intersection(commonTarget.client.name, client))
+    add(commonTarget.client, PublicationVariant.Client, intersection(commonTarget.client.name, client), clientTargetMinecraftName)
 }

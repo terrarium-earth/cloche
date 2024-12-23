@@ -4,7 +4,6 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
@@ -19,10 +18,6 @@ sealed interface ClocheTarget : Compilation {
     val project: Project
         @Inject
         get
-
-    val remapNamespace: String?
-        @Internal
-        get() = null
 
     val featureName
         get() = lowerCamelCaseGradleName(name)
