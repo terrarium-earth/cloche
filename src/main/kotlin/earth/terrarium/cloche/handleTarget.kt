@@ -17,7 +17,6 @@ import org.gradle.api.Project
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.internal.tasks.JvmConstants
-import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
