@@ -22,6 +22,8 @@ import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectCollection
+import org.gradle.api.NamedDomainObjectCollection
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
@@ -70,11 +72,12 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
     final override lateinit var main: TargetCompilation
 
-    final override val client: SimpleRunnable = run {
-        project.objects.newInstance(SimpleRunnable::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
-    }
+    final override var client: SimpleRunnable? = null
 
-    final override lateinit var data: TargetCompilation
+    final override var data: RunnableCompilationInternal? = null
+
+    override val dependsOn: DomainObjectCollection<CommonTarget> =
+        project.objects.domainObjectSet(CommonTarget::class.java)
 
     protected var hasMappings: Property<Boolean> = project.objects.property(Boolean::class.javaObjectType).apply {
         convention(false)
@@ -97,11 +100,47 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     override val loaderAttributeName get() = FORGE
     override val commonType get() = FORGE
 
-    override val compilations = project.objects.domainObjectSet(RunnableCompilationInternal::class.java)
-    override val runnables = project.objects.domainObjectSet(RunnableInternal::class.java)
+    override val compilations: DomainObjectCollection<RunnableCompilationInternal> =
+        project.objects.domainObjectSet(RunnableCompilationInternal::class.java)
+
+    override val runnables: DomainObjectCollection<RunnableInternal> =
+        project.objects.domainObjectSet(RunnableInternal::class.java)
 
     abstract val mappingProviders: ListProperty<MappingDependencyProvider>
         @Internal get
+
+    private val remapTask = project.tasks.register(
+        lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
+        RemapTask::class.java,
+    ) {
+        it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
+
+        it.classpath.from(minecraftLibrariesConfiguration)
+
+        it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+
+        it.sourceNamespace.set(remapNamespace)
+
+        it.extraFiles.set(
+            mcpConfigDependency(
+                project,
+                project.configurations.getByName(main.sourceSet.patchesConfigurationName)
+            )
+                .flatMap { file ->
+                    mcpConfigExtraRemappingFiles(project, file)
+                },
+        )
+    }
+
+    private val minecraftFile = remapNamespace.flatMap {
+        if (it.isEmpty()) {
+            resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
+        } else {
+            remapTask.flatMap(RemapTask::outputFile)
+        }
+    }
+
+    private var isSingleTarget = false
 
     init {
         val stub = project.dependencies.enforcedPlatform(STUB_DEPENDENCY) as ExternalModuleDependency
@@ -114,36 +153,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     }
 
     override fun initialize(isSingleTarget: Boolean) {
-        val remapTask = project.tasks.register(
-            lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
-            RemapTask::class.java,
-        ) {
-            it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
-
-            it.classpath.from(minecraftLibrariesConfiguration)
-
-            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
-
-            it.sourceNamespace.set(remapNamespace)
-
-            it.extraFiles.set(
-                mcpConfigDependency(
-                    project,
-                    project.configurations.getByName(main.sourceSet.patchesConfigurationName)
-                )
-                    .flatMap { file ->
-                        mcpConfigExtraRemappingFiles(project, file)
-                    },
-            )
-        }
-
-        val minecraftFile = remapNamespace.flatMap {
-            if (it.isEmpty()) {
-                resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
-            } else {
-                remapTask.flatMap(RemapTask::outputFile)
-            }
-        }
+        this.isSingleTarget = isSingleTarget
 
         main = run {
             project.objects.newInstance(
@@ -160,27 +170,8 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             )
         }
 
-        data = run {
-            project.objects.newInstance(
-                TargetCompilation::class.java,
-                ClochePlugin.DATA_COMPILATION_NAME,
-                this,
-                resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output),
-                minecraftFile,
-                project.provider { name },
-                PublicationVariant.Data,
-                Side.UNKNOWN,
-                isSingleTarget,
-                remapNamespace,
-            )
-        }
-
         compilations.add(main)
-        compilations.add(data)
-
         runnables.add(main)
-        runnables.add(client)
-        runnables.add(data)
 
         main.dependencies { dependencies ->
             minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(dependencies.sourceSet.runtimeClasspathConfigurationName))
@@ -278,12 +269,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             }
         }
 
-        data.dependencies { dependencies ->
-            project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
-                it.version.set(minecraftVersion)
-            }
-        }
-
         main.runConfiguration {
             it.sourceSet(main.sourceSet)
 
@@ -292,30 +277,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
 
                 serverConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
-            }
-        }
-
-        client.runConfiguration {
-            it.sourceSet(main.sourceSet)
-
-            it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
-                clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
-
-                clientConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
-            }
-        }
-
-        data.runConfiguration {
-            it.sourceSet(data.sourceSet)
-
-            it.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
-                datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                datagen.mixinConfigs.from(project.configurations.named(data.sourceSet.mixinsConfigurationName))
-
-                datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
-
-                datagen.outputDirectory.set(datagenDirectory)
             }
         }
     }
@@ -339,6 +300,65 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
     protected open fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"
+
+    override fun createData(): RunnableCompilationInternal {
+        val data = run {
+            project.objects.newInstance(
+                TargetCompilation::class.java,
+                ClochePlugin.DATA_COMPILATION_NAME,
+                this,
+                resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output),
+                minecraftFile,
+                project.provider { name },
+                PublicationVariant.Data,
+                Side.UNKNOWN,
+                isSingleTarget,
+                remapNamespace,
+            )
+        }
+
+        data.dependencies { dependencies ->
+            project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
+                it.version.set(minecraftVersion)
+            }
+        }
+
+        data.runConfiguration {
+            it.sourceSet(data.sourceSet)
+
+            it.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
+                datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                datagen.mixinConfigs.from(project.configurations.named(data.sourceSet.mixinsConfigurationName))
+
+                datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
+
+                datagen.outputDirectory.set(datagenDirectory)
+            }
+        }
+
+        return data
+    }
+
+    override fun client(action: Action<Runnable>) {
+        if (client == null) {
+            client = project.objects.newInstance(SimpleRunnable::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
+
+            client!!.runConfiguration {
+                it.sourceSet(main.sourceSet)
+
+                it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
+                    clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                    clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
+
+                    clientConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                }
+            }
+
+            runnables.add(client)
+        }
+
+        action.execute(client!!)
+    }
 
     override fun mappings(action: Action<MappingsBuilder>) {
         hasMappings.set(true)

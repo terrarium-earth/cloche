@@ -26,6 +26,7 @@ import org.gradle.api.plugins.ApplicationPlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 
 fun Project.addSetupTask(name: String): String {
@@ -35,7 +36,7 @@ fun Project.addSetupTask(name: String): String {
 
     val fullName =
         if (project == project.rootProject) {
-            name
+            ":$name"
         } else {
             "${project.path}:$name"
         }
@@ -43,7 +44,7 @@ fun Project.addSetupTask(name: String): String {
     val taskNames = project.gradle.startParameter.taskNames
 
     if (fullName !in taskNames) {
-        project.gradle.startParameter.setTaskNames(taskNames + fullName)
+        project.gradle.startParameter.setTaskNames((taskNames + fullName).distinct())
     }
 
     return name
@@ -95,6 +96,7 @@ class ClochePlugin : Plugin<Project> {
         target.dependencies.attributesSchema { schema ->
             schema.attribute(VARIANT_ATTRIBUTE) {
                 it.compatibilityRules.add(VariantCompatibilityRule::class.java)
+                it.disambiguationRules.add(VariantDisambiguationRule::class.java)
             }
         }
 
@@ -102,7 +104,7 @@ class ClochePlugin : Plugin<Project> {
             it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
                 jar.attributes.attribute(
                     ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.INITIAL
+                    ModTransformationStateAttribute.INITIAL,
                 )
             }
         }
@@ -118,9 +120,17 @@ class ClochePlugin : Plugin<Project> {
     }
 
     private fun applyTargets(project: Project, cloche: ClocheExtension) {
-        fun getDependencies(target: ClocheTarget): List<CommonTargetInternal> {
-            return (target.dependsOn.get() + target.dependsOn.get()
-                .flatMap(::getDependencies)).map { it as CommonTargetInternal }
+        fun getDependencies(target: ClocheTarget): Provider<List<CommonTargetInternal>> = project.provider {
+            target.dependsOn
+        }.flatMap {
+            val list = project.objects.listProperty(CommonTargetInternal::class.java)
+
+            for (target in it) {
+                list.add(target as CommonTargetInternal)
+                list.addAll(getDependencies(target))
+            }
+
+            list
         }
 
         val targetsProvider = project.provider {
@@ -185,24 +195,57 @@ class ClochePlugin : Plugin<Project> {
             }
         })
 
-        cloche.targets.all {
-            it as MinecraftTargetInternal
+        cloche.targets.all { target ->
+            target as MinecraftTargetInternal
 
-            it.initialize(false)
+            target.initialize(false)
 
-            addTarget(cloche, project, it, false)
+            addTarget(cloche, project, target, false)
 
-            for (dependency in it.dependsOn.get()) {
+            target.dependsOn.all { dependency ->
                 dependency as CommonTargetInternal
+
+                fun setDependenciesWithData(common: CommonTargetInternal): CommonCompilation {
+                    common.dependsOn.all {
+                        setDependenciesWithData(it as CommonTargetInternal)
+                    }
+
+                    return common.withData()
+                }
+
+                fun setDependenciesWithClient(common: CommonTargetInternal): CommonCompilation {
+                    common.dependsOn.all {
+                        setDependenciesWithClient(it as CommonTargetInternal)
+                    }
+
+                    return common.withClient()
+                }
 
                 with(dependency) {
                     with(project) {
-                        it.main.sourceSet.linkStatically(dependency.main.sourceSet)
-                        it.data.sourceSet.linkStatically(dependency.data.sourceSet)
-
-                        if (it.client is RunnableCompilationInternal) {
-                            (it.client as RunnableCompilationInternal).sourceSet.linkStatically(dependency.client.sourceSet)
+                        target.compilations.all {
+                            if (it.name == DATA_COMPILATION_NAME) {
+                                it.sourceSet.linkStatically(setDependenciesWithData(dependency).sourceSet)
+                                it.sourceSet.linkStatically(dependency.main.sourceSet)
+                            } else if (it.name == CLIENT_COMPILATION_NAME) {
+                                it.sourceSet.linkStatically(setDependenciesWithClient(dependency).sourceSet)
+                                it.sourceSet.linkStatically(dependency.main.sourceSet)
+                            }
                         }
+
+                        target.main.sourceSet.linkStatically(dependency.main.sourceSet)
+
+                        val hasClient = project.provider {
+                            target.compilations.any { it.name == CLIENT_COMPILATION_NAME }
+                        }
+
+                        target.main.sourceSet.extension<VirtualExtension>().dependsOn.addAllLater(hasClient.map {
+                            if (it) {
+                                listOf((target.client as RunnableCompilationInternal).sourceSet)
+                            } else {
+                                emptyList()
+                            }
+                        })
                     }
                 }
             }
@@ -211,23 +254,27 @@ class ClochePlugin : Plugin<Project> {
         cloche.commonTargets.all { commonTarget ->
             commonTarget as CommonTargetInternal
 
-            for (dependency in commonTarget.dependsOn.get()) {
+            commonTarget.dependsOn.all { dependency ->
                 dependency as CommonTargetInternal
 
                 with(project) {
-                    fun add(compilation: CommonTargetInternal.() -> CompilationInternal) {
+                    fun add(compilation: CompilationInternal, dependencyCompilation: CompilationInternal) {
                         val sourceSet = with(commonTarget) {
-                            commonTarget.compilation().sourceSet
+                            compilation.sourceSet
                         }
 
                         with(dependency) {
-                            sourceSet.linkStatically(dependency.compilation().sourceSet)
+                            sourceSet.linkStatically(dependencyCompilation.sourceSet)
                         }
                     }
 
-                    add(CommonTargetInternal::main)
-                    add(CommonTargetInternal::client)
-                    add(CommonTargetInternal::data)
+                    commonTarget.compilations.all { targetCompilation ->
+                        dependency.compilations.all { dependencyCompilation ->
+                            if (dependencyCompilation.name == SourceSet.MAIN_SOURCE_SET_NAME || targetCompilation.name == dependencyCompilation.name) {
+                                add(targetCompilation, dependencyCompilation)
+                            }
+                        }
+                    }
                 }
             }
 

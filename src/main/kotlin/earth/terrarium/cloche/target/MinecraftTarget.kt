@@ -4,6 +4,7 @@ import earth.terrarium.cloche.ClocheDependencyHandler
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
+import org.gradle.api.NamedDomainObjectCollection
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
 import org.gradle.api.plugins.FeatureSpec
@@ -26,8 +27,8 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
         get() = project.layout.buildDirectory.dir("generatedResources/${name}")
 
     val main: RunnableCompilation
-    val data: RunnableCompilation
-    val client: Runnable
+    val data: RunnableCompilation?
+    val client: Runnable?
 
     override val accessWideners get() =
         main.accessWideners
@@ -49,16 +50,14 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
 
     fun data() = data(null)
 
-    fun data(action: Action<RunnableCompilation>?) {
-        action?.execute(data)
-    }
+    fun data(action: Action<RunnableCompilation>?)
 
     fun mappings(action: Action<MappingsBuilder>)
 }
 
 internal interface MinecraftTargetInternal : MinecraftTarget {
     override val main: RunnableCompilationInternal
-    override val data: RunnableCompilationInternal
+    override var data: RunnableCompilationInternal?
 
     val loaderAttributeName: String
     val commonType: String
@@ -68,6 +67,19 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
 
     val remapNamespace: Provider<String>
         @Internal get
+
+    fun createData(): RunnableCompilationInternal
+
+    override fun data(action: Action<RunnableCompilation>?) {
+        if (data == null) {
+            data = createData()
+
+            compilations.add(data)
+            runnables.add(data)
+        }
+
+        action?.execute(data!!)
+    }
 
     fun initialize(isSingleTarget: Boolean)
 }

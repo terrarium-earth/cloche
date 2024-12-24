@@ -6,16 +6,19 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 
 interface FabricTarget : MinecraftTarget {
-    override val client: RunnableCompilation
+    /**
+     * null if neither runnable nor a source set
+     * Runnable if only runnable but not a source set
+     * RunnableCompilation if runnable and a source set
+     */
+    override val client: Runnable?
 
-    fun client()
-    fun includedClient()
-
-    fun client(action: Action<RunnableCompilation>)
+    fun client(action: Action<RunnableCompilation>? = null)
+    fun includedClient(action: Action<Runnable>? = null)
 }
 
 interface ForgeLikeTarget : MinecraftTarget {
-    fun client(action: Action<Runnable>) = action.execute(client)
+    fun client(action: Action<Runnable>)
 }
 
 interface ForgeTarget : ForgeLikeTarget {

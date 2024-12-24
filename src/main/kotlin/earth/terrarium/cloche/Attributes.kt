@@ -34,6 +34,16 @@ class VariantCompatibilityRule : AttributeCompatibilityRule<PublicationVariant> 
     }
 }
 
+class VariantDisambiguationRule : AttributeDisambiguationRule<PublicationVariant> {
+    override fun execute(details: MultipleCandidatesDetails<PublicationVariant>) {
+        if (PublicationVariant.Common in details.candidateValues) {
+            details.closestMatch(PublicationVariant.Common)
+        } else if (PublicationVariant.Joined in details.candidateValues) {
+            details.closestMatch(PublicationVariant.Joined)
+        }
+    }
+}
+
 internal object ModTransformationStateAttribute {
     @JvmField
     val ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.modState", String::class.java)

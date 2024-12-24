@@ -14,9 +14,7 @@ import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
-import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileSystemLocation
-import org.gradle.api.internal.tasks.JvmConstants
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
@@ -78,7 +76,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     fun add(compilation: RunnableCompilationInternal) {
         val sourceSet = compilation.sourceSet
 
-        project.createCompilationVariants(compilation, sourceSet, true)
+        project.createCompilationVariants(target, compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
@@ -112,41 +110,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
         }
 
-        if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-            for (name in listOf(sourceSet.apiElementsConfigurationName, sourceSet.runtimeElementsConfigurationName)) {
-                val configuration = project.configurations.getByName(name)
-
-                val state = target.remapNamespace.map {
-                    val state = if (it.isEmpty()) {
-                        States.INCLUDES_EXTRACTED
-                    } else {
-                        States.REMAPPED
-                    }
-
-                    ModTransformationStateAttribute.of(target, state)
-                }
-
-                configuration.outgoing.variants { variants ->
-                    variants.register("transformedJar") { variant ->
-                        variant.artifact(tasks.named(sourceSet.jarTaskName))
-                    }
-
-                    variants.all { variant ->
-                        variant.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
-                    }
-                }
-
-                project.components.named(JvmConstants.JAVA_MAIN_COMPONENT_NAME) { component ->
-                    component as AdhocComponentWithVariants
-
-                    component.withVariantsFromConfiguration(configuration) {
-                        if (it.configurationVariant.name == "transformedJar") {
-                            it.skip()
-                        }
-                    }
-                }
-            }
-        } else {
+        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             with(target) {
                 compilation.linkDynamically(target.main)
             }

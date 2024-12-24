@@ -1,17 +1,14 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.target.ClocheTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.Project
-import org.gradle.api.component.AdhocComponentWithVariants
-import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.JavaPluginExtension
-import org.gradle.api.plugins.internal.JavaConfigurationVariantMapping
-import org.gradle.api.plugins.jvm.internal.DefaultJvmFeature
 import org.gradle.api.tasks.SourceSet
-import org.gradle.jvm.component.internal.JvmSoftwareComponentInternal
 
 internal fun Project.createCompilationVariants(
+    target: ClocheTarget,
     compilation: CompilationInternal,
     sourceSet: SourceSet,
     publish: Boolean,
@@ -27,56 +24,36 @@ internal fun Project.createCompilationVariants(
             java.withSourcesJar()
         }
     } else {
-        // TODO Make this somehow not use internals
-        val feature = DefaultJvmFeature(
-            sourceSet.name,
-            sourceSet,
-            emptySet(),
-            this as ProjectInternal,
-            false,
-            false,
-        )
+        java.registerFeature(sourceSet.name) { spec ->
+            spec.usingSourceSet(sourceSet)
 
-        feature.withApi()
+            spec.capability(project.group.toString(), project.name, project.version.toString())
 
-        if (compilation.withJavadoc) {
-            feature.withJavadocJar()
-        }
+            if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
+                spec.capability(
+                    project.group.toString(),
+                    "${project.name}-${target.capabilityName}",
+                    project.version.toString(),
+                )
+            } else {
+                spec.capability(
+                    project.group.toString(),
+                    "${project.name}-${target.capabilityName}-${compilation.name}",
+                    project.version.toString(),
+                )
+            }
 
-        if (compilation.withSources) {
-            feature.withSourcesJar()
-        }
+            if (compilation.withJavadoc) {
+                spec.withJavadocJar()
+            }
 
-        val component = components.getByName("java") as JvmSoftwareComponentInternal
+            if (compilation.withSources) {
+                spec.withSourcesJar()
+            }
 
-        component.features.add(feature);
-
-        val adhocComponent = component as AdhocComponentWithVariants
-
-        val javadocElements = feature.javadocElementsConfiguration
-        if (javadocElements != null) {
-            adhocComponent.addVariantsFromConfiguration(javadocElements, JavaConfigurationVariantMapping("runtime", true));
-        }
-
-        val sourcesElements = feature.sourcesElementsConfiguration;
-        if (sourcesElements != null) {
-            adhocComponent.addVariantsFromConfiguration(sourcesElements, JavaConfigurationVariantMapping("runtime", true));
-        }
-
-        if (publish) {
-            adhocComponent.addVariantsFromConfiguration(feature.apiElementsConfiguration, JavaConfigurationVariantMapping("compile", true, feature.compileClasspathConfiguration));
-            adhocComponent.addVariantsFromConfiguration(feature.runtimeElementsConfiguration, JavaConfigurationVariantMapping("runtime", true, feature.runtimeClasspathConfiguration));
-        }
-
-        val consumableConfigurations = listOf(
-            sourceSet.apiElementsConfigurationName,
-            sourceSet.runtimeElementsConfigurationName,
-            sourceSet.javadocElementsConfigurationName,
-            sourceSet.sourcesElementsConfigurationName,
-        )
-
-        for (name in consumableConfigurations) {
-            configurations.findByName(name)?.outgoing?.capabilities?.clear()
+            if (!publish) {
+                spec.disablePublication()
+            }
         }
     }
 }

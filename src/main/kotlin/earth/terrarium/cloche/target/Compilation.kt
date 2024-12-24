@@ -16,7 +16,6 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.RegularFile
 import org.gradle.api.file.SourceDirectorySet
-import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.SourceSet
@@ -150,9 +149,9 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
     project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
         if (!singleTarget && target.name != COMMON) {
             val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-                target.classifierName
+                target.capabilityName
             } else {
-                "${target.classifierName}-${compilation.name}"
+                "${target.capabilityName}-${compilation.name}"
             }
 
             it.archiveClassifier.set(classifier)
