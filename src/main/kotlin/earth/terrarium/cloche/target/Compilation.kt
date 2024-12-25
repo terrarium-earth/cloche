@@ -146,15 +146,23 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
         // TODO Groovy + Scala?
     }
 
-    project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
+    tasks.named(sourceSet.jarTaskName, Jar::class.java) {
         if (!singleTarget && target.name != COMMON) {
+            val dev = (target as? MinecraftTargetInternal)?.remapNamespace?.map { it.isNotEmpty() } ?: provider { false }
+
             val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
                 target.capabilityName
             } else {
                 "${target.capabilityName}-${compilation.name}"
             }
 
-            it.archiveClassifier.set(classifier)
+            it.archiveClassifier.set(dev.map {
+                if (it) {
+                    "$classifier-dev"
+                } else {
+                    classifier
+                }
+            })
         }
     }
 }

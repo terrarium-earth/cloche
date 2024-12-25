@@ -6,12 +6,15 @@ import net.msrandom.minecraftcodev.core.getVersionList
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectoryProvider
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
+import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
 import org.gradle.api.file.FileSystemLocation
@@ -19,6 +22,7 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.configurationcache.extensions.serviceOf
+import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.nativeplatform.OperatingSystemFamily
@@ -73,22 +77,22 @@ private fun setupModTransformationPipeline(
 
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
-    fun add(compilation: RunnableCompilationInternal) {
+    fun add(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 
-        project.createCompilationVariants(target, compilation, sourceSet, true)
+        createCompilationVariants(target, compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
         val javaVersion = target.minecraftVersion.map {
-            getVersionList(getGlobalCacheDirectory(project).toPath(), VERSION_MANIFEST_URL, project.gradle.startParameter.isOffline)
+            getVersionList(getGlobalCacheDirectory(project).toPath(), VERSION_MANIFEST_URL, gradle.startParameter.isOffline)
                 .version(it)
                 .javaVersion
                 .majorVersion
         }
 
         // TODO do the same for the javadoc tasks
-        project.tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
+        tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
             val javaCompiler = javaVersion.flatMap { version ->
                 project.serviceOf<JavaToolchainService>().compilerFor {
                     it.languageVersion.set(JavaLanguageVersion.of(version))
@@ -98,10 +102,10 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             compile.javaCompiler.set(javaCompiler)
         }
 
-        project.plugins.withId("org.jetbrains.kotlin.jvm") {
-            project.tasks.named(sourceSet.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
+        plugins.withId("org.jetbrains.kotlin.jvm") {
+            tasks.named(sourceSet.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
                 val javaLauncher = javaVersion.flatMap { version ->
-                    project.serviceOf<JavaToolchainService>().launcherFor {
+                    serviceOf<JavaToolchainService>().launcherFor {
                         it.languageVersion.set(JavaLanguageVersion.of(version))
                     }
                 }
@@ -110,10 +114,14 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
         }
 
-        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+        val main = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
+            compilation
+        } else {
             with(target) {
                 compilation.linkDynamically(target.main)
             }
+
+            target.main
         }
 
         setupModTransformationPipeline(
@@ -125,14 +133,28 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             compilation.intermediaryMinecraftFile,
         )
 
+        val remapJar = tasks.register(lowerCamelCaseGradleName("remap", sourceSet.jarTaskName), RemapJar::class.java) {
+            it.input.set(tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
+
+            it.classpath.from(sourceSet.compileClasspath)
+
+            it.mappings.from(configurations.named(main.sourceSet.mappingsConfigurationName))
+
+            it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+            it.targetNamespace.set(target.remapNamespace)
+        }
+
         val resolvableConfigurationNames = listOf(
             sourceSet.compileClasspathConfigurationName,
             sourceSet.runtimeClasspathConfigurationName,
         )
 
-        val consumableConfigurationNames = listOf(
+        val libraryConsumableConfigurationNames = listOf(
             sourceSet.apiElementsConfigurationName,
             sourceSet.runtimeElementsConfigurationName,
+        )
+
+        val consumableConfigurationNames = libraryConsumableConfigurationNames + listOf(
             sourceSet.javadocElementsConfigurationName,
             sourceSet.sourcesElementsConfigurationName,
         )
@@ -140,7 +162,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
 
         for (name in resolvableConfigurationNames) {
-            project.configurations.named(name) { configuration ->
+            configurations.named(name) { configuration ->
                 configuration.attributes.attribute(
                     OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
                     objects.named(OperatingSystemFamily::class.java, DefaultNativePlatform.host().operatingSystem.toFamilyName()),
@@ -148,8 +170,24 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
         }
 
+        for (name in libraryConsumableConfigurationNames) {
+            configurations.named(name) {
+                val jar = it.outgoing.artifacts.first()
+
+                it.outgoing.artifacts.remove(jar)
+
+                artifacts.add(name, target.remapNamespace.map {
+                    if (it.isEmpty()) {
+                        jar
+                    } else {
+                        remapJar
+                    }
+                })
+            }
+        }
+
         for (name in configurationNames) {
-            project.configurations.findByName(name)?.attributes(compilation::attributes)
+            configurations.findByName(name)?.attributes(compilation::attributes)
         }
 
         val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
@@ -168,8 +206,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             runnable.name
         }
 
-        project
-            .extension<RunsContainer>()
+        extension<RunsContainer>()
             .create(target.name + TARGET_NAME_PATH_SEPARATOR + runnableName) { builder ->
                 runnable.runSetupActions.all {
                     it.execute(builder)
