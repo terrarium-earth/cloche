@@ -6,6 +6,7 @@ import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.MinecraftForgeComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.UserdevPath
@@ -74,7 +75,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
     final override var client: SimpleRunnable? = null
 
-    final override var data: RunnableCompilationInternal? = null
+    final override var data: RunnableTargetCompilation? = null
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
@@ -100,8 +101,8 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     override val loaderAttributeName get() = FORGE
     override val commonType get() = FORGE
 
-    override val compilations: DomainObjectCollection<RunnableCompilationInternal> =
-        project.objects.domainObjectSet(RunnableCompilationInternal::class.java)
+    override val compilations: DomainObjectCollection<TargetCompilation> =
+        project.objects.domainObjectSet(TargetCompilation::class.java)
 
     override val runnables: DomainObjectCollection<RunnableInternal> =
         project.objects.domainObjectSet(RunnableInternal::class.java)
@@ -171,7 +172,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         }
 
         compilations.add(main)
-        runnables.add(main)
 
         main.dependencies { dependencies ->
             minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(dependencies.sourceSet.runtimeClasspathConfigurationName))
@@ -268,17 +268,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 it.version.set(minecraftVersion)
             }
         }
-
-        main.runConfiguration {
-            it.sourceSet(main.sourceSet)
-
-            it.defaults.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
-                serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
-
-                serverConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
-            }
-        }
     }
 
     override fun getName() = name
@@ -301,10 +290,10 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     protected open fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"
 
-    override fun createData(): RunnableCompilationInternal {
+    override fun createData(): RunnableTargetCompilation {
         val data = run {
             project.objects.newInstance(
-                TargetCompilation::class.java,
+                RunnableTargetCompilation::class.java,
                 ClochePlugin.DATA_COMPILATION_NAME,
                 this,
                 resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output),
@@ -337,6 +326,29 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         }
 
         return data
+    }
+
+    override fun server(action: Action<Runnable>?) {
+        if (server == null) {
+            val server = project.objects.newInstance(SimpleRunnable::class.java, ClochePlugin.SERVER_RUNNABLE_NAME)
+
+            server.runConfiguration {
+                it.sourceSet(main.sourceSet)
+
+                it.defaults.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
+                    serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                    serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
+
+                    serverConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                }
+            }
+
+            runnables.add(server)
+
+            this.server = server
+        }
+
+        action?.execute(server!!)
     }
 
     override fun client(action: Action<Runnable>) {

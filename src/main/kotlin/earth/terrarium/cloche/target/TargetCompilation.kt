@@ -33,16 +33,16 @@ internal abstract class TargetCompilation
 @Inject
 constructor(
     private val name: String,
-    final override val target: MinecraftTargetInternal,
-    override val intermediaryMinecraftFile: Provider<FileSystemLocation>,
+    val target: MinecraftTargetInternal,
+    val intermediaryMinecraftFile: Provider<FileSystemLocation>,
     private val namedMinecraftFile: Provider<RegularFile>,
-    override val targetMinecraftAttribute: Provider<String>,
+    val targetMinecraftAttribute: Provider<String>,
     private val variant: PublicationVariant,
     side: Side,
     isSingleTarget: Boolean,
     remapNamespace: Provider<String>,
     project: Project,
-) : RunnableCompilationInternal {
+) : CompilationInternal {
     private val namePart = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     private val accessWidenTask = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("accessWiden", target.featureName, namePart, "minecraft")), AccessWiden::class.java) {
@@ -51,7 +51,7 @@ constructor(
         it.accessWideners.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
     }
 
-    final override val finalMinecraftFile: Provider<RegularFile> = accessWidenTask.flatMap(AccessWiden::outputFile)
+    val finalMinecraftFile: Provider<RegularFile> = accessWidenTask.flatMap(AccessWiden::outputFile)
 
     override val dependencySetupActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<ClocheDependencyHandler>>
     override val attributeActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
@@ -59,9 +59,7 @@ constructor(
     override var withJavadoc: Boolean = false
     override var withSources: Boolean = false
 
-    override val runSetupActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MinecraftRunConfigurationBuilder>>
-
-    final override val sourceSet: SourceSet
+    val sourceSet: SourceSet
 
     init {
         val name = if (isSingleTarget) {
@@ -111,10 +109,6 @@ constructor(
             sourceSet.compileClasspath += minecraftFileConfiguration
             sourceSet.runtimeClasspath += minecraftFileConfiguration
         }
-    }
-
-    override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) {
-        runSetupActions.add(action)
     }
 
     override fun getName() = name

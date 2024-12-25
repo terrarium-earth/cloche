@@ -241,7 +241,7 @@ class ClochePlugin : Plugin<Project> {
 
                         target.main.sourceSet.extension<VirtualExtension>().dependsOn.addAllLater(hasClient.map {
                             if (it) {
-                                listOf((target.client as RunnableCompilationInternal).sourceSet)
+                                listOf((target.client as TargetCompilation).sourceSet)
                             } else {
                                 emptyList()
                             }
@@ -317,6 +317,7 @@ class ClochePlugin : Plugin<Project> {
     }
 
     companion object {
+        const val SERVER_RUNNABLE_NAME = "server"
         const val CLIENT_COMPILATION_NAME = "client"
         const val DATA_COMPILATION_NAME = "data"
 

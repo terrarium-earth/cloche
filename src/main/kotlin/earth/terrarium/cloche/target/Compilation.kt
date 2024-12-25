@@ -77,17 +77,6 @@ internal interface RunnableInternal : Runnable {
 
 interface RunnableCompilation : Runnable, Compilation
 
-internal interface RunnableCompilationInternal : CompilationInternal, RunnableCompilation, RunnableInternal {
-    val targetMinecraftAttribute: Provider<String>
-
-    val intermediaryMinecraftFile: Provider<FileSystemLocation>
-    val finalMinecraftFile: Provider<RegularFile>
-
-    val target: MinecraftTargetInternal
-
-    val sourceSet: SourceSet
-}
-
 internal fun sourceSetName(compilation: Compilation, target: ClocheTarget) = when {
     target.name == COMMON -> compilation.name
     compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName

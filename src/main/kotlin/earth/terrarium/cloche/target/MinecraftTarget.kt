@@ -14,7 +14,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 
 @JvmDefaultWithoutCompatibility
-interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
+interface MinecraftTarget : ClocheTarget, Compilation {
     val minecraftVersion: Property<String>
         @Input
         get
@@ -26,8 +26,9 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
         @Internal
         get() = project.layout.buildDirectory.dir("generatedResources/${name}")
 
-    val main: RunnableCompilation
+    val main: Compilation
     val data: RunnableCompilation?
+    val server: Runnable?
     val client: Runnable?
 
     override val accessWideners get() =
@@ -45,30 +46,31 @@ interface MinecraftTarget : ClocheTarget, RunnableCompilation, Compilation {
     override fun attributes(action: Action<AttributeContainer>) =
         main.attributes(action)
 
-    override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) =
-        main.runConfiguration(action)
-
     fun data() = data(null)
-
     fun data(action: Action<RunnableCompilation>?)
+
+    fun server() = server(null)
+    fun server(action: Action<Runnable>?)
 
     fun mappings(action: Action<MappingsBuilder>)
 }
 
 internal interface MinecraftTargetInternal : MinecraftTarget {
-    override val main: RunnableCompilationInternal
-    override var data: RunnableCompilationInternal?
+    override val main: TargetCompilation
+    override var data: RunnableTargetCompilation?
+    override var server: SimpleRunnable?
+    override val client: RunnableInternal?
 
     val loaderAttributeName: String
     val commonType: String
 
-    val compilations: DomainObjectCollection<RunnableCompilationInternal>
+    val compilations: DomainObjectCollection<TargetCompilation>
     val runnables: DomainObjectCollection<RunnableInternal>
 
     val remapNamespace: Provider<String>
         @Internal get
 
-    fun createData(): RunnableCompilationInternal
+    fun createData(): RunnableTargetCompilation
 
     override fun data(action: Action<RunnableCompilation>?) {
         if (data == null) {

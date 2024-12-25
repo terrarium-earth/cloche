@@ -42,7 +42,7 @@ internal fun CommonCompilation.linkDynamically(compilation: CommonCompilation) {
  * Depend on the variant of [compilation]
  */
 context(Project, MinecraftTarget)
-internal fun RunnableCompilationInternal.linkDynamically(compilation: RunnableCompilationInternal) {
+internal fun TargetCompilation.linkDynamically(compilation: TargetCompilation) {
     sourceSet.compileClasspath += compilation.sourceSet.output
     sourceSet.runtimeClasspath += compilation.sourceSet.output
 

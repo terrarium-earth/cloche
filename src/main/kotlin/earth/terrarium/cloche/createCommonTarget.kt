@@ -51,7 +51,7 @@ context(Project) internal fun createCommonTarget(
 
     fun intersection(
         compilationName: String,
-        compilations: Provider<Map<MinecraftTargetInternal, RunnableCompilationInternal>>
+        compilations: Provider<Map<MinecraftTargetInternal, TargetCompilation>>
     ): FileCollection {
         val compilationName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
@@ -67,7 +67,7 @@ context(Project) internal fun createCommonTarget(
                     "${commonTarget.capabilityName}-$compilationName"
                 }
 
-                it.output.set(it.temporaryDir.resolve("$jarName-intersection.jar"))
+                it.output.set(it.temporaryDir.resolve("$jarName-minecraft-stub.jar"))
 
                 it.files.from(compilations.map { it.map { it.value.finalMinecraftFile } }.orElse(listOf()))
             }
@@ -199,7 +199,7 @@ context(Project) internal fun createCommonTarget(
                     intersection(
                         it.name,
                         commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal::main) }),
-                    featureName
+                    featureName,
                 )
             }
 
@@ -211,16 +211,21 @@ context(Project) internal fun createCommonTarget(
                         it.name,
                         commonInfo.map { it.dependants.associateWith { it.data ?: it.main } }
                     ),
-                    featureName
+                    featureName,
                 )
             }
 
             ClochePlugin.CLIENT_COMPILATION_NAME -> {
-                add(it, PublicationVariant.Client, intersection(it.name, commonInfo.map {
-                    it.dependants.associateWith {
-                        ((it as? FabricTarget)?.client ?: it.main) as RunnableCompilationInternal
-                    }
-                }), clientTargetMinecraftName)
+                add(
+                    it,
+                    PublicationVariant.Client,
+                    intersection(it.name, commonInfo.map {
+                        it.dependants.associateWith {
+                            (it as? FabricTarget)?.client as? TargetCompilation ?: it.main
+                        }
+                    }),
+                    clientTargetMinecraftName,
+                )
             }
         }
     }
