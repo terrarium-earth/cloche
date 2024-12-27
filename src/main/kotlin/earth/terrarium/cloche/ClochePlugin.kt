@@ -235,13 +235,21 @@ class ClochePlugin : Plugin<Project> {
 
                         target.main.sourceSet.linkStatically(dependency.main.sourceSet)
 
-                        val hasClient = project.provider {
-                            target.compilations.any { it.name == CLIENT_COMPILATION_NAME }
+                        val shouldAddDependencyClient = if (target is FabricTargetImpl) {
+                            target.clientMode.map {
+                                it == ClientMode.Included
+                            }
+                        } else {
+                            project.provider {
+                                target.compilations.none {
+                                    it.name == CLIENT_COMPILATION_NAME
+                                }
+                            }
                         }
 
-                        target.main.sourceSet.extension<VirtualExtension>().dependsOn.addAllLater(hasClient.map {
+                        target.main.sourceSet.extension<VirtualExtension>().dependsOn.addAllLater(shouldAddDependencyClient.map {
                             if (it) {
-                                listOf((target.client as TargetCompilation).sourceSet)
+                                listOfNotNull(dependency.client?.sourceSet)
                             } else {
                                 emptyList()
                             }

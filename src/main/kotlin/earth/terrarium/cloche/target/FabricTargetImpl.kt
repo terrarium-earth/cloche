@@ -20,7 +20,6 @@ import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.InvalidUserCodeException
-import org.gradle.api.NamedDomainObjectCollection
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
@@ -165,7 +164,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
     final override val remapNamespace: Provider<String>
         get() = providerFactory.provider { MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE }
 
-    private var clientMode = project.objects.property(ClientMode::class.java).apply {
+    internal var clientMode = project.objects.property(ClientMode::class.java).apply {
         convention(ClientMode.None)
     }
 
@@ -227,14 +226,6 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             client = remapClient.flatMap(RemapTask::outputFile),
         )
 
-        val mainTargetMinecraft = clientMode.map {
-            if (it == ClientMode.Included) {
-                clientTargetMinecraftName
-            } else {
-                featureName
-            }
-        }
-
         main =
             project.objects.newInstance(
                 TargetCompilation::class.java,
@@ -242,28 +233,14 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                 this,
                 mainIntermediaryFile,
                 mainRemappedFile,
-                mainTargetMinecraft,
+                project.files(),
                 PublicationVariant.Common,
                 Side.SERVER,
                 isSingleTarget,
                 remapNamespace,
             )
 
-        compilations.addAllLater(clientMode.map {
-            if (it == ClientMode.Separate) {
-                listOf(main, client as RunnableTargetCompilation)
-            } else {
-                listOf(main)
-            }
-        })
-
-        runnables.addAllLater(clientMode.map {
-            if (it == ClientMode.None) {
-                emptyList()
-            } else {
-                listOf(client as RunnableInternal)
-            }
-        })
+        compilations.add(main)
 
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(dependencies.sourceSet.runtimeClasspathConfigurationName))
@@ -355,7 +332,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                 this,
                 remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
                 remapCommon.flatMap(RemapTask::outputFile),
-                project.provider { featureName },
+                project.files(),
                 PublicationVariant.Data,
                 Side.SERVER,
                 isSingleTarget,
@@ -399,7 +376,50 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
     }
 
     override fun includedClient(action: Action<Runnable>?) {
-        if (clientMode.isPresent && clientMode.get() == ClientMode.Separate) {
+        if (client == null) {
+            val client = project.objects.newInstance(SimpleRunnable::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
+
+            client.runConfiguration {
+                it.sourceSet(main.sourceSet)
+                it.defaults.extension<FabricRunsDefaultsContainer>().server()
+            }
+
+            runnables.add(client)
+
+            main.dependencies { dependencies ->
+                clientLibrariesConfiguration.shouldResolveConsistentlyWith(
+                    project.configurations.getByName(
+                        dependencies.sourceSet.runtimeClasspathConfigurationName
+                    )
+                )
+
+                project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
+                    it.extendsFrom(clientLibrariesConfiguration)
+                }
+
+                project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
+                    it.extendsFrom(clientLibrariesConfiguration)
+                }
+
+                project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
+                    it.version.set(minecraftVersion)
+                }
+
+                project.tasks.named(dependencies.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
+                    it.version.set(minecraftVersion)
+                }
+            }
+
+            client.runConfiguration {
+                it.sourceSet(main.sourceSet)
+
+                it.defaults.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
+            }
+
+            this.client = client
+
+            this.runnables.add(client)
+        } else if (client is RunnableCompilation) {
             throw InvalidUserCodeException("Used 'includedClient' in target $name after already configuring client compilation")
         }
 
@@ -408,8 +428,6 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
     override fun client(action: Action<RunnableCompilation>?) {
         if (client == null) {
-            clientMode.set(ClientMode.Separate)
-
             val client =
                 project.objects.newInstance(
                     RunnableTargetCompilation::class.java,
@@ -417,7 +435,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                     this,
                     remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
                     remapClient.flatMap(RemapTask::outputFile),
-                    project.provider { clientTargetMinecraftName },
+                    project.files(main.finalMinecraftFile),
                     PublicationVariant.Client,
                     Side.CLIENT,
                     isSingleTarget,
@@ -445,19 +463,18 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             }
 
             client.runConfiguration {
-                it.sourceSet(clientMode.map {
-                    if (it == ClientMode.Separate) {
-                        client.sourceSet
-                    } else {
-                        main.sourceSet
-                    }
-                })
+                it.sourceSet(client.sourceSet)
 
                 it.defaults.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
             }
 
             this.client = client
-        } else if (client !is RunnableInternal) {
+
+            this.compilations.add(client)
+            this.runnables.add(client)
+
+            clientMode.set(ClientMode.Separate)
+        } else if (client !is RunnableCompilation) {
             throw InvalidUserCodeException("Used `client()` on a FabricTarget after previously using `includedClient()`")
         }
 

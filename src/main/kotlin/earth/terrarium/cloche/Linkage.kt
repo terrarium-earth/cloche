@@ -13,15 +13,15 @@ const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-ac
 /**
  * Depend on the compiled output of [sourceSet], by requesting the capability to allow for resolution to the proper variants
  */
-context(Project, ClocheTarget)
+context(Project)
 private fun SourceSet.linkDynamically(sourceSet: SourceSet) {
-    project.extend(implementationConfigurationName, sourceSet.implementationConfigurationName)
-    project.extend(apiConfigurationName, sourceSet.apiConfigurationName)
-    project.extend(runtimeOnlyConfigurationName, sourceSet.runtimeOnlyConfigurationName)
-    project.extend(compileOnlyConfigurationName, sourceSet.compileOnlyConfigurationName)
-    project.extend(compileOnlyApiConfigurationName, sourceSet.compileOnlyApiConfigurationName)
-    project.extend(mixinsConfigurationName, sourceSet.mixinsConfigurationName)
-    project.extend(accessWidenersConfigurationName, sourceSet.accessWidenersConfigurationName)
+    extend(implementationConfigurationName, sourceSet.implementationConfigurationName)
+    extend(apiConfigurationName, sourceSet.apiConfigurationName)
+    extend(runtimeOnlyConfigurationName, sourceSet.runtimeOnlyConfigurationName)
+    extend(compileOnlyConfigurationName, sourceSet.compileOnlyConfigurationName)
+    extend(compileOnlyApiConfigurationName, sourceSet.compileOnlyApiConfigurationName)
+    extend(mixinsConfigurationName, sourceSet.mixinsConfigurationName)
+    extend(accessWidenersConfigurationName, sourceSet.accessWidenersConfigurationName)
 }
 
 /**
@@ -41,7 +41,7 @@ internal fun CommonCompilation.linkDynamically(compilation: CommonCompilation) {
 /**
  * Depend on the variant of [compilation]
  */
-context(Project, MinecraftTarget)
+context(Project)
 internal fun TargetCompilation.linkDynamically(compilation: TargetCompilation) {
     sourceSet.compileClasspath += compilation.sourceSet.output
     sourceSet.runtimeClasspath += compilation.sourceSet.output

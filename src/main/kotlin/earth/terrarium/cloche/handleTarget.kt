@@ -5,7 +5,6 @@ import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
-import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectoryProvider
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
 import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
@@ -25,6 +24,7 @@ import org.gradle.configurationcache.extensions.serviceOf
 import org.gradle.jvm.tasks.Jar
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -117,9 +117,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         val main = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             compilation
         } else {
-            with(target) {
-                compilation.linkDynamically(target.main)
-            }
+            compilation.linkDynamically(target.main)
 
             target.main
         }
@@ -182,7 +180,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
                     if (it.isEmpty()) {
                         jar
                     } else {
-                        remapJar
+                        remapJar.flatMap(RemapJar::getArchiveFile)
                     }
                 })
             }

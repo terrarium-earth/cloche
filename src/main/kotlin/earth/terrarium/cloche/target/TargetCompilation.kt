@@ -8,11 +8,11 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
-import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
@@ -36,7 +36,7 @@ constructor(
     val target: MinecraftTargetInternal,
     val intermediaryMinecraftFile: Provider<FileSystemLocation>,
     private val namedMinecraftFile: Provider<RegularFile>,
-    val targetMinecraftAttribute: Provider<String>,
+    val extraClasspathFiles: FileCollection,
     private val variant: PublicationVariant,
     side: Side,
     isSingleTarget: Boolean,
@@ -46,6 +46,8 @@ constructor(
     private val namePart = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     private val accessWidenTask = project.tasks.register(project.addSetupTask(lowerCamelCaseGradleName("accessWiden", target.featureName, namePart, "minecraft")), AccessWiden::class.java) {
+        it.group = "minecraft-transforms"
+
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.accessWideners.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
@@ -59,7 +61,7 @@ constructor(
     override var withJavadoc: Boolean = false
     override var withSources: Boolean = false
 
-    val sourceSet: SourceSet
+    final override val sourceSet: SourceSet
 
     init {
         val name = if (isSingleTarget) {
@@ -76,6 +78,8 @@ constructor(
             //)
             , Decompile::class.java,
         ) {
+            it.group = "sources"
+
             it.inputFile.set(finalMinecraftFile)
             it.classpath.from(this@TargetCompilation.sourceSet.compileClasspath)
         }
@@ -103,7 +107,7 @@ constructor(
             }
 
             // Use detached configuration for idea compat
-            val minecraftFiles = project.files(finalMinecraftFile)
+            val minecraftFiles = project.files(finalMinecraftFile) + extraClasspathFiles
             val minecraftFileConfiguration = project.configurations.detachedConfiguration(project.dependencies.create(minecraftFiles))
 
             sourceSet.compileClasspath += minecraftFileConfiguration
