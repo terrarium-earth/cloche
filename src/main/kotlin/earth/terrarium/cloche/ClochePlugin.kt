@@ -11,6 +11,8 @@ import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
+import net.msrandom.minecraftcodev.forge.lexforge.ForgeLexToNeoComponentMetadataRule
+import net.msrandom.minecraftcodev.forge.lexforge.McpConfigToNeoformComponentMetadataRule
 import net.msrandom.minecraftcodev.includes.MinecraftCodevIncludesPlugin
 import net.msrandom.minecraftcodev.intersection.MinecraftCodevIntersectionPlugin
 import net.msrandom.minecraftcodev.mixins.MinecraftCodevMixinsPlugin
@@ -114,6 +116,20 @@ class ClochePlugin : Plugin<Project> {
                 target.extend(sourceSet.accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
                 target.extend(sourceSet.mixinsConfigurationName, dependency.mixinsConfigurationName)
             }
+        }
+
+        target.dependencies.components.withModule("net.minecraftforge:forge", ForgeLexToNeoComponentMetadataRule::class.java) {
+            it.params(
+                getGlobalCacheDirectory(target),
+                VERSION_MANIFEST_URL,
+                target.gradle.startParameter.isOffline,
+            )
+        }
+
+        target.dependencies.components.withModule("de.oceanlabs.mcp:mcp_config", McpConfigToNeoformComponentMetadataRule::class.java) {
+            it.params(
+                getGlobalCacheDirectory(target),
+            )
         }
 
         applyTargets(target, cloche)
@@ -312,14 +328,6 @@ class ClochePlugin : Plugin<Project> {
                     VERSION_MANIFEST_URL,
                     project.gradle.startParameter.isOffline,
                 )
-            }
-
-            val userdevs = targets.filterIsInstance<ForgeTargetImpl>().map(ForgeTargetImpl::getUserdev)
-
-            if (userdevs.isNotEmpty()) {
-                /*                project.dependencies.components.all(MinecraftForgeComponentClassifierMetadataRule::class.java) {
-                                    it.params(userdevs)
-                                }*/
             }
         }
     }

@@ -1,17 +1,9 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.*
-import earth.terrarium.cloche.ClochePlugin.Companion.STUB_DEPENDENCY
-import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
-import net.msrandom.minecraftcodev.forge.MinecraftForgeComponentMetadataRule
-import net.msrandom.minecraftcodev.forge.UserdevPath
-import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
-import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunsDefaultsContainer
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
@@ -24,7 +16,7 @@ import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
-import org.gradle.api.NamedDomainObjectCollection
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
@@ -53,22 +45,28 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             )
         }
 
+    private val universal = project.configurations.create(lowerCamelCaseGradleName(featureName, "forgeUniversal")) {
+        it.isCanBeConsumed = false
+    }
+
     private val resolvePatchedMinecraft = project.tasks.register(
-        project.addSetupTask(lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft")),
+        lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft"),
         ResolvePatchedMinecraft::class.java
     ) {
         it.group = "minecraft-resolution"
 
         it.version.set(minecraftVersion)
+        it.universal.from(universal)
 
-        if (this !is NeoforgeTarget) {
+        if (this !is NeoForgeTargetImpl) {
             it.output.set(
                 project.layout.file(
                     minecraftVersion.flatMap { mc ->
                         loaderVersion.map { forge ->
                             it.temporaryDir.resolve("forge-$mc-$forge.jar")
                         }
-                    })
+                    }
+                )
             )
         }
     }
@@ -126,15 +124,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
         it.sourceNamespace.set(remapNamespace)
 
-        it.extraFiles.set(
-            mcpConfigDependency(
-                project,
-                project.configurations.getByName(main.sourceSet.patchesConfigurationName)
-            )
-                .flatMap { file ->
-                    mcpConfigExtraRemappingFiles(project, file)
-                },
-        )
+        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
     private val minecraftFile = remapNamespace.flatMap {
@@ -148,14 +138,29 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     private var isSingleTarget = false
 
     init {
-        val stub = project.dependencies.enforcedPlatform(STUB_DEPENDENCY) as ExternalModuleDependency
+        project.dependencies.add(minecraftLibrariesConfiguration.name, forgeDependency {
+            capabilities {
+                it.requireFeature("dependencies")
+            }
+        })
 
-        stub.capabilities {
-            it.requireCapability("net.msrandom:$featureName")
-        }
-
-        project.dependencies.add(minecraftLibrariesConfiguration.name, stub)
+        project.dependencies.add(universal.name, forgeDependency {})
     }
+
+    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<Dependency> =
+        minecraftVersion.flatMap { minecraftVersion ->
+            loaderVersion.map { forgeVersion ->
+                project.dependencies.create("$group:$artifact").apply {
+                    this as ExternalModuleDependency
+
+                    version { version ->
+                        version.strictly(version(minecraftVersion, forgeVersion))
+                    }
+
+                    configure()
+                }
+            }
+        }
 
     override fun initialize(isSingleTarget: Boolean) {
         this.isSingleTarget = isSingleTarget
@@ -167,7 +172,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 this,
                 resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output),
                 minecraftFile,
-                project.provider { name },
+                project.files(),
                 PublicationVariant.Joined,
                 Side.UNKNOWN,
                 isSingleTarget,
@@ -188,25 +193,15 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 it.extendsFrom(minecraftLibrariesConfiguration)
             }
 
-            val userdev = minecraftVersion.flatMap { minecraftVersion ->
-                loaderVersion.flatMap { forgeVersion ->
-                    userdevClassifier.orElse("userdev").map { userdev ->
-                        project.dependencies.create("$group:$artifact").apply {
-                            this as ExternalModuleDependency
-
-                            version { version ->
-                                version.strictly(version(minecraftVersion, forgeVersion))
-                            }
-
-                            userdevDependency(userdev)
-                        }
-                    }
+            val userdev = forgeDependency {
+                capabilities {
+                    it.requireFeature("moddev-bundle")
                 }
             }
 
             project.dependencies.add(
                 dependencies.sourceSet.runtimeOnlyConfigurationName,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
+                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
             )
 
             project.dependencies.addProvider(dependencies.sourceSet.patchesConfigurationName, userdev)
@@ -216,29 +211,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 it.libraries.from(minecraftLibrariesConfiguration)
             }
 
-            project.dependencies.addProvider(
-                dependencies.sourceSet.mappingsConfigurationName,
-                mcpConfigDependency(
-                    project,
-                    project.configurations.getByName(dependencies.sourceSet.patchesConfigurationName)
-                ),
-            )
-
-            // afterEvaluate needed because of the component rules using providers
-            project.afterEvaluate { project ->
-                project.dependencies.components { components ->
-                    components.withModule(ClochePlugin.STUB_MODULE, MinecraftForgeComponentMetadataRule::class.java) {
-                        it.params(
-                            getGlobalCacheDirectory(project),
-                            minecraftVersion.get(),
-                            VERSION_MANIFEST_URL,
-                            project.gradle.startParameter.isOffline,
-                            getUserdev(),
-                            featureName,
-                        )
-                    }
-                }
-            }
+            project.dependencies.addProvider(dependencies.sourceSet.mappingsConfigurationName, userdev)
 
             mappingProviders.addAll(hasMappings.map {
                 if (it) {
@@ -276,21 +249,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
     override fun getName() = name
 
-    protected open fun ExternalModuleDependency.userdevDependency(userdev: String) {
-        artifact {
-            it.classifier = userdev
-        }
-        /*        attributes { attributes ->
-                    attributes
-                        .attribute(CLASSIFIER_ATTRIBUTE, userdev)
-                        .attribute(
-                            Category.CATEGORY_ATTRIBUTE,
-                            project.objects.named(Category::class.java, Category.LIBRARY)
-                        )
-                        .attribute(Usage.USAGE_ATTRIBUTE, project.objects.named(Usage::class.java, Usage.JAVA_API))
-                }*/
-    }
-
     protected open fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"
 
@@ -302,7 +260,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 this,
                 resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output),
                 minecraftFile,
-                project.provider { name },
+                project.files(),
                 PublicationVariant.Data,
                 Side.UNKNOWN,
                 isSingleTarget,
@@ -385,13 +343,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
         addMappings(mappings)
     }
-
-    fun getUserdev() = UserdevPath(
-        this@ForgeTargetImpl.group,
-        this@ForgeTargetImpl.artifact,
-        version(minecraftVersion.get(), loaderVersion.get()),
-        userdevClassifier.getOrElse("userdev"),
-    )
 
     private fun addMappings(providers: List<MappingDependencyProvider>) {
         mappingProviders.addAll(providers)

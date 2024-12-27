@@ -96,6 +96,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             it.targetNamespace.set(remapNamespace)
 
             it.classpath.from(commonLibrariesConfiguration)
+
+            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
         }
 
     private val remapClientMinecraftIntermediary =
@@ -117,6 +119,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             it.classpath.from(commonLibrariesConfiguration)
             it.classpath.from(clientLibrariesConfiguration)
             it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
+
+            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
         }
 
     private val remapCommon = project.tasks.register(
@@ -132,6 +136,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
 
         it.sourceNamespace.set(remapNamespace)
+
+        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
     private val remapClient = project.tasks.register(
@@ -149,6 +155,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
 
         it.sourceNamespace.set(remapNamespace)
+
+        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
     final override lateinit var main: TargetCompilation
@@ -280,22 +288,6 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                             featureName,
                             clientTargetMinecraftName,
                         )
-                    }
-                }
-
-                if (clientMode.get() == ClientMode.Included) {
-                    clientLibrariesConfiguration.shouldResolveConsistentlyWith(
-                        project.configurations.getByName(
-                            dependencies.sourceSet.runtimeClasspathConfigurationName
-                        )
-                    )
-
-                    project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
-                        it.extendsFrom(clientLibrariesConfiguration)
-                    }
-
-                    project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
-                        it.extendsFrom(clientLibrariesConfiguration)
                     }
                 }
             }

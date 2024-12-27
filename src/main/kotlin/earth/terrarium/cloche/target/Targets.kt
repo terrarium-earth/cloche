@@ -21,11 +21,5 @@ interface ForgeLikeTarget : MinecraftTarget {
     fun client(action: Action<Runnable>)
 }
 
-interface ForgeTarget : ForgeLikeTarget {
-    val userdevClassifier: Property<String>
-        @Input
-        @Optional
-        get
-}
-
+interface ForgeTarget : ForgeLikeTarget
 interface NeoforgeTarget : ForgeLikeTarget

@@ -3,12 +3,11 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
+import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
+import net.msrandom.minecraftcodev.core.task.convention
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.forge.mappings.mcpConfigDependency
-import net.msrandom.minecraftcodev.forge.mappings.mcpConfigExtraRemappingFiles
-import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
@@ -17,6 +16,7 @@ import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
 import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
@@ -29,17 +29,37 @@ import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: CachedMinecraftParameters): Provider<RegularFile> {
+    val javaVersion = version.flatMap { version ->
+        cacheParameters.directory.flatMap { cacheDirectory ->
+            cacheParameters.versionManifestUrl.flatMap { url ->
+                cacheParameters.getIsOffline().map { offline ->
+                    val version = getVersionList(cacheDirectory.asFile.toPath(), url, offline).version(version)
+
+                    JavaLanguageVersion.of(version.javaVersion.majorVersion)
+                }
+            }
+        }
+    }
+
+    return serviceOf<JavaToolchainService>().launcherFor {
+        it.languageVersion.set(javaVersion)
+    }.map { it.executablePath }
+}
+
 private fun setupModTransformationPipeline(
     project: Project,
     target: MinecraftTargetInternal,
     remapNamespace: Provider<String>,
     main: SourceSet,
-    patched: Boolean,
     intermediaryMinecraft: Provider<FileSystemLocation>,
 ) {
     project.dependencies.registerTransform(ExtractIncludes::class.java) {
         it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
-        it.to.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED))
+        it.to.attribute(
+            ModTransformationStateAttribute.ATTRIBUTE,
+            ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+        )
     }
 
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
@@ -50,26 +70,24 @@ private fun setupModTransformationPipeline(
         }
 
         project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED))
-            it.to.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, States.REMAPPED))
+            it.from.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+            )
+            it.to.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.of(target, States.REMAPPED)
+            )
 
-            it.parameters { parameters ->
-                parameters.mappings.from(project.configurations.named(main.mappingsConfigurationName))
+            it.parameters {
+                it.mappings.from(project.configurations.named(main.mappingsConfigurationName))
 
-                parameters.sourceNamespace.set(remapNamespace)
+                it.sourceNamespace.set(remapNamespace)
 
-                parameters.extraClasspath.from(project.files(intermediaryMinecraft))
+                it.extraClasspath.from(project.files(intermediaryMinecraft))
 
-                parameters.cacheDirectory.set(getGlobalCacheDirectoryProvider(project))
-
-                if (patched) {
-                    parameters.extraFiles.set(
-                        mcpConfigDependency(project, project.configurations.getByName(main.patchesConfigurationName))
-                            .flatMap { file ->
-                                mcpConfigExtraRemappingFiles(project, file)
-                            },
-                    )
-                }
+                it.cacheParameters.convention(project)
+                it.javaExecutable.set(project.javaExecutableFor(target.minecraftVersion, it.cacheParameters))
             }
         }
     }
@@ -85,7 +103,11 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
         val javaVersion = target.minecraftVersion.map {
-            getVersionList(getGlobalCacheDirectory(project).toPath(), VERSION_MANIFEST_URL, gradle.startParameter.isOffline)
+            getVersionList(
+                getGlobalCacheDirectory(project).toPath(),
+                VERSION_MANIFEST_URL,
+                gradle.startParameter.isOffline
+            )
                 .version(it)
                 .javaVersion
                 .majorVersion
@@ -127,7 +149,6 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             target,
             target.remapNamespace,
             target.main.sourceSet,
-            target is ForgeTarget,
             compilation.intermediaryMinecraftFile,
         )
 
@@ -142,6 +163,8 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
             it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
             it.targetNamespace.set(target.remapNamespace)
+
+            it.javaExecutable.set(project.javaExecutableFor(target.minecraftVersion, it.cacheParameters))
         }
 
         val resolvableConfigurationNames = listOf(
@@ -165,7 +188,10 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             configurations.named(name) { configuration ->
                 configuration.attributes.attribute(
                     OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
-                    objects.named(OperatingSystemFamily::class.java, DefaultNativePlatform.host().operatingSystem.toFamilyName()),
+                    objects.named(
+                        OperatingSystemFamily::class.java,
+                        DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                    ),
                 )
             }
         }
