@@ -19,6 +19,8 @@ class MappingsBuilder(private val project: Project, private val dependencies: Mu
                 project.tasks.named(taskName, ResolveMinecraftMappings::class.java)
             } else {
                 project.tasks.register(taskName, ResolveMinecraftMappings::class.java) {
+                    it.group = "minecraft-resolution"
+
                     it.server.set(false)
                     it.version.set(version)
                 }

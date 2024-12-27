@@ -65,6 +65,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             lowerCamelCaseGradleName("resolve", name, "common"),
             ResolveMinecraftCommon::class.java
         ) {
+            it.group = "minecraft-resolution"
+
             it.version.set(minecraftVersion)
         }
 
@@ -73,21 +75,23 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             lowerCamelCaseGradleName("resolve", name, "client"),
             ResolveMinecraftClient::class.java
         ) {
+            it.group = "minecraft-resolution"
+
             it.version.set(minecraftVersion)
         }
 
     private val remapCommonMinecraftIntermediary =
         project.tasks.register(
-            project.addSetupTask(
-                lowerCamelCaseGradleName(
-                    "remap",
-                    name,
-                    "commonMinecraft",
-                    MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE
-                )
+            lowerCamelCaseGradleName(
+                "remap",
+                name,
+                "commonMinecraft",
+                MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE,
             ),
             RemapTask::class.java,
         ) {
+            it.group = "minecraft-resolution"
+
             it.inputFile.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
             it.sourceNamespace.set("obf")
             it.targetNamespace.set(remapNamespace)
@@ -97,16 +101,16 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
     private val remapClientMinecraftIntermediary =
         project.tasks.register(
-            project.addSetupTask(
-                lowerCamelCaseGradleName(
-                    "remap",
-                    name,
-                    "clientMinecraft",
-                    MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE
-                )
+            lowerCamelCaseGradleName(
+                "remap",
+                name,
+                "clientMinecraft",
+                MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE,
             ),
             RemapTask::class.java,
         ) {
+            it.group = "minecraft-transforms"
+
             it.inputFile.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
             it.sourceNamespace.set("obf")
             it.targetNamespace.set(remapNamespace)
@@ -120,6 +124,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         lowerCamelCaseGradleName("remap", featureName, "commonMinecraftNamed"),
         RemapTask::class.java
     ) {
+        it.group = "minecraft-transforms"
+
         it.inputFile.set(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile))
 
         it.classpath.from(commonLibrariesConfiguration)
@@ -133,6 +139,8 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         lowerCamelCaseGradleName("remap", featureName, "clientMinecraftNamed"),
         RemapTask::class.java
     ) {
+        it.group = "minecraft-transforms"
+
         it.inputFile.set(remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile))
 
         it.classpath.from(commonLibrariesConfiguration)

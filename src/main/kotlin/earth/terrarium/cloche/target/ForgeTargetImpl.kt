@@ -57,6 +57,8 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         project.addSetupTask(lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft")),
         ResolvePatchedMinecraft::class.java
     ) {
+        it.group = "minecraft-resolution"
+
         it.version.set(minecraftVersion)
 
         if (this !is NeoforgeTarget) {
@@ -114,6 +116,8 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
         RemapTask::class.java,
     ) {
+        it.group = "minecraft-transforms"
+
         it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
 
         it.classpath.from(minecraftLibrariesConfiguration)

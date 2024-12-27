@@ -61,6 +61,8 @@ context(Project) internal fun createCommonTarget(
             tasks.named(name, JarIntersection::class.java)
         } else {
             tasks.register(project.addSetupTask(name), JarIntersection::class.java) {
+                it.group = "minecraft-stubs"
+
                 val jarName = if (compilationName == null) {
                     commonTarget.capabilityName
                 } else {

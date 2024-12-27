@@ -134,6 +134,8 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         )
 
         val remapJar = tasks.register(lowerCamelCaseGradleName("remap", sourceSet.jarTaskName), RemapJar::class.java) {
+            it.group = LifecycleBasePlugin.BUILD_GROUP
+
             it.input.set(tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
 
             it.classpath.from(sourceSet.compileClasspath)
