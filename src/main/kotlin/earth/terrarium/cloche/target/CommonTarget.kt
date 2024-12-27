@@ -5,7 +5,6 @@ import earth.terrarium.cloche.ClochePlugin
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
 
@@ -14,6 +13,10 @@ interface CommonTarget : ClocheTarget {
     val main: Compilation
     val data: Compilation?
     val client: Compilation?
+
+    override val accessWideners get() = main.accessWideners
+    override val mixins get() = main.mixins
+    override val sourceSet get() = main.sourceSet
 
     fun data(action: Action<Compilation>)
 
@@ -40,9 +43,6 @@ internal abstract class CommonTargetInternal @Inject constructor(private val nam
     }
 
     override val dependsOn: DomainObjectCollection<CommonTarget> = project.objects.domainObjectSet(CommonTarget::class.java)
-
-    override val accessWideners get() = main.accessWideners
-    override val mixins get() = main.mixins
 
     override fun getName() = name
 

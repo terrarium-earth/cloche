@@ -1,13 +1,10 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
-import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
-import org.gradle.api.NamedDomainObjectCollection
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
-import org.gradle.api.plugins.FeatureSpec
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
@@ -31,11 +28,9 @@ interface MinecraftTarget : ClocheTarget, Compilation {
     val server: Runnable?
     val client: Runnable?
 
-    override val accessWideners get() =
-        main.accessWideners
-
-    override val mixins get() =
-        main.mixins
+    override val accessWideners get() = main.accessWideners
+    override val mixins get() = main.mixins
+    override val sourceSet get() = main.sourceSet
 
     override fun withJavadocJar() = main.withJavadocJar()
     override fun withSourcesJar() = main.withSourcesJar()

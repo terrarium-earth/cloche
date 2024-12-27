@@ -2,7 +2,6 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClocheDependencyHandler
-import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
@@ -13,13 +12,10 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.FileSystemLocation
-import org.gradle.api.file.RegularFile
 import org.gradle.api.file.SourceDirectorySet
-import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
-import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.jvm.tasks.Jar
 
 interface Compilation : Named {
@@ -28,6 +24,9 @@ interface Compilation : Named {
 
     val mixins: ConfigurableFileCollection
         @InputFiles get
+
+    val sourceSet: SourceSet
+        @Internal get
 
     fun withJavadocJar()
     fun withSourcesJar()
@@ -82,11 +81,6 @@ internal fun sourceSetName(compilation: Compilation, target: ClocheTarget) = whe
     compilation.name == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName
     else -> lowerCamelCaseGradleName(target.featureName, compilation.name)
 }
-
-context(Project, CommonTarget) internal val CompilationInternal.sourceSet: SourceSet
-    get() {
-        return project.extension<SourceSetContainer>().maybeCreate(sourceSetName(this, this@CommonTarget))
-    }
 
 fun ConfigurationContainer.withName(name: String, action: Action<Configuration>) = named(name::equals).all(action)
 
