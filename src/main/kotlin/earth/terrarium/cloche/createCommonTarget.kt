@@ -89,7 +89,6 @@ context(Project) internal fun createCommonTarget(
         }
 
         project.createCompilationVariants(
-            commonTarget,
             compilation,
             sourceSet,
             commonTarget.name == COMMON || commonTarget.publish

@@ -80,7 +80,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     fun add(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 
-        createCompilationVariants(target, compilation, sourceSet, true)
+        createCompilationVariants(compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
