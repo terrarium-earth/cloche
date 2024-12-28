@@ -2,7 +2,9 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClocheDependencyHandler
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
@@ -17,6 +19,7 @@ import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.jvm.tasks.Jar
+import org.gradle.language.jvm.tasks.ProcessResources
 
 interface Compilation : Named {
     val accessWideners: ConfigurableFileCollection
@@ -147,5 +150,13 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
                 }
             })
         }
+    }
+
+    // TODO Use separate resource directories to have better compatibility with intellij
+    tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+        it.from(configurations.named(compilation.sourceSet.mixinsConfigurationName))
+
+        // access wideners need to be merged before being added
+        // it.from(configurations.named(compilation.sourceSet.accessWidenersConfigurationName))
     }
 }

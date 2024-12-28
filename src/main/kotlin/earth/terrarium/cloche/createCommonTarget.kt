@@ -194,6 +194,7 @@ context(Project) internal fun createCommonTarget(
     commonTarget.compilations.all {
         when (it.name) {
             SourceSet.MAIN_SOURCE_SET_NAME -> {
+                // Potentially add two intersections, if all targets are FabricTarget with clientMode == Included
                 add(
                     it,
                     PublicationVariant.Common,
@@ -217,6 +218,7 @@ context(Project) internal fun createCommonTarget(
             }
 
             ClochePlugin.CLIENT_COMPILATION_NAME -> {
+                // Intersection should include MinecraftTarget::client where client is TargetCompilation, alongside all FabricTarget::main client jars if clientMode == Included
                 add(
                     it,
                     PublicationVariant.Client,
