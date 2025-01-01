@@ -18,7 +18,8 @@ interface FabricTarget : MinecraftTarget {
 }
 
 interface ForgeLikeTarget : MinecraftTarget {
-    fun client(action: Action<Runnable>)
+    fun client(action: Action<Runnable>?)
+    fun client() = client(null)
 }
 
 interface ForgeTarget : ForgeLikeTarget

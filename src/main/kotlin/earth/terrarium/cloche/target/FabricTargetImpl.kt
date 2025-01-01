@@ -12,6 +12,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
+import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
@@ -59,6 +60,12 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             )
         }
 
+    private val loadMappings = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+        it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+
+        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+    }
+
     private val resolveCommonMinecraft =
         project.tasks.register(
             lowerCamelCaseGradleName("resolve", name, "common"),
@@ -97,7 +104,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
             it.classpath.from(commonLibrariesConfiguration)
 
-            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+            it.mappings.set(loadMappings.flatMap(LoadMappings::output))
         }
 
     private val remapClientMinecraftIntermediary =
@@ -120,7 +127,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             it.classpath.from(clientLibrariesConfiguration)
             it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
 
-            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+            it.mappings.set(loadMappings.flatMap(LoadMappings::output))
         }
 
     private val remapCommon = project.tasks.register(
@@ -133,11 +140,9 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
         it.classpath.from(commonLibrariesConfiguration)
 
-        it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+        it.mappings.set(loadMappings.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(remapNamespace)
-
-        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
     private val remapClient = project.tasks.register(
@@ -152,11 +157,9 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         it.classpath.from(clientLibrariesConfiguration)
         it.classpath.from(remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile))
 
-        it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+        it.mappings.set(loadMappings.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(remapNamespace)
-
-        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
     final override lateinit var main: TargetCompilation
@@ -171,10 +174,6 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
     final override val remapNamespace: Provider<String>
         get() = providerFactory.provider { MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE }
-
-    internal var clientMode = project.objects.property(ClientMode::class.java).apply {
-        convention(ClientMode.None)
-    }
 
     private var hasMappings = project.objects.property(Boolean::class.java).apply {
         convention(false)
@@ -216,13 +215,14 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
     override fun initialize(isSingleTarget: Boolean) {
         this.isSingleTarget = isSingleTarget
 
-        fun <T> clientAlternative(normal: Provider<T>, client: Provider<T>) = clientMode.flatMap {
-            if (it == ClientMode.Included) {
-                client
-            } else {
-                normal
+        fun <T> clientAlternative(normal: Provider<T>, client: Provider<T>) =
+            project.provider { hasIncludedClient }.flatMap {
+                if (it) {
+                    client
+                } else {
+                    normal
+                }
             }
-        }
 
         val mainIntermediaryFile = clientAlternative(
             normal = remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
@@ -262,14 +262,6 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             }
 
             dependencies.implementation(loaderVersion.map { version -> "net.fabricmc:fabric-loader:$version" })
-
-            remapCommonMinecraftIntermediary.configure {
-                it.mappings.from(project.configurations.named(dependencies.sourceSet.mappingsConfigurationName))
-            }
-
-            remapClientMinecraftIntermediary.configure {
-                it.mappings.from(project.configurations.named(dependencies.sourceSet.mappingsConfigurationName))
-            }
 
             project.dependencies.addProvider(
                 dependencies.sourceSet.mappingsConfigurationName,
@@ -337,10 +329,10 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             }
         }
 
-        data.runConfiguration {
-            it.sourceSet(data.sourceSet)
+        data.runConfiguration { datagen ->
+            datagen.sourceSet(data.sourceSet)
 
-            it.defaults.extension<FabricRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
+            datagen.defaults.extension<FabricRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
                 datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
 
                 datagen.outputDirectory.set(datagenDirectory)
@@ -414,8 +406,6 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         } else if (client is RunnableCompilation) {
             throw InvalidUserCodeException("Used 'includedClient' in target $name after already configuring client compilation")
         }
-
-        clientMode.set(ClientMode.Included)
     }
 
     override fun client(action: Action<RunnableCompilation>?) {
@@ -464,8 +454,6 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
             this.compilations.add(client)
             this.runnables.add(client)
-
-            clientMode.set(ClientMode.Separate)
         } else if (client !is RunnableCompilation) {
             throw InvalidUserCodeException("Used `client()` on a FabricTarget after previously using `includedClient()`")
         }

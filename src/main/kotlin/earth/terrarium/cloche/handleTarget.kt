@@ -7,12 +7,9 @@ import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.task.convention
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
-import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
-import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.Project
 import org.gradle.api.file.FileSystemLocation
@@ -20,11 +17,9 @@ import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.configurationcache.extensions.serviceOf
-import org.gradle.jvm.tasks.Jar
+import org.gradle.internal.extensions.core.serviceOf
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
-import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -152,21 +147,6 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             compilation.intermediaryMinecraftFile,
         )
 
-        val remapJar = tasks.register(lowerCamelCaseGradleName("remap", sourceSet.jarTaskName), RemapJar::class.java) {
-            it.group = LifecycleBasePlugin.BUILD_GROUP
-
-            it.input.set(tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
-
-            it.classpath.from(sourceSet.compileClasspath)
-
-            it.mappings.from(configurations.named(main.sourceSet.mappingsConfigurationName))
-
-            it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-            it.targetNamespace.set(target.remapNamespace)
-
-            it.javaExecutable.set(project.javaExecutableFor(target.minecraftVersion, it.cacheParameters))
-        }
-
         val resolvableConfigurationNames = listOf(
             sourceSet.compileClasspathConfigurationName,
             sourceSet.runtimeClasspathConfigurationName,
@@ -193,22 +173,6 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
                         DefaultNativePlatform.host().operatingSystem.toFamilyName()
                     ),
                 )
-            }
-        }
-
-        for (name in libraryConsumableConfigurationNames) {
-            configurations.named(name) {
-                val jar = it.outgoing.artifacts.first()
-
-                it.outgoing.artifacts.remove(jar)
-
-                artifacts.add(name, target.remapNamespace.map {
-                    if (it.isEmpty()) {
-                        jar
-                    } else {
-                        remapJar.flatMap(RemapJar::getArchiveFile)
-                    }
-                })
             }
         }
 

@@ -1,10 +1,12 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CommonCompilation
+import earth.terrarium.cloche.target.CommonTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.virtualsourcesets.VirtualExtension
+import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSet
 
@@ -59,7 +61,7 @@ internal fun TargetCompilation.linkDynamically(compilation: TargetCompilation) {
  */
 context(Project)
 internal fun SourceSet.linkStatically(dependency: SourceSet) {
-    extension<VirtualExtension>().dependsOn.add(dependency)
+    extension<SourceSetStaticLinkageInfo>().link(dependency)
 
     project.dependencies.add(annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
 }

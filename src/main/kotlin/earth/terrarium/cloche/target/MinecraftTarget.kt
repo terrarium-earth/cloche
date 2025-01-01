@@ -9,6 +9,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
+import org.gradle.language.jvm.tasks.ProcessResources
 
 @JvmDefaultWithoutCompatibility
 interface MinecraftTarget : ClocheTarget, Compilation {
@@ -21,7 +22,7 @@ interface MinecraftTarget : ClocheTarget, Compilation {
 
     val datagenDirectory: Provider<Directory>
         @Internal
-        get() = project.layout.buildDirectory.dir("generatedResources/${name}")
+        get() = project.layout.buildDirectory.dir("generatedResources/$namePath")
 
     val main: Compilation
     val data: RunnableCompilation?
@@ -56,6 +57,9 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
     override var server: SimpleRunnable?
     override val client: RunnableInternal?
 
+    val hasIncludedClient
+        get() = client is SimpleRunnable
+
     val loaderAttributeName: String
     val commonType: String
 
@@ -69,10 +73,30 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
 
     override fun data(action: Action<RunnableCompilation>?) {
         if (data == null) {
-            data = createData()
+            val data = createData()
+
+            data.runConfiguration { datagen ->
+                runnables.all {
+                    if (it.name != data.name) {
+                        it.runConfiguration {
+                            it.dependsOn(datagen)
+                        }
+                    }
+                }
+
+                compilations.all {
+                    if (it.name != data.name) {
+                        project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+                            it.from(datagenDirectory)
+                        }
+                    }
+                }
+            }
 
             compilations.add(data)
             runnables.add(data)
+
+            this.data = data
         }
 
         action?.execute(data!!)

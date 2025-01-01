@@ -1,7 +1,8 @@
 package earth.terrarium.cloche
 
+import com.google.devtools.ksp.gradle.KspGradleSubplugin
 import earth.terrarium.cloche.target.*
-import earth.terrarium.cloche.target.MinecraftTargetInternal
+import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftDependenciesOperatingSystemMetadataRule
@@ -20,7 +21,7 @@ import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.runs.MinecraftCodevRunsPlugin
 import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
-import net.msrandom.virtualsourcesets.VirtualExtension
+import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
@@ -91,9 +92,16 @@ class ClochePlugin : Plugin<Project> {
         target.plugins.apply(MinecraftCodevRunsPlugin::class.java)
 
         target.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
+        target.plugins.apply(ClassExtensionsPlugin::class.java)
 
         target.plugins.apply(JavaLibraryPlugin::class.java)
         target.plugins.apply(ApplicationPlugin::class.java)
+
+        target.plugins.withId("org.jetbrains.kotlin.jvm") {
+            target.plugins.apply(KspGradleSubplugin::class.java)
+
+            // target.dependencies.add("ksp", "net.msrandom:kmp-stubs-processor:1.0.0")
+        }
 
         target.dependencies.attributesSchema { schema ->
             schema.attribute(VARIANT_ATTRIBUTE) {
@@ -112,13 +120,16 @@ class ClochePlugin : Plugin<Project> {
         }
 
         target.extension<SourceSetContainer>().all { sourceSet ->
-            sourceSet.extension<VirtualExtension>().dependsOn.all { dependency ->
-                target.extend(sourceSet.accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
-                target.extend(sourceSet.mixinsConfigurationName, dependency.mixinsConfigurationName)
+            sourceSet.extension<SourceSetStaticLinkageInfo>().links.all {
+                target.extend(sourceSet.mixinsConfigurationName, it.mixinsConfigurationName)
+                target.extend(sourceSet.accessWidenersConfigurationName, it.accessWidenersConfigurationName)
             }
         }
 
-        target.dependencies.components.withModule("net.minecraftforge:forge", ForgeLexToNeoComponentMetadataRule::class.java) {
+        target.dependencies.components.withModule(
+            "net.minecraftforge:forge",
+            ForgeLexToNeoComponentMetadataRule::class.java
+        ) {
             it.params(
                 getGlobalCacheDirectory(target),
                 VERSION_MANIFEST_URL,
@@ -126,7 +137,10 @@ class ClochePlugin : Plugin<Project> {
             )
         }
 
-        target.dependencies.components.withModule("de.oceanlabs.mcp:mcp_config", McpConfigToNeoformComponentMetadataRule::class.java) {
+        target.dependencies.components.withModule(
+            "de.oceanlabs.mcp:mcp_config",
+            McpConfigToNeoformComponentMetadataRule::class.java
+        ) {
             it.params(
                 getGlobalCacheDirectory(target),
             )
@@ -237,39 +251,54 @@ class ClochePlugin : Plugin<Project> {
                     return common.withClient()
                 }
 
-                with(dependency) {
-                    with(project) {
-                        target.compilations.all {
-                            if (it.name == DATA_COMPILATION_NAME) {
-                                it.sourceSet.linkStatically(setDependenciesWithData(dependency).sourceSet)
-                                it.sourceSet.linkStatically(dependency.main.sourceSet)
-                            } else if (it.name == CLIENT_COMPILATION_NAME) {
-                                it.sourceSet.linkStatically(setDependenciesWithClient(dependency).sourceSet)
-                                it.sourceSet.linkStatically(dependency.main.sourceSet)
+                fun addIncludedClientWeakLinks(info: SourceSetStaticLinkageInfo, common: CommonTargetInternal) {
+                    common.compilations.all {
+                        // TODO Can this be a provider?
+                        if (it.name == CLIENT_COMPILATION_NAME) {
+                            info.weakTreeLink(it.sourceSet, common.main.sourceSet)
+                        }
+                    }
+
+                    common.dependsOn.all { dependency ->
+                        dependency as CommonTargetInternal
+
+                        addIncludedClientWeakLinks(info, dependency)
+                    }
+                }
+
+                with(project) {
+                    target.compilations.all {
+                        if (it.name == DATA_COMPILATION_NAME) {
+                            it.sourceSet.linkStatically(setDependenciesWithData(dependency).sourceSet)
+                        } else if (it.name == CLIENT_COMPILATION_NAME) {
+                            it.sourceSet.linkStatically(setDependenciesWithClient(dependency).sourceSet)
+                        }
+                    }
+
+                    val staticLinkage = target.main.sourceSet.extension<SourceSetStaticLinkageInfo>()
+
+                    target.main.sourceSet.linkStatically(dependency.main.sourceSet)
+
+                    if (target is ForgeTarget) {
+                        dependency.compilations.all {
+                            if (it.name == CLIENT_COMPILATION_NAME) {
+                                target.main.sourceSet.linkStatically(it.sourceSet)
                             }
                         }
 
-                        target.main.sourceSet.linkStatically(dependency.main.sourceSet)
-
-                        val shouldAddDependencyClient = if (target is FabricTargetImpl) {
-                            target.clientMode.map {
-                                it == ClientMode.Included
-                            }
-                        } else {
-                            project.provider {
-                                target.compilations.none {
-                                    it.name == CLIENT_COMPILATION_NAME
+                        addIncludedClientWeakLinks(staticLinkage, dependency)
+                    } else if (target is FabricTarget) {
+                        target.runnables.all {
+                            if (it.name == CLIENT_COMPILATION_NAME && it is SimpleRunnable) {
+                                dependency.compilations.all {
+                                    if (it.name == CLIENT_COMPILATION_NAME) {
+                                        target.main.sourceSet.linkStatically(it.sourceSet)
+                                    }
                                 }
+
+                                addIncludedClientWeakLinks(staticLinkage, dependency)
                             }
                         }
-
-                        target.main.sourceSet.extension<VirtualExtension>().dependsOn.addAllLater(shouldAddDependencyClient.map {
-                            if (it) {
-                                listOfNotNull(dependency.client?.sourceSet)
-                            } else {
-                                emptyList()
-                            }
-                        })
                     }
                 }
             }
@@ -294,7 +323,7 @@ class ClochePlugin : Plugin<Project> {
 
                     commonTarget.compilations.all { targetCompilation ->
                         dependency.compilations.all { dependencyCompilation ->
-                            if (dependencyCompilation.name == SourceSet.MAIN_SOURCE_SET_NAME || targetCompilation.name == dependencyCompilation.name) {
+                            if (targetCompilation.name == dependencyCompilation.name) {
                                 add(targetCompilation, dependencyCompilation)
                             }
                         }

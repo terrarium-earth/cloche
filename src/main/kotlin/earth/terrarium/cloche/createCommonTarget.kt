@@ -165,6 +165,7 @@ context(Project) internal fun createCommonTarget(
             sourceSet.compileOnlyConfigurationName,
             "net.msrandom:java-expect-actual-annotations:1.0.0"
         )
+
         project.dependencies.add(
             sourceSet.annotationProcessorConfigurationName,
             JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
@@ -174,6 +175,13 @@ context(Project) internal fun createCommonTarget(
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
+        }
+
+        plugins.withId("org.jetbrains.kotlin.jvm") {
+            project.dependencies.add(
+                sourceSet.compileOnlyConfigurationName,
+                "net.msrandom:kmp-stub-annotations:1.0.0",
+            )
         }
 
         val dependencyHandler = ClocheDependencyHandler(project, sourceSet)

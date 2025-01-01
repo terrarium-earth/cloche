@@ -9,6 +9,7 @@ import net.msrandom.minecraftcodev.forge.runs.ForgeRunsDefaultsContainer
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
+import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
@@ -18,6 +19,7 @@ import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.attributes.Usage
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
@@ -32,7 +34,7 @@ import javax.inject.Inject
 
 internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal,
     ForgeTarget {
-    private val minecraftLibrariesConfiguration =
+    protected val minecraftLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
             it.isCanBeConsumed = false
 
@@ -40,8 +42,16 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
                 project.objects.named(
                     OperatingSystemFamily::class.java,
-                    DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                    DefaultNativePlatform.host().operatingSystem.toFamilyName(),
                 ),
+            )
+
+            it.attributes.attribute(
+                Usage.USAGE_ATTRIBUTE,
+                project.objects.named(
+                    Usage::class.java,
+                    Usage.JAVA_RUNTIME,
+                )
             )
         }
 
@@ -101,6 +111,9 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     override val loaderAttributeName get() = FORGE
     override val commonType get() = FORGE
 
+    override val hasIncludedClient
+        get() = true
+
     override val compilations: DomainObjectCollection<TargetCompilation> =
         project.objects.domainObjectSet(TargetCompilation::class.java)
 
@@ -109,6 +122,12 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
     abstract val mappingProviders: ListProperty<MappingDependencyProvider>
         @Internal get
+
+    private val loadMappings = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+        it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+
+        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+    }
 
     private val remapTask = project.tasks.register(
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
@@ -120,11 +139,9 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
         it.classpath.from(minecraftLibrariesConfiguration)
 
-        it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+        it.mappings.set(loadMappings.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(remapNamespace)
-
-        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
     private val minecraftFile = remapNamespace.flatMap {
@@ -233,10 +250,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
                 it.dependencies.addAllLater(mappingDependencyList)
             }
 
-            project.tasks.named(dependencies.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                it.from(project.configurations.named(dependencies.sourceSet.mixinsConfigurationName))
-            }
-
             project.tasks.named(dependencies.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
                 it.version.set(minecraftVersion)
             }
@@ -274,10 +287,10 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             }
         }
 
-        data.runConfiguration {
-            it.sourceSet(data.sourceSet)
+        data.runConfiguration { datagen ->
+            datagen.sourceSet(data.sourceSet)
 
-            it.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
+            datagen.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
                 datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
                 datagen.mixinConfigs.from(project.configurations.named(data.sourceSet.mixinsConfigurationName))
 
@@ -313,7 +326,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         action?.execute(server!!)
     }
 
-    override fun client(action: Action<Runnable>) {
+    override fun client(action: Action<Runnable>?) {
         if (client == null) {
             client = project.objects.newInstance(SimpleRunnable::class.java, ClochePlugin.CLIENT_COMPILATION_NAME)
 
@@ -331,7 +344,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             runnables.add(client)
         }
 
-        action.execute(client!!)
+        action?.execute(client!!)
     }
 
     override fun mappings(action: Action<MappingsBuilder>) {
