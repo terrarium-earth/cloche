@@ -90,20 +90,20 @@ constructor(
             project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)
             project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
 
-            val remapNamespace = remapNamespace.takeIf(Provider<*>::isPresent)?.get()
-
-            val state = if (remapNamespace == null) {
-                States.INCLUDES_EXTRACTED
-            } else {
-                States.REMAPPED
+            val state = remapNamespace.map {
+                if (it.isEmpty()) {
+                    ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+                } else {
+                    ModTransformationStateAttribute.of(target, States.REMAPPED)
+                }
             }
 
             project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-                it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
+                it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
             }
 
             project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-                it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.of(target, state))
+                it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
             }
 
             // Use detached configuration for idea compat
