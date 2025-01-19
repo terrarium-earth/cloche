@@ -60,11 +60,12 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             )
         }
 
-    private val loadMappings = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
-        it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
+    private val loadMappings =
+        project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+            it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
 
-        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
-    }
+            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+        }
 
     private val resolveCommonMinecraft =
         project.tasks.register(
@@ -253,11 +254,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(dependencies.sourceSet.runtimeClasspathConfigurationName))
 
-            project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
-                it.extendsFrom(commonLibrariesConfiguration)
-            }
-
-            project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
+            project.configurations.named(dependencies.sourceSet.implementationConfigurationName) {
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
@@ -332,10 +329,12 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         data.runConfiguration { datagen ->
             datagen.sourceSet(data.sourceSet)
 
-            datagen.defaults.extension<FabricRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
-                datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
+            datagen.defaults {
+                it.extension<FabricRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
+                    datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
 
-                datagen.outputDirectory.set(datagenDirectory)
+                    datagen.outputDirectory.set(datagenDirectory)
+                }
             }
         }
 
@@ -348,7 +347,9 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
             server.runConfiguration {
                 it.sourceSet(main.sourceSet)
-                it.defaults.extension<FabricRunsDefaultsContainer>().server()
+                it.defaults {
+                    it.extension<FabricRunsDefaultsContainer>().server()
+                }
             }
 
             runnables.add(server)
@@ -365,7 +366,9 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
 
             client.runConfiguration {
                 it.sourceSet(main.sourceSet)
-                it.defaults.extension<FabricRunsDefaultsContainer>().server()
+                it.defaults {
+                    it.extension<FabricRunsDefaultsContainer>().server()
+                }
             }
 
             runnables.add(client)
@@ -397,7 +400,9 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             client.runConfiguration {
                 it.sourceSet(main.sourceSet)
 
-                it.defaults.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
+                it.defaults {
+                    it.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
+                }
             }
 
             this.client = client
@@ -447,7 +452,9 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             client.runConfiguration {
                 it.sourceSet(client.sourceSet)
 
-                it.defaults.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
+                it.defaults {
+                    it.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
+                }
             }
 
             this.client = client

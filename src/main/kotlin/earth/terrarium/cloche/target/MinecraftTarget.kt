@@ -22,11 +22,18 @@ interface MinecraftTarget : ClocheTarget, Compilation {
 
     val datagenDirectory: Provider<Directory>
         @Internal
-        get() = project.layout.buildDirectory.dir("generatedResources/$namePath")
+        get() = project.layout.buildDirectory.dir("generated").map { it.dir("resources").dir(featureName) }
 
     val main: Compilation
     val data: RunnableCompilation?
+
     val server: Runnable?
+
+    /**
+     * null if neither runnable nor a source set
+     * Runnable if only runnable but not a source set
+     * RunnableCompilation if runnable and a source set
+     */
     val client: Runnable?
 
     override val accessWideners get() = main.accessWideners

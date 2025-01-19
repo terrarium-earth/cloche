@@ -17,6 +17,7 @@ import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
@@ -34,7 +35,7 @@ import javax.inject.Inject
 
 internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal,
     ForgeTarget {
-    protected val minecraftLibrariesConfiguration =
+    protected val minecraftLibrariesConfiguration: Configuration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
             it.isCanBeConsumed = false
 
@@ -202,11 +203,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         main.dependencies { dependencies ->
             minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(dependencies.sourceSet.runtimeClasspathConfigurationName))
 
-            project.configurations.named(dependencies.sourceSet.compileClasspathConfigurationName) {
-                it.extendsFrom(minecraftLibrariesConfiguration)
-            }
-
-            project.configurations.named(dependencies.sourceSet.runtimeClasspathConfigurationName) {
+            project.configurations.named(dependencies.sourceSet.implementationConfigurationName) {
                 it.extendsFrom(minecraftLibrariesConfiguration)
             }
 
@@ -285,18 +282,29 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             project.tasks.named(dependencies.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
                 it.version.set(minecraftVersion)
             }
+
+            project.dependencies.add(
+                dependencies.sourceSet.runtimeOnlyConfigurationName,
+                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
+            )
         }
 
         data.runConfiguration { datagen ->
             datagen.sourceSet(data.sourceSet)
 
-            datagen.defaults.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
-                datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                datagen.mixinConfigs.from(project.configurations.named(data.sourceSet.mixinsConfigurationName))
+            datagen.defaults {
+                it.extension<ForgeRunsDefaultsContainer>().data(minecraftVersion) { datagen ->
+                    datagen.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                    datagen.mixinConfigs.from(project.configurations.named(data.sourceSet.mixinsConfigurationName))
 
-                datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                    datagen.modId.set(project.extension<ClocheExtension>().metadata.modId)
 
-                datagen.outputDirectory.set(datagenDirectory)
+                    datagen.outputDirectory.set(datagenDirectory)
+
+                    datagen.neoforgeClasspathHandling.set(this is NeoforgeTarget)
+
+                    datagen.additionalIncludedSourceSets.add(main.sourceSet)
+                }
             }
         }
 
@@ -310,11 +318,15 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             server.runConfiguration {
                 it.sourceSet(main.sourceSet)
 
-                it.defaults.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
-                    serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                    serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
+                it.defaults {
+                    it.extension<ForgeRunsDefaultsContainer>().server(minecraftVersion) { serverConfig ->
+                        serverConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                        serverConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
 
-                    serverConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                        serverConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
+
+                        serverConfig.neoforgeClasspathHandling.set(this is NeoforgeTarget)
+                    }
                 }
             }
 
@@ -333,11 +345,15 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
             client!!.runConfiguration {
                 it.sourceSet(main.sourceSet)
 
-                it.defaults.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
-                    clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
-                    clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
+                it.defaults {
+                    it.extension<ForgeRunsDefaultsContainer>().client(minecraftVersion) { clientConfig ->
+                        clientConfig.patches.from(project.configurations.named(main.sourceSet.patchesConfigurationName))
+                        clientConfig.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
 
-                    clientConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                        clientConfig.modId.set(project.extension<ClocheExtension>().metadata.modId)
+
+                        clientConfig.neoforgeClasspathHandling.set(this is NeoforgeTarget)
+                    }
                 }
             }
 

@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.PublicationVariant
-import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
+import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
@@ -38,9 +38,9 @@ constructor(
     project
 ), RunnableInternal, RunnableCompilation {
     override val runSetupActions =
-        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MinecraftRunConfigurationBuilder>>
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MinecraftRunConfiguration>>
 
-    override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) {
+    override fun runConfiguration(action: Action<MinecraftRunConfiguration>) {
         runSetupActions.add(action)
     }
 }

@@ -11,17 +11,18 @@ import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.runs.RunsContainer
+import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.internal.extensions.core.serviceOf
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: CachedMinecraftParameters): Provider<RegularFile> {
@@ -37,7 +38,7 @@ fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: Cached
         }
     }
 
-    return serviceOf<JavaToolchainService>().launcherFor {
+    return extension<JavaToolchainService>().launcherFor {
         it.languageVersion.set(javaVersion)
     }.map { it.executablePath }
 }
@@ -110,24 +111,14 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         // TODO do the same for the javadoc tasks
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
-            val javaCompiler = javaVersion.flatMap { version ->
-                project.serviceOf<JavaToolchainService>().compilerFor {
-                    it.languageVersion.set(JavaLanguageVersion.of(version))
-                }
-            }
-
-            compile.javaCompiler.set(javaCompiler)
+            compile.options.release.set(javaVersion)
         }
 
         plugins.withId("org.jetbrains.kotlin.jvm") {
             tasks.named(sourceSet.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
-                val javaLauncher = javaVersion.flatMap { version ->
-                    serviceOf<JavaToolchainService>().launcherFor {
-                        it.languageVersion.set(JavaLanguageVersion.of(version))
-                    }
-                }
-
-                it.kotlinJavaToolchain.toolchain.use(javaLauncher)
+                it.compilerOptions.jvmTarget.set(javaVersion.map {
+                    JvmTarget.fromTarget(JavaVersion.toVersion(it).toString())
+                })
             }
         }
 
@@ -190,14 +181,8 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     fun addRunnable(runnable: Runnable) {
         runnable as RunnableInternal
 
-        val runnableName = if (runnable.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-            "server"
-        } else {
-            runnable.name
-        }
-
         extension<RunsContainer>()
-            .create(target.name + TARGET_NAME_PATH_SEPARATOR + runnableName) { builder ->
+            .create(target.name + TARGET_NAME_PATH_SEPARATOR + runnable.name) { builder ->
                 runnable.runSetupActions.all {
                     it.execute(builder)
                 }

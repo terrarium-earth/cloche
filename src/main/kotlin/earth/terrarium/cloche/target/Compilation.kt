@@ -2,10 +2,9 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClocheDependencyHandler
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
+import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Named
@@ -70,11 +69,11 @@ internal interface CompilationInternal : Compilation {
 }
 
 interface Runnable : Named {
-    fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>)
+    fun runConfiguration(action: Action<MinecraftRunConfiguration>)
 }
 
 internal interface RunnableInternal : Runnable {
-    val runSetupActions: DomainObjectCollection<Action<MinecraftRunConfigurationBuilder>>
+    val runSetupActions: DomainObjectCollection<Action<MinecraftRunConfiguration>>
 }
 
 interface RunnableCompilation : Runnable, Compilation
