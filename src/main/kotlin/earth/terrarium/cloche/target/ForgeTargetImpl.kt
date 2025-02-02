@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.*
+import earth.terrarium.cloche.metadata.ForgeMetadata
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -37,7 +38,7 @@ import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
-internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal,
+internal abstract class ForgeTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal<ForgeMetadata>,
     ForgeTarget {
     protected val minecraftLibrariesConfiguration: Configuration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {

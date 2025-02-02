@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.*
 import earth.terrarium.cloche.ClochePlugin.Companion.STUB_DEPENDENCY
+import earth.terrarium.cloche.metadata.FabricMetadata
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -38,7 +39,7 @@ import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
-internal abstract class FabricTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal,
+internal abstract class FabricTargetImpl @Inject constructor(private val name: String) : MinecraftTargetInternal<FabricMetadata>,
     FabricTarget {
     private val commonLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "commonMinecraftLibraries")) {
