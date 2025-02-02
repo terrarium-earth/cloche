@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.*
 import earth.terrarium.cloche.ClochePlugin.Companion.STUB_DEPENDENCY
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
@@ -11,6 +12,8 @@ import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
+import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
+import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
@@ -21,12 +24,15 @@ import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.InvalidUserCodeException
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.TaskProvider
+import org.gradle.jvm.tasks.Jar
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
@@ -60,12 +66,15 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
             )
         }
 
-    private val loadMappings =
+    override val loadMappings: TaskProvider<LoadMappings> =
         project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
             it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
 
             it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
         }
+
+    override val mappingsBuildDependenciesHolder: Configuration =
+        project.configurations.detachedConfiguration(project.dependencies.create(project.files().builtBy(loadMappings)))
 
     private val resolveCommonMinecraft =
         project.tasks.register(
@@ -180,7 +189,7 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         convention(false)
     }
 
-    override val loaderAttributeName get() = FABRIC
+    override val loaderName get() = FABRIC
     override val commonType get() = FABRIC
 
     override val compilations: DomainObjectCollection<TargetCompilation> =
@@ -304,6 +313,30 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
     }
 
     override fun getName() = name
+
+    override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {
+        val namePart = compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+
+        val modId = project.extension<ClocheExtension>().metadata.modId
+
+        val task = project.tasks.register(
+            lowerCamelCaseGradleName("merge", name, namePart, "accessWideners"),
+            MergeAccessWideners::class.java
+        ) {
+            it.input.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
+
+            val output = modId.zip(project.layout.buildDirectory.dir("generated"), ::Pair)
+                .map { (modId, directory) ->
+                    directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
+                }
+
+            it.output.set(output)
+        }
+
+        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
+            it.from(task.flatMap(MergeAccessWideners::output))
+        }
+    }
 
     override fun createData(): RunnableTargetCompilation {
         val data =

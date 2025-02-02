@@ -1,8 +1,10 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheDependencyHandler
+import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
 import org.gradle.api.provider.Property
@@ -23,6 +25,8 @@ interface MinecraftTarget : ClocheTarget, Compilation {
     val datagenDirectory: Provider<Directory>
         @Internal
         get() = project.layout.buildDirectory.dir("generated").map { it.dir("resources").dir(featureName) }
+
+    val loaderName: String
 
     val main: Compilation
     val data: RunnableCompilation?
@@ -67,7 +71,6 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
     val hasIncludedClient
         get() = client is SimpleRunnable
 
-    val loaderAttributeName: String
     val commonType: String
 
     val compilations: DomainObjectCollection<TargetCompilation>
@@ -75,6 +78,15 @@ internal interface MinecraftTargetInternal : MinecraftTarget {
 
     val remapNamespace: Provider<String>
         @Internal get
+
+    val loadMappings: Provider<LoadMappings>
+        @Internal get
+
+    val mappingsBuildDependenciesHolder: Configuration
+
+    fun registerAccessWidenerMergeTask(compilation: CompilationInternal)
+
+    fun addJarInjects(compilation: CompilationInternal) {}
 
     fun createData(): RunnableTargetCompilation
 

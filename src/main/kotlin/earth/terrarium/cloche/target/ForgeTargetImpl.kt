@@ -1,11 +1,13 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.*
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunsDefaultsContainer
+import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
@@ -21,13 +23,15 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
+import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
-import org.gradle.language.jvm.tasks.ProcessResources
+import org.gradle.api.tasks.TaskProvider
+import org.gradle.jvm.tasks.Jar
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
@@ -109,7 +113,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         @Internal
         get() = "forge"
 
-    override val loaderAttributeName get() = FORGE
+    override val loaderName get() = FORGE
     override val commonType get() = FORGE
 
     override val hasIncludedClient
@@ -124,11 +128,14 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     abstract val mappingProviders: ListProperty<MappingDependencyProvider>
         @Internal get
 
-    private val loadMappings = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+    override val loadMappings: TaskProvider<LoadMappings> = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
         it.mappings.from(project.configurations.named(main.sourceSet.mappingsConfigurationName))
 
         it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
+
+    override val mappingsBuildDependenciesHolder: Configuration =
+        project.configurations.detachedConfiguration(project.dependencies.create(project.files().builtBy(loadMappings)))
 
     private val remapTask = project.tasks.register(
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
@@ -261,6 +268,43 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
 
     protected open fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"
+
+    override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {
+        val namePart = compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+
+        val task = project.tasks.register(
+            lowerCamelCaseGradleName("generate", name, namePart, "accessTransformer"),
+            GenerateAccessTransformer::class.java
+        ) {
+            it.input.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
+
+            val output = project.layout.buildDirectory.dir("generated")
+                .map { directory ->
+                    directory.dir("accessTransformers").dir(compilation.sourceSet.name).file("accesstransformer.cfg")
+                }
+
+            it.output.set(output)
+        }
+
+        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
+            it.from(task.flatMap(GenerateAccessTransformer::output)) {
+                it.into("META-INF")
+            }
+        }
+    }
+
+    override fun addJarInjects(compilation: CompilationInternal) {
+        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
+            it.manifest {
+                it.attributes["MixinConfigs"] = object {
+                    override fun toString(): String {
+                        return project.configurations.getByName(compilation.sourceSet.mixinsConfigurationName)
+                            .joinToString(",") { it.name }
+                    }
+                }
+            }
+        }
+    }
 
     override fun createData(): RunnableTargetCompilation {
         val data = run {

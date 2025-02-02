@@ -16,7 +16,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String): Fo
     final override val artifact
         get() = "neoforge"
 
-    final override val loaderAttributeName get() = NEOFORGE
+    final override val loaderName get() = NEOFORGE
 
     override val remapNamespace: Provider<String>
         get() = hasMappings.flatMap {
@@ -51,6 +51,25 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String): Fo
         }
     }
 
+    override fun createData(): RunnableTargetCompilation {
+        return super.createData().apply {
+            dependencies {
+                project.configurations.named(it.sourceSet.compileClasspathConfigurationName) {
+                    it.attributes.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
+                    it.attributes.attribute(NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE, DefaultNativePlatform.host().operatingSystem.toFamilyName())
+                }
+
+                project.configurations.named(it.sourceSet.runtimeClasspathConfigurationName) {
+                    it.attributes.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
+                    it.attributes
+                        .attribute(NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE, DefaultNativePlatform.host().operatingSystem.toFamilyName())
+                }
+            }
+        }
+    }
+
     final override fun version(minecraftVersion: String, loaderVersion: String) =
         loaderVersion
+
+    override fun addJarInjects(compilation: CompilationInternal) {}
 }

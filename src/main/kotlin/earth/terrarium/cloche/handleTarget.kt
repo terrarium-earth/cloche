@@ -4,12 +4,11 @@ import earth.terrarium.cloche.target.*
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
 import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
-import net.msrandom.minecraftcodev.core.task.convention
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.remapper.RemapAction
-import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
+import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
@@ -47,7 +46,6 @@ private fun setupModTransformationPipeline(
     project: Project,
     target: MinecraftTargetInternal,
     remapNamespace: Provider<String>,
-    main: SourceSet,
     intermediaryMinecraft: Provider<FileSystemLocation>,
 ) {
     project.dependencies.registerTransform(ExtractIncludes::class.java) {
@@ -70,20 +68,20 @@ private fun setupModTransformationPipeline(
                 ModTransformationStateAttribute.ATTRIBUTE,
                 ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
             )
+
             it.to.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
                 ModTransformationStateAttribute.of(target, States.REMAPPED)
             )
 
             it.parameters {
-                it.mappings.from(project.configurations.named(main.mappingsConfigurationName))
+                it.mappings.set(target.loadMappings.flatMap(LoadMappings::output))
 
                 it.sourceNamespace.set(remapNamespace)
 
                 it.extraClasspath.from(project.files(intermediaryMinecraft))
 
-                it.cacheParameters.convention(project)
-                it.javaExecutable.set(project.javaExecutableFor(target.minecraftVersion, it.cacheParameters))
+                it.cacheDirectory.set(getGlobalCacheDirectory(project))
             }
         }
     }
@@ -97,6 +95,9 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         createCompilationVariants(compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
+
+        target.registerAccessWidenerMergeTask(compilation)
+        target.addJarInjects(compilation)
 
         val javaVersion = target.minecraftVersion.map {
             getVersionList(
@@ -122,19 +123,14 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
         }
 
-        val main = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-            compilation
-        } else {
+        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             compilation.linkDynamically(target.main)
-
-            target.main
         }
 
         setupModTransformationPipeline(
             project,
             target,
             target.remapNamespace,
-            target.main.sourceSet,
             compilation.intermediaryMinecraftFile,
         )
 

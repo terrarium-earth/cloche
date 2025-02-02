@@ -73,15 +73,14 @@ constructor(
         sourceSet = project.extension<SourceSetContainer>().maybeCreate(name)
 
         project.tasks.register(
-            //project.addSetupTask(
-                lowerCamelCaseGradleName("decompile", target.featureName, namePart, "minecraft")
-            //)
-            , Decompile::class.java,
+            project.addSetupTask(lowerCamelCaseGradleName("decompile", target.featureName, namePart, "minecraft")),
+            Decompile::class.java,
         ) {
             it.group = "sources"
 
             it.inputFile.set(finalMinecraftFile)
-            it.classpath.from(this@TargetCompilation.sourceSet.compileClasspath)
+            it.classpath.from(project.configurations.named(this@TargetCompilation.sourceSet.compileClasspathConfigurationName))
+            it.classpath.from(extraClasspathFiles)
         }
 
         dependencies { dependencies ->
@@ -100,10 +99,14 @@ constructor(
 
             project.configurations.named(sourceSet.compileClasspathConfigurationName) {
                 it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+
+                it.extendsFrom(target.mappingsBuildDependenciesHolder)
             }
 
             project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
                 it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+
+                it.extendsFrom(target.mappingsBuildDependenciesHolder)
             }
 
             // Use detached configuration for idea compat
@@ -120,7 +123,7 @@ constructor(
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
 
-        attributes.attribute(TargetAttributes.MOD_LOADER, target.loaderAttributeName)
+        attributes.attribute(TargetAttributes.MOD_LOADER, target.loaderName)
             .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
             .attribute(VARIANT_ATTRIBUTE, variant)
     }
