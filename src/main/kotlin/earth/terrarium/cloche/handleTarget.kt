@@ -44,7 +44,7 @@ fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: Cached
 
 private fun setupModTransformationPipeline(
     project: Project,
-    target: MinecraftTargetInternal,
+    target: MinecraftTargetInternal<*>,
     remapNamespace: Provider<String>,
     intermediaryMinecraft: Provider<FileSystemLocation>,
 ) {
@@ -88,7 +88,7 @@ private fun setupModTransformationPipeline(
 }
 
 context(Project)
-internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
+internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Boolean) {
     fun add(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 

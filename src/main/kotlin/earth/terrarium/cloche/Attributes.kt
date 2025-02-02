@@ -50,6 +50,6 @@ internal object ModTransformationStateAttribute {
 
     const val INITIAL = "none"
 
-    fun of(target: MinecraftTarget, state: String) =
+    fun of(target: MinecraftTarget<*>, state: String) =
         lowerCamelCaseName(target.featureName, state)
 }

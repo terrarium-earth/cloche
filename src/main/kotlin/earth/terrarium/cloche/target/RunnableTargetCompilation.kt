@@ -16,7 +16,7 @@ internal abstract class RunnableTargetCompilation
 @Inject
 constructor(
     name: String,
-    target: MinecraftTargetInternal,
+    target: MinecraftTargetInternal<*>,
     intermediaryMinecraftFile: Provider<FileSystemLocation>,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: FileCollection,

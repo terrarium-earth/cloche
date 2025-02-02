@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.NEOFORGE
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
@@ -31,6 +32,16 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String): Fo
         minecraftLibrariesConfiguration.attributes {
             it.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
             it.attribute(NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE, DefaultNativePlatform.host().operatingSystem.toFamilyName())
+        }
+
+        generateModsToml.configure {
+            it.loaderDependencyVersion.set("1")
+
+            it.output.set(metadataDirectory.map {
+                it.file("neoforge.mods.toml")
+            })
+
+            it.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
         }
     }
 

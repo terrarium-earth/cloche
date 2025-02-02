@@ -133,7 +133,7 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
 
     tasks.named(sourceSet.jarTaskName, Jar::class.java) {
         if (!singleTarget && target.name != COMMON) {
-            val dev = (target as? MinecraftTargetInternal)?.remapNamespace?.map { it.isNotEmpty() } ?: provider { false }
+            val dev = (target as? MinecraftTargetInternal<*>)?.remapNamespace?.map { it.isNotEmpty() } ?: provider { false }
 
             val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
                 target.capabilityName

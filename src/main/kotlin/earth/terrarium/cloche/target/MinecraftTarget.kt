@@ -14,7 +14,7 @@ import org.gradle.api.tasks.Internal
 import org.gradle.language.jvm.tasks.ProcessResources
 
 @JvmDefaultWithoutCompatibility
-interface MinecraftTarget : ClocheTarget, Compilation {
+interface MinecraftTarget<TMetadata : Any> : ClocheTarget, Compilation {
     val minecraftVersion: Property<String>
         @Input
         get
@@ -25,6 +25,10 @@ interface MinecraftTarget : ClocheTarget, Compilation {
     val datagenDirectory: Provider<Directory>
         @Internal
         get() = project.layout.buildDirectory.dir("generated").map { it.dir("resources").dir(featureName) }
+
+    val metadataDirectory: Provider<Directory>
+        @Internal
+        get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").dir(featureName) }
 
     val loaderName: String
 
@@ -53,6 +57,8 @@ interface MinecraftTarget : ClocheTarget, Compilation {
     override fun attributes(action: Action<AttributeContainer>) =
         main.attributes(action)
 
+    val metadata: TMetadata
+
     fun data() = data(null)
     fun data(action: Action<RunnableCompilation>?)
 
@@ -60,9 +66,13 @@ interface MinecraftTarget : ClocheTarget, Compilation {
     fun server(action: Action<Runnable>?)
 
     fun mappings(action: Action<MappingsBuilder>)
+
+    fun metadata(action: Action<TMetadata>) {
+        action.execute(metadata)
+    }
 }
 
-internal interface MinecraftTargetInternal : MinecraftTarget {
+internal interface MinecraftTargetInternal<TMetadata : Any> : MinecraftTarget<TMetadata> {
     override val main: TargetCompilation
     override var data: RunnableTargetCompilation?
     override var server: SimpleRunnable?

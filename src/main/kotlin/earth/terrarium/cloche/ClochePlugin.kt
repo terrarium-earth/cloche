@@ -63,10 +63,10 @@ fun Project.extend(
 internal fun addTarget(
     cloche: ClocheExtension,
     project: Project,
-    target: MinecraftTarget,
+    target: MinecraftTarget<*>,
     singleTarget: Boolean,
 ) {
-    target as MinecraftTargetInternal
+    target as MinecraftTargetInternal<*>
 
     target.minecraftVersion.convention(cloche.minecraftVersion)
 
@@ -172,7 +172,7 @@ class ClochePlugin : Plugin<Project> {
             val association = project.objects.mapProperty(
                 MinecraftTargetInternal::class.java,
                 List::class.java
-            ) as MapProperty<MinecraftTargetInternal, List<CommonTargetInternal>>
+            ) as MapProperty<MinecraftTargetInternal<*>, List<CommonTargetInternal>>
 
             for (target in targets) {
                 association.put(target, getDependencies(target))
@@ -183,7 +183,7 @@ class ClochePlugin : Plugin<Project> {
 
         @Suppress("UNCHECKED_CAST")
         val commonToTarget = targetDependencies.map {
-            val association = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal>>()
+            val association = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal<*>>>()
 
             for ((edgeTarget, dependencies) in it) {
                 for (dependency in dependencies) {
@@ -191,7 +191,7 @@ class ClochePlugin : Plugin<Project> {
                 }
             }
 
-            association as Map<CommonTargetInternal, Set<MinecraftTargetInternal>>
+            association as Map<CommonTargetInternal, Set<MinecraftTargetInternal<*>>>
         }
 
         @Suppress("UNCHECKED_CAST")
