@@ -20,7 +20,7 @@ import org.gradle.api.tasks.compile.JavaCompile
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
 internal class CommonInfo(
-    val dependants: Set<MinecraftTargetInternal>,
+    val dependants: Set<MinecraftTargetInternal<*>>,
     val type: String?,
     val version: String?,
 )
@@ -51,7 +51,7 @@ context(Project) internal fun createCommonTarget(
 
     fun intersection(
         compilationName: String,
-        compilations: Provider<Map<MinecraftTargetInternal, TargetCompilation>>
+        compilations: Provider<Map<MinecraftTargetInternal<*>, TargetCompilation>>
     ): FileCollection {
         val compilationName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
@@ -208,7 +208,7 @@ context(Project) internal fun createCommonTarget(
                     PublicationVariant.Common,
                     intersection(
                         it.name,
-                        commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal::main) }),
+                        commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal<*>::main) }),
                     featureName,
                 )
             }

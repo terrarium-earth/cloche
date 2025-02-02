@@ -45,7 +45,9 @@ dependencies {
     implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.10")
     implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.2.1")
 
-    implementation("com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:2.1.0-1.0.29")
+    implementation(group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version = "2.1.0-1.0.29")
+
+    implementation(group = "com.moandjiezana.toml", name = "toml4j", version = "0.7.2")
 
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")
 

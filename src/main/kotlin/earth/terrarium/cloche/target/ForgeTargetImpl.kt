@@ -2,6 +2,8 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.*
 import earth.terrarium.cloche.metadata.ForgeMetadata
+import earth.terrarium.cloche.tasks.GenerateFabricModJson
+import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -33,6 +35,7 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
+import org.gradle.language.jvm.tasks.ProcessResources
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
@@ -120,6 +123,8 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
     override val hasIncludedClient
         get() = true
 
+    override val metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
+
     override val compilations: DomainObjectCollection<TargetCompilation> =
         project.objects.domainObjectSet(TargetCompilation::class.java)
 
@@ -151,6 +156,21 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         it.mappings.set(loadMappings.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(remapNamespace)
+    }
+
+    protected val generateModsToml: TaskProvider<GenerateForgeModsToml> = project.tasks.register(lowerCamelCaseGradleName("generate", featureName, "modsToml"), GenerateForgeModsToml::class.java) {
+        it.loaderDependencyVersion.set(loaderVersion.map {
+            it.substringBefore('.')
+        })
+
+        it.output.set(metadataDirectory.map {
+            it.file("mods.toml")
+        })
+
+        it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
+        it.targetMetadata.set(metadata)
+
+        it.loaderName.set(loaderName)
     }
 
     private val minecraftFile = remapNamespace.flatMap {
@@ -207,6 +227,14 @@ internal abstract class ForgeTargetImpl @Inject constructor(private val name: St
         }
 
         compilations.add(main)
+
+        project.tasks.named(main.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+            it.from(metadataDirectory) {
+                it.into("META-INF")
+            }
+
+            it.dependsOn(generateModsToml)
+        }
 
         main.dependencies { dependencies ->
             minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(dependencies.sourceSet.runtimeClasspathConfigurationName))

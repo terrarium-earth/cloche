@@ -33,7 +33,7 @@ internal abstract class TargetCompilation
 @Inject
 constructor(
     private val name: String,
-    val target: MinecraftTargetInternal,
+    val target: MinecraftTargetInternal<*>,
     val intermediaryMinecraftFile: Provider<FileSystemLocation>,
     private val namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: FileCollection,

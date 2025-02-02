@@ -3,6 +3,8 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.*
 import earth.terrarium.cloche.ClochePlugin.Companion.STUB_DEPENDENCY
 import earth.terrarium.cloche.metadata.FabricMetadata
+import earth.terrarium.cloche.metadata.ForgeMetadata
+import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -14,7 +16,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
-import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
@@ -34,6 +36,7 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
+import org.gradle.language.jvm.tasks.ProcessResources
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
@@ -173,12 +176,28 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
         it.sourceNamespace.set(remapNamespace)
     }
 
+    private val generateModJson = project.tasks.register(lowerCamelCaseGradleName("generate", featureName, "ModJson"), GenerateFabricModJson::class.java) {
+        it.loaderDependencyVersion.set(loaderVersion.map {
+            it.substringBefore('.')
+        })
+
+        it.output.set(metadataDirectory.map {
+            it.file("fabric.mod.json")
+        })
+
+        it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
+        it.targetMetadata.set(metadata)
+        it.mixinConfigs.from(project.configurations.named(main.sourceSet.mixinsConfigurationName))
+    }
+
     final override lateinit var main: TargetCompilation
     final override var client: RunnableInternal? = null
     final override var data: RunnableTargetCompilation? = null
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
+
+    override val metadata: FabricMetadata = project.objects.newInstance(FabricMetadata::class.java)
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get
@@ -258,6 +277,12 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                 isSingleTarget,
                 remapNamespace,
             )
+
+        project.tasks.named(main.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+            it.from(metadataDirectory)
+
+            it.dependsOn(generateModJson)
+        }
 
         compilations.add(main)
 
@@ -489,6 +514,10 @@ internal abstract class FabricTargetImpl @Inject constructor(private val name: S
                 it.defaults {
                     it.extension<FabricRunsDefaultsContainer>().client(minecraftVersion)
                 }
+            }
+
+            generateModJson.configure {
+                it.clientMixinConfigs.from(project.configurations.named(client.sourceSet.mixinsConfigurationName))
             }
 
             this.client = client

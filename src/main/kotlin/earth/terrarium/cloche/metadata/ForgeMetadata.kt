@@ -17,15 +17,13 @@ interface ForgeMetadata {
         @Input
         get
 
-    val clientOnly: Property<Boolean>
-        @Optional
-        @Input
-        get
-
     val services: ListProperty<String>
         @Optional
         @Input
         get
 
-
+    val blurLogo: Property<Boolean>
+        @Optional
+        @Input
+        get
 }
