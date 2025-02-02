@@ -8,35 +8,30 @@ import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderConvertible
+import org.gradle.api.tasks.SourceSet
 
 class ClocheDependencyHandler(
     private val project: Project,
 
-    apiConfigurationName: String,
-    compileOnlyApiConfigurationName: String,
-    implementationConfigurationName: String,
-    runtimeOnlyConfigurationName: String,
-    compileOnlyConfigurationName: String,
-
-    modApiConfigurationName: String,
-    modCompileOnlyApiConfigurationName: String,
-    modImplementationConfigurationName: String,
-    modRuntimeOnlyConfigurationName: String,
-    modCompileOnlyConfigurationName: String,
+    internal val sourceSet: SourceSet,
 ) {
-    val api = ConfigurationHandler(apiConfigurationName)
-    val compileOnlyApi = ConfigurationHandler(compileOnlyApiConfigurationName)
-    val implementation = ConfigurationHandler(implementationConfigurationName)
-    val runtimeOnly = ConfigurationHandler(runtimeOnlyConfigurationName)
-    val compileOnly = ConfigurationHandler(compileOnlyConfigurationName)
+    val api = ConfigurationHandler(sourceSet.apiConfigurationName, false)
+    val compileOnlyApi = ConfigurationHandler(sourceSet.compileOnlyApiConfigurationName, false)
+    val implementation = ConfigurationHandler(sourceSet.implementationConfigurationName, false)
+    val runtimeOnly = ConfigurationHandler(sourceSet.runtimeOnlyConfigurationName, false)
+    val compileOnly = ConfigurationHandler(sourceSet.compileOnlyConfigurationName, false)
 
-    val modApi = ConfigurationHandler(modApiConfigurationName)
-    val modCompileOnlyApi = ConfigurationHandler(modCompileOnlyApiConfigurationName)
-    val modImplementation = ConfigurationHandler(modImplementationConfigurationName)
-    val modRuntimeOnly = ConfigurationHandler(modRuntimeOnlyConfigurationName)
-    val modCompileOnly = ConfigurationHandler(modCompileOnlyConfigurationName)
+    val modApi = ConfigurationHandler(sourceSet.apiConfigurationName, true)
+    val modCompileOnlyApi = ConfigurationHandler(sourceSet.compileOnlyApiConfigurationName, true)
+    val modImplementation = ConfigurationHandler(sourceSet.implementationConfigurationName, true)
+    val modRuntimeOnly = ConfigurationHandler(sourceSet.runtimeOnlyConfigurationName, true)
+    val modCompileOnly = ConfigurationHandler(sourceSet.compileOnlyConfigurationName, true)
 
-    inner class ConfigurationHandler(val configurationName: String) {
+    fun fabricApi(apiVersion: String) {
+        modImplementation(group = "net.fabricmc.fabric-api", name = "fabric-api", version = apiVersion)
+    }
+
+    inner class ConfigurationHandler(val configurationName: String, val mod: Boolean) {
         operator fun invoke(dependencyNotation: Any) = project.dependencies.add(configurationName, dependencyNotation)
         operator fun invoke(dependencyNotation: Provider<*>) = project.dependencies.addProvider(configurationName, dependencyNotation)
         operator fun invoke(dependencyNotation: ProviderConvertible<*>) = project.dependencies.addProvider(configurationName, dependencyNotation.asProvider())

@@ -1,138 +1,190 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
-import net.msrandom.minecraftcodev.core.MinecraftCodevExtension
+import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
+import net.msrandom.minecraftcodev.core.getVersionList
+import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
+import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.remapper.RemapAction
+import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.runs.RunsContainer
+import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.api.internal.project.ProjectInternal
-import org.gradle.api.plugins.internal.DefaultJavaFeatureSpec
+import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.file.RegularFile
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
-import org.gradle.internal.component.external.model.ProjectDerivedCapability
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.nativeplatform.OperatingSystemFamily
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-fun modConfigurationName(name: String) = lowerCamelCaseName("mod", name)
+fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: CachedMinecraftParameters): Provider<RegularFile> {
+    val javaVersion = version.flatMap { version ->
+        cacheParameters.directory.flatMap { cacheDirectory ->
+            cacheParameters.versionManifestUrl.flatMap { url ->
+                cacheParameters.getIsOffline().map { offline ->
+                    val version = getVersionList(cacheDirectory.asFile.toPath(), url, offline).version(version)
 
-context(Project) fun handleTarget(target: MinecraftTarget) {
-    val cloche = extension<ClocheExtension>()
+                    JavaLanguageVersion.of(version.javaVersion.majorVersion)
+                }
+            }
+        }
+    }
 
-    fun add(compilation: RunnableCompilationInternal?, variant: PublicationVariant) {
-        if (compilation == null) {
-            // TODO Setup run configurations regardless
+    return extension<JavaToolchainService>().launcherFor {
+        it.languageVersion.set(javaVersion)
+    }.map { it.executablePath }
+}
 
-            return
+private fun setupModTransformationPipeline(
+    project: Project,
+    target: MinecraftTargetInternal,
+    remapNamespace: Provider<String>,
+    intermediaryMinecraft: Provider<FileSystemLocation>,
+) {
+    project.dependencies.registerTransform(ExtractIncludes::class.java) {
+        it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
+        it.to.attribute(
+            ModTransformationStateAttribute.ATTRIBUTE,
+            ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+        )
+    }
+
+    // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
+    //  this can potentially be changed to a no-op transform but that's far slower
+    project.afterEvaluate {
+        if (remapNamespace.get().isEmpty()) {
+            return@afterEvaluate
         }
 
-        val sourceSet = with(target) {
-            compilation.sourceSet
+        project.dependencies.registerTransform(RemapAction::class.java) {
+            it.from.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+            )
+
+            it.to.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.of(target, States.REMAPPED)
+            )
+
+            it.parameters {
+                it.mappings.set(target.loadMappings.flatMap(LoadMappings::output))
+
+                it.sourceNamespace.set(remapNamespace)
+
+                it.extraClasspath.from(project.files(intermediaryMinecraft))
+
+                it.cacheDirectory.set(getGlobalCacheDirectory(project))
+            }
+        }
+    }
+}
+
+context(Project)
+internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
+    fun add(compilation: TargetCompilation) {
+        val sourceSet = compilation.sourceSet
+
+        createCompilationVariants(compilation, sourceSet, true)
+
+        configureSourceSet(sourceSet, target, compilation, singleTarget)
+
+        target.registerAccessWidenerMergeTask(compilation)
+        target.addJarInjects(compilation)
+
+        val javaVersion = target.minecraftVersion.map {
+            getVersionList(
+                getGlobalCacheDirectory(project).toPath(),
+                VERSION_MANIFEST_URL,
+                gradle.startParameter.isOffline
+            )
+                .version(it)
+                .javaVersion
+                .majorVersion
+        }
+
+        // TODO do the same for the javadoc tasks
+        tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
+            compile.options.release.set(javaVersion)
+        }
+
+        plugins.withId("org.jetbrains.kotlin.jvm") {
+            tasks.named(sourceSet.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
+                it.compilerOptions.jvmTarget.set(javaVersion.map {
+                    JvmTarget.fromTarget(JavaVersion.toVersion(it).toString())
+                })
+            }
         }
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            val main = with(target) {
-                target.main.sourceSet
-            }
-
-            sourceSet.linkDynamically(main)
+            compilation.linkDynamically(target.main)
         }
 
-        val spec = DefaultJavaFeatureSpec(target.name, project as ProjectInternal)
+        setupModTransformationPipeline(
+            project,
+            target,
+            target.remapNamespace,
+            compilation.intermediaryMinecraftFile,
+        )
 
-        val capability = ProjectDerivedCapability(project)
-
-        spec.withJavadocJar()
-        spec.withSourcesJar()
-
-        spec.usingSourceSet(sourceSet)
-
-        spec.capability(capability.group, capability.name, capability.version!!)
-        spec.create()
-
-        val modApi = project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName))
-        val modCompileOnlyApi = project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName))
-        val modRuntimeOnly = project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
-        val modImplementation = project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName))
-        val modCompileOnly = project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName))
-
-        project.configurations.named(sourceSet.apiElementsConfigurationName) {
-            it.extendsFrom(modApi)
-            it.extendsFrom(modCompileOnlyApi)
-
-            it.artifacts.clear()
-            project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
-        }
-
-        project.configurations.named(sourceSet.runtimeElementsConfigurationName) {
-            it.extendsFrom(modRuntimeOnly)
-            it.extendsFrom(modImplementation)
-
-            it.artifacts.clear()
-            project.artifacts.add(it.name, project.tasks.named(sourceSet.jarTaskName))
-        }
-
-        val configurationNames = listOf(
+        val resolvableConfigurationNames = listOf(
             sourceSet.compileClasspathConfigurationName,
             sourceSet.runtimeClasspathConfigurationName,
-            sourceSet.apiElementsConfigurationName,
-            sourceSet.runtimeElementsConfigurationName,
-            sourceSet.javadocElementsConfigurationName,
-            sourceSet.sourcesElementsConfigurationName,
-            modConfigurationName(sourceSet.compileClasspathConfigurationName),
-            modConfigurationName(sourceSet.runtimeClasspathConfigurationName),
         )
 
-        for (name in configurationNames) {
-            project.configurations.named(name) { configuration ->
-                configuration.attributes.attribute(ClochePlugin.MOD_LOADER_ATTRIBUTE, target.loaderAttributeName)
+        val libraryConsumableConfigurationNames = listOf(
+            sourceSet.apiElementsConfigurationName,
+            sourceSet.runtimeElementsConfigurationName,
+        )
 
-                project.afterEvaluate {
-                    configuration.attributes.attribute(ClochePlugin.MINECRAFT_VERSION_ATTRIBUTE, target.minecraftVersion.orElse(cloche.minecraftVersion).get())
-                }
+        val consumableConfigurationNames = libraryConsumableConfigurationNames + listOf(
+            sourceSet.javadocElementsConfigurationName,
+            sourceSet.sourcesElementsConfigurationName,
+        )
 
-                configuration.attributes.attribute(ClochePlugin.VARIANT_ATTRIBUTE, variant)
+        val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
+
+        for (name in resolvableConfigurationNames) {
+            configurations.named(name) { configuration ->
+                configuration.attributes.attribute(
+                    OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                    objects.named(
+                        OperatingSystemFamily::class.java,
+                        DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                    ),
+                )
             }
         }
 
-        val dependencyHandler = ClocheDependencyHandler(
-            project,
-            sourceSet.apiConfigurationName,
-            sourceSet.compileOnlyApiConfigurationName,
-            sourceSet.implementationConfigurationName,
-            sourceSet.runtimeOnlyConfigurationName,
-            sourceSet.compileOnlyConfigurationName,
+        for (name in configurationNames) {
+            configurations.findByName(name)?.attributes(compilation::attributes)
+        }
 
-            modApi.name,
-            modCompileOnlyApi.name,
-            modImplementation.name,
-            modRuntimeOnly.name,
-            modCompileOnly.name,
-        )
+        val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
 
-        for (action in compilation.dependencySetupActions) {
-            action.execute(dependencyHandler)
+        compilation.dependencySetupActions.all {
+            it.execute(dependencyHandler)
         }
     }
 
     fun addRunnable(runnable: Runnable) {
         runnable as RunnableInternal
 
-        project
-            .extension<MinecraftCodevExtension>()
-            .extension<RunsContainer>()
-            .create(lowerCamelCaseGradleName(target.name, runnable.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME })) { builder ->
-                project.afterEvaluate {
-                    for (runSetupAction in runnable.runSetupActions) {
-                        runSetupAction.execute(builder)
-                    }
+        extension<RunsContainer>()
+            .create(target.name + TARGET_NAME_PATH_SEPARATOR + runnable.name) { builder ->
+                runnable.runSetupActions.all {
+                    it.execute(builder)
                 }
             }
     }
 
-    add(target.main as RunnableCompilationInternal, PublicationVariant.Common)
-    add(target.data as RunnableCompilationInternal, PublicationVariant.Data)
-    add((target as? ClientTarget)?.client as RunnableCompilationInternal?, PublicationVariant.Client)
-
-    addRunnable(target.main)
-    addRunnable(target.data)
-    addRunnable(target.client)
+    target.compilations.all(::add)
+    target.runnables.all(::addRunnable)
 }

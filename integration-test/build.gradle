@@ -1,0 +1,42 @@
+plugins {
+    id("earth.terrarium.cloche")
+}
+
+repositories {
+    mavenCentral()
+
+    maven {
+        url = "https://maven.msrandom.net/repository/root"
+    }
+}
+
+cloche {
+    metadata {
+        modId = "mod"
+    }
+
+    fabric {
+        minecraftVersion = "1.20.3"
+        loaderVersion = "0.15.11"
+
+        dependencies {
+            fabricApi("0.91.1+1.20.3")
+        }
+    }
+
+    def forgeCommon = common("forgeCommon") {}
+
+    forge {
+        minecraftVersion = "1.19.4"
+        loaderVersion = "45.2.15"
+
+        dependsOn(forgeCommon)
+    }
+
+    neoforge {
+        minecraftVersion = "1.21"
+        loaderVersion = "21.0.76-beta"
+
+        dependsOn(forgeCommon)
+    }
+}

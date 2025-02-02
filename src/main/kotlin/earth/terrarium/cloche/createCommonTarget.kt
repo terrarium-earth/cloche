@@ -1,137 +1,243 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.ClochePlugin.Companion.STUB_MODULE
 import earth.terrarium.cloche.target.*
+import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
+import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.intersection.JarIntersection
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
-context(Project) fun createCommonTarget(common: CommonTarget, edges: Iterable<MinecraftTarget>) {
-    val main = edges.map { it to it.main as RunnableCompilationInternal }
-    val client = edges.takeIf { it.any { it is ClientTarget } }?.map { it to ((it as? ClientTarget)?.client ?: it.main) as RunnableCompilationInternal }
-    val data = edges.map { it to it.data as RunnableCompilationInternal }
+internal class CommonInfo(
+    val dependants: Set<MinecraftTargetInternal>,
+    val type: String?,
+    val version: String?,
+)
 
-    fun intersection(compilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>): FileCollection {
-        if (compilations.size == 1) {
-            return compilations.first().second.minecraftFiles
+context(Project) internal fun createCommonTarget(
+    commonTarget: CommonTargetInternal,
+    commonInfo: Provider<CommonInfo>,
+    onlyCommonOfType: Provider<Boolean>
+) {
+    val featureName = commonTarget.featureName
+    val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
+
+    project.afterEvaluate {
+        it.dependencies.components.withModule(
+            STUB_MODULE,
+            MinecraftComponentMetadataRule::class.java
+        ) {
+            it.params(
+                getGlobalCacheDirectory(project),
+                commonInfo.get().dependants.map { it.minecraftVersion.get() },
+                VERSION_MANIFEST_URL,
+                project.gradle.startParameter.isOffline,
+                featureName,
+                clientTargetMinecraftName,
+            )
         }
-
-        val name = lowerCamelCaseGradleName("create", *compilations.map { (target) -> target.name }.toTypedArray(), "intersection")
-
-        val createIntersection = project.tasks.withType(JarIntersection::class.java).findByName(name) ?: project.tasks.create(name, JarIntersection::class.java) {
-            for ((_, compilation) in compilations) {
-                it.files.from(compilation.minecraftFiles)
-            }
-        }
-
-        project.addSetupTask(name)
-
-        return files(createIntersection.output)
     }
 
-    fun SourceSet.addDependencyIntersection(edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>, configurationName: SourceSet.() -> String) {
-        val edgeDependencies = edgeCompilations.map { (target, compilation) ->
-            with(target) {
-                project.configurations.getByName(compilation.sourceSet.configurationName()).dependencies.toList()
+    fun intersection(
+        compilationName: String,
+        compilations: Provider<Map<MinecraftTargetInternal, TargetCompilation>>
+    ): FileCollection {
+        val compilationName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+
+        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilationName, "intersection")
+
+        val createIntersection = if (name in tasks.names) {
+            tasks.named(name, JarIntersection::class.java)
+        } else {
+            tasks.register(project.addSetupTask(name), JarIntersection::class.java) {
+                it.group = "minecraft-stubs"
+
+                val jarName = if (compilationName == null) {
+                    commonTarget.capabilityName
+                } else {
+                    "${commonTarget.capabilityName}-$compilationName"
+                }
+
+                it.output.set(it.temporaryDir.resolve("$jarName-minecraft-stub.jar"))
+
+                it.files.from(compilations.map { it.map { it.value.finalMinecraftFile } }.orElse(listOf()))
             }
         }
 
-        val intersection = edgeDependencies.reduce { acc, dependencies ->
-            acc.mapNotNull { a ->
-                val b = dependencies.find { b ->
-                    a.group == b.group && a.name == b.name
-                } ?: return@mapNotNull null
+        return files(createIntersection.flatMap(JarIntersection::output))
+    }
 
-                if (a.version.isNullOrBlank()) {
-                    if (b.version.isNullOrBlank()) {
-                        a
-                    } else {
-                        b
-                    }
-                } else {
-                    if (a.version!! > b.version!!) {
-                        b
-                    } else {
-                        a
-                    }
+    fun add(
+        compilation: CommonCompilation,
+        variant: PublicationVariant,
+        intersection: FileCollection,
+        targetIntersection: String
+    ) {
+        val sourceSet = with(commonTarget) {
+            compilation.sourceSet
+        }
+
+        project.createCompilationVariants(
+            compilation,
+            sourceSet,
+            commonTarget.name == COMMON || commonTarget.publish
+        )
+
+        configureSourceSet(sourceSet, commonTarget, compilation, false)
+
+        project.components.named("java") { java ->
+            java as AdhocComponentWithVariants
+
+            java.addVariantsFromConfiguration(project.configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
+                // Common compilations are not runnable.
+                variant.skip()
+            }
+        }
+
+        val dependencyHolder = project.configurations.create(
+            lowerCamelCaseGradleName(
+                commonTarget.featureName,
+                compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME },
+                "intersectionDependencies"
+            )
+        ) { configuration ->
+            configuration.isCanBeResolved = false
+            configuration.isCanBeConsumed = false
+        }
+
+        val stub = project.dependencies.enforcedPlatform(ClochePlugin.STUB_DEPENDENCY) as ExternalModuleDependency
+
+        stub.capabilities {
+            it.requireCapability("net.msrandom:$targetIntersection")
+        }
+
+        project.dependencies.add(dependencyHolder.name, stub)
+        project.dependencies.add(dependencyHolder.name, intersection)
+
+        compilation.attributes {
+            it.attribute(VARIANT_ATTRIBUTE, variant)
+
+            // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
+            afterEvaluate { project ->
+                val commonInfo = commonInfo.get()
+
+                if (commonInfo.type != null) {
+                    it.attribute(CommonTargetAttributes.TYPE, commonInfo.type)
+                }
+
+                if (commonInfo.version != null) {
+                    it.attribute(TargetAttributes.MINECRAFT_VERSION, commonInfo.version)
+                }
+
+                if (!onlyCommonOfType.get() && commonTarget.name != COMMON && !commonTarget.publish) {
+                    it.attribute(CommonTargetAttributes.NAME, commonTarget.name)
                 }
             }
         }
 
-        for (dependency in intersection) {
-            project.dependencies.add(configurationName(), dependency)
-        }
-    }
+        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.extendsFrom(dependencyHolder)
 
-    fun add(name: String, compilation: CommonCompilation, edgeCompilations: List<Pair<MinecraftTarget, RunnableCompilationInternal>>) {
-        val sourceSet = with(common) {
-            compilation.sourceSet
+            it.attributes(compilation::attributes)
         }
 
-        //sourceSet.compileClasspath += intersection(edgeCompilations)
-        project.dependencies.add(sourceSet.compileOnlyConfigurationName, intersection(edgeCompilations))
+        for (name in listOf(
+            sourceSet.apiElementsConfigurationName,
+            sourceSet.runtimeElementsConfigurationName,
+            sourceSet.javadocElementsConfigurationName,
+            sourceSet.sourcesElementsConfigurationName
+        )) {
+            project.configurations.findByName(name)?.attributes(compilation::attributes)
+        }
 
-        project.dependencies.add(sourceSet.compileOnlyConfigurationName, "net.msrandom:java-expect-actual-annotations:1.0.0")
-        project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
+        project.dependencies.add(
+            sourceSet.compileOnlyConfigurationName,
+            "net.msrandom:java-expect-actual-annotations:1.0.0"
+        )
 
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getImplementationConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getApiConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getCompileOnlyApiConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getCompileOnlyConfigurationName)
-        sourceSet.addDependencyIntersection(edgeCompilations, SourceSet::getRuntimeOnlyConfigurationName)
+        project.dependencies.add(
+            sourceSet.annotationProcessorConfigurationName,
+            JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
+        )
+        project.dependencies.add(sourceSet.accessWidenersConfigurationName, compilation.accessWideners)
+        project.dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
         }
 
-        val dependencyHandler = ClocheDependencyHandler(
-            project,
-            sourceSet.apiConfigurationName,
-            sourceSet.compileOnlyApiConfigurationName,
-            sourceSet.implementationConfigurationName,
-            sourceSet.runtimeOnlyConfigurationName,
-            sourceSet.compileOnlyConfigurationName,
-            modConfigurationName(sourceSet.apiConfigurationName),
-            modConfigurationName(sourceSet.compileOnlyApiConfigurationName),
-            modConfigurationName(sourceSet.implementationConfigurationName),
-            modConfigurationName(sourceSet.runtimeOnlyConfigurationName),
-            modConfigurationName(sourceSet.compileOnlyConfigurationName),
-        )
-
-        for (dependencySetupAction in compilation.dependencySetupActions) {
-            dependencySetupAction.execute(dependencyHandler)
+        plugins.withId("org.jetbrains.kotlin.jvm") {
+            project.dependencies.add(
+                sourceSet.compileOnlyConfigurationName,
+                "net.msrandom:kmp-stub-annotations:1.0.0",
+            )
         }
 
-        for (edge in edges) {
-            val edgeCompilation = when (name) {
-                ClochePlugin.CLIENT_COMPILATION_NAME -> (edge as? ClientTarget)?.client ?: edge.main
-                ClochePlugin.DATA_COMPILATION_NAME -> edge.data
-                else -> edge.main
-            }
+        val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
 
-            val edgeDependant = with(edge) {
-                edgeCompilation.sourceSet
-            }
-
-            edgeDependant.linkStatically(sourceSet)
+        compilation.dependencySetupActions.all {
+            it.execute(dependencyHandler)
         }
 
-        if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
+        if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             return
         }
 
-        val mainDependency = with(common) {
-            common.main.sourceSet
+        with(commonTarget) {
+            compilation.linkDynamically(commonTarget.main)
         }
-
-        sourceSet.linkDynamically(mainDependency)
     }
 
-    add(SourceSet.MAIN_SOURCE_SET_NAME, common.main as CommonCompilation, main)
-    client?.let { add(ClochePlugin.CLIENT_COMPILATION_NAME, common.client as CommonCompilation, it) }
-    add(ClochePlugin.DATA_COMPILATION_NAME, common.data as CommonCompilation, data)
+    commonTarget.compilations.all {
+        when (it.name) {
+            SourceSet.MAIN_SOURCE_SET_NAME -> {
+                // Potentially add two intersections, if all targets are FabricTarget with clientMode == Included
+                add(
+                    it,
+                    PublicationVariant.Common,
+                    intersection(
+                        it.name,
+                        commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal::main) }),
+                    featureName,
+                )
+            }
+
+            ClochePlugin.DATA_COMPILATION_NAME -> {
+                add(
+                    it,
+                    PublicationVariant.Client,
+                    intersection(
+                        it.name,
+                        commonInfo.map { it.dependants.associateWith { it.data ?: it.main } }
+                    ),
+                    featureName,
+                )
+            }
+
+            ClochePlugin.CLIENT_COMPILATION_NAME -> {
+                // Intersection should include MinecraftTarget::client where client is TargetCompilation, alongside all FabricTarget::main client jars if clientMode == Included
+                add(
+                    it,
+                    PublicationVariant.Client,
+                    intersection(it.name, commonInfo.map {
+                        it.dependants.associateWith {
+                            (it as? FabricTarget)?.client as? TargetCompilation ?: it.main
+                        }
+                    }),
+                    clientTargetMinecraftName,
+                )
+            }
+        }
+    }
 }

@@ -1,17 +1,16 @@
 package earth.terrarium.cloche.target
 
-import net.msrandom.minecraftcodev.runs.MinecraftRunConfigurationBuilder
+import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import org.gradle.api.Action
+import org.gradle.api.DomainObjectCollection
+import org.gradle.api.model.ObjectFactory
 import javax.inject.Inject
 
-abstract class SimpleRunnable @Inject constructor(private val name: String) : RunnableInternal {
-    private val _runSetupActions = mutableListOf<Action<MinecraftRunConfigurationBuilder>>()
+abstract class SimpleRunnable @Inject constructor(private val name: String, objectFactory: ObjectFactory) : RunnableInternal {
+    override val runSetupActions = objectFactory.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MinecraftRunConfiguration>>
 
-    override val runSetupActions: List<Action<MinecraftRunConfigurationBuilder>>
-        get() = _runSetupActions
-
-    override fun runConfiguration(action: Action<MinecraftRunConfigurationBuilder>) {
-        _runSetupActions.add(action)
+    override fun runConfiguration(action: Action<MinecraftRunConfiguration>) {
+        runSetupActions.add(action)
     }
 
     override fun getName() = name
