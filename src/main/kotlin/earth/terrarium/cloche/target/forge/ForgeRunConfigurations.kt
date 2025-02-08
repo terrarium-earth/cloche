@@ -6,6 +6,8 @@ import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.Compilation
+import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.lazyConfigurable
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
@@ -21,6 +23,7 @@ import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 internal abstract class ForgeRunConfigurations @Inject constructor(val target: ForgeLikeTargetImpl) : RunConfigurations {
@@ -74,30 +77,73 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
     }
 
     override val data = project.lazyConfigurable {
-        create(ClochePlugin.DATA_COMPILATION_NAME) {
+        val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.additionalIncludedSourceSets.add(target.sourceSet)
                 it.outputDirectory.set(target.datagenDirectory)
-                it.downloadAssetsTask.set(project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java))
+                it.downloadAssetsTask.set(
+                    project.tasks.named(
+                        target.sourceSet.downloadAssetsTaskName,
+                        DownloadAssets::class.java
+                    )
+                )
                 it.generateLegacyClasspathTask.set(target.generateLegacyDataClasspath)
 
                 it.mixins(target.data.value.map { it.sourceSet })
             }
         }
             .sourceSet(target.data.value.map(Compilation::sourceSet))
+
+        project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+            it.from(target.datagenDirectory)
+        }
+
+        target.test.onConfigured {
+            project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+                it.from(target.datagenDirectory)
+            }
+        }
+
+        project.afterEvaluate {
+            project.ideaModule(target.sourceSet) {
+                it.resourceDirs.add(target.datagenDirectory.get().asFile)
+            }
+
+            target.test.onConfigured {
+                project.ideaModule(it.sourceSet) {
+                    it.resourceDirs.add(target.datagenDirectory.get().asFile)
+                }
+            }
+        }
+
+        server.onConfigured {
+            it.dependsOn(data)
+        }
+
+        test.onConfigured {
+            it.dependsOn(data)
+        }
+
+        data
     }
 
     override val clientData: LazyConfigurable<MinecraftRunConfiguration> = project.lazyConfigurable {
-        create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
+        val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.outputDirectory.set(target.datagenDirectory)
-                it.downloadAssetsTask.set(project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java))
+                it.outputDirectory.set(target.datagenClientDirectory)
+                it.commonOutputDirectory.set(target.datagenDirectory)
+                it.downloadAssetsTask.set(
+                    project.tasks.named(
+                        target.sourceSet.downloadAssetsTaskName,
+                        DownloadAssets::class.java
+                    )
+                )
                 it.generateLegacyClasspathTask.set(target.generateLegacyDataClasspath)
 
                 it.additionalIncludedSourceSets.add(target.sourceSet)
@@ -107,6 +153,50 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
             .sourceSet(target.data.value.map(Compilation::sourceSet))
+
+        project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+            it.from(target.datagenClientDirectory)
+        }
+
+        target.test.onConfigured {
+            project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+                it.from(target.datagenClientDirectory)
+            }
+        }
+
+        project.afterEvaluate {
+            project.ideaModule(target.sourceSet) {
+                it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
+            }
+
+            target.test.onConfigured {
+                project.ideaModule(it.sourceSet) {
+                    it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
+                }
+            }
+        }
+
+        data.onConfigured { data ->
+            clientData.dependsOn(data)
+
+            client.onConfigured {
+                it.dependsOn(data)
+            }
+
+            clientTest.onConfigured {
+                it.dependsOn(data)
+            }
+        }
+
+        client.onConfigured {
+            it.dependsOn(clientData)
+        }
+
+        clientTest.onConfigured {
+            it.dependsOn(clientData)
+        }
+
+        clientData
     }
 
     override val test = project.lazyConfigurable {
@@ -124,7 +214,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             .sourceSet(target.test.value.map(Compilation::sourceSet))
     }
 
-    override val clientTest: LazyConfigurable<MinecraftRunConfiguration> = project.lazyConfigurable {
+    override val clientTest: LazyConfigurableInternal<MinecraftRunConfiguration> = project.lazyConfigurable {
         TODO()
     }
 }

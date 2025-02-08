@@ -1,9 +1,11 @@
+import org.gradle.plugins.ide.idea.model.IdeaModel
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "2.1.0"
     `java-gradle-plugin`
     `maven-publish`
+    idea
 }
 
 gradlePlugin {
@@ -32,15 +34,15 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.5.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.5.8")
+    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.5.9")
+    implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.5.9")
 
     implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.10")
     implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.2.1")

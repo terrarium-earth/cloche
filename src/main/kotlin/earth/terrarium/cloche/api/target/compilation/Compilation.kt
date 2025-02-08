@@ -7,8 +7,6 @@ import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.Directory
-import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
@@ -38,22 +36,9 @@ interface Compilation : TargetTreeElement {
     fun attributes(action: Action<AttributeContainer>)
 }
 
-interface TargetSecondarySourceSets : CommonSecondarySourceSets {
-    val datagenDirectory: Provider<Directory>
-        @Internal
-        get() = project.layout.buildDirectory.dir("generated").map {
-            val resources = it.dir("resources")
-
-            if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
-                resources.dir(target.featureName)
-            } else {
-                resources.dir(target.featureName).dir(name)
-            }
-        }
-}
+interface TargetSecondarySourceSets : CommonSecondarySourceSets
 
 interface CommonSecondarySourceSets : Compilation {
     val data: LazyConfigurable<Compilation>
     val test: LazyConfigurable<Compilation>
 }
-
