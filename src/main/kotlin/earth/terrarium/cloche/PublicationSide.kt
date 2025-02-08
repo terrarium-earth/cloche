@@ -2,11 +2,10 @@ package earth.terrarium.cloche
 
 import org.gradle.api.Named
 
-enum class PublicationVariant : Named {
+enum class PublicationSide : Named {
     Common,
     Client,
-    Joined,
-    Data;
+    Joined;
 
     override fun getName() = name
 }

@@ -2,6 +2,7 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.CommonCompilation
 import earth.terrarium.cloche.target.CommonTargetInternal
+import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -27,41 +28,47 @@ private fun SourceSet.linkDynamically(sourceSet: SourceSet) {
 }
 
 /**
- * Depend on the api configuration of [compilation]
+ * Depend on the api configuration of [dependency]
  */
-context(Project, CommonTargetInternal)
-internal fun CommonCompilation.linkDynamically(compilation: CommonCompilation) {
-    sourceSet.compileClasspath += compilation.sourceSet.output
+context(Project)
+internal fun CommonCompilation.linkDynamically(dependency: CommonCompilation) {
+    println("(dynamic) $this -> $dependency")
+
+    sourceSet.compileClasspath += dependency.sourceSet.output
 
     artifacts {
-        it.add(sourceSet.apiElementsConfigurationName, tasks.named(compilation.sourceSet.jarTaskName))
+        it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
     }
 
-    sourceSet.linkDynamically(compilation.sourceSet)
+    sourceSet.linkDynamically(dependency.sourceSet)
 }
 
 /**
- * Depend on the variant of [compilation]
+ * Depend on the variant of [dependency]
  */
 context(Project)
-internal fun TargetCompilation.linkDynamically(compilation: TargetCompilation) {
-    sourceSet.compileClasspath += compilation.sourceSet.output
-    sourceSet.runtimeClasspath += compilation.sourceSet.output
+internal fun TargetCompilation.linkDynamically(dependency: TargetCompilation) {
+    println("(dynamic) $this -> $dependency")
+
+    sourceSet.compileClasspath += dependency.sourceSet.output
+    sourceSet.runtimeClasspath += dependency.sourceSet.output
 
     artifacts {
-        it.add(sourceSet.apiElementsConfigurationName, tasks.named(compilation.sourceSet.jarTaskName))
-        it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(compilation.sourceSet.jarTaskName))
+        it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+        it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
     }
 
-    sourceSet.linkDynamically(compilation.sourceSet)
+    sourceSet.linkDynamically(dependency.sourceSet)
 }
 
 /**
  * Include [dependency] to be compiled alongside the current source, allowing Java platform annotations and Kotlin Multiplatform to function
  */
 context(Project)
-internal fun SourceSet.linkStatically(dependency: SourceSet) {
-    extension<SourceSetStaticLinkageInfo>().link(dependency)
+internal fun CompilationInternal.linkStatically(dependency: CompilationInternal) {
+    println("(global static) $this -> $dependency")
 
-    project.dependencies.add(annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
+    sourceSet.extension<SourceSetStaticLinkageInfo>().link(dependency.sourceSet)
+
+    project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
 }

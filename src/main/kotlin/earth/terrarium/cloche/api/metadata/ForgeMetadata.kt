@@ -1,9 +1,8 @@
-package earth.terrarium.cloche.metadata
+package earth.terrarium.cloche.api.metadata
 
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 
 interface ForgeMetadata {

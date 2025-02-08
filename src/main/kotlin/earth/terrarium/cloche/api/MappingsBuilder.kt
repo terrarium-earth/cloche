@@ -1,4 +1,4 @@
-package earth.terrarium.cloche.target
+package earth.terrarium.cloche.api
 
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftMappings
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName

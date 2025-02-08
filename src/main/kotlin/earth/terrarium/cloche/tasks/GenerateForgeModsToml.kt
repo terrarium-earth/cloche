@@ -1,8 +1,8 @@
 package earth.terrarium.cloche.tasks
 
 import com.moandjiezana.toml.TomlWriter
-import earth.terrarium.cloche.metadata.ForgeMetadata
-import earth.terrarium.cloche.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.ForgeMetadata
+import earth.terrarium.cloche.api.metadata.ModMetadata
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
@@ -146,8 +146,8 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         if (commonMetadata.icon.isPresent) {
             mod["logoFile"] = commonMetadata.icon.get()
 
-            if (targetMetadata.blurLogo.get()) {
-                toml["logoBlur"] = true
+            if (targetMetadata.blurLogo.isPresent) {
+                toml["logoBlur"] = targetMetadata.blurLogo.get()
             }
         }
 

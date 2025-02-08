@@ -1,7 +1,16 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.metadata.ModMetadata
+import earth.terrarium.cloche.api.target.CommonTarget
+import earth.terrarium.cloche.api.target.FabricTarget
+import earth.terrarium.cloche.api.target.ForgeTarget
+import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.api.target.NeoforgeTarget
+import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
+import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
@@ -48,7 +57,7 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
     override fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget {
         project.dependencies.components {
             it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                it.params(VARIANT_ATTRIBUTE, PublicationVariant.Common, PublicationVariant.Client, false)
+                it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
             }
         }
 
@@ -128,7 +137,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
                 project.dependencies.components {
                     it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                        it.params(VARIANT_ATTRIBUTE, PublicationVariant.Common, PublicationVariant.Client, false)
+                        it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
                     }
                 }
             }

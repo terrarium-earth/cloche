@@ -1,4 +1,4 @@
-package earth.terrarium.cloche.metadata
+package earth.terrarium.cloche.api.metadata
 
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory

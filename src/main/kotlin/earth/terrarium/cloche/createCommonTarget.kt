@@ -1,7 +1,9 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.ClochePlugin.Companion.STUB_MODULE
+import earth.terrarium.cloche.api.target.FabricTarget
+import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -35,7 +37,7 @@ context(Project) internal fun createCommonTarget(
 
     project.afterEvaluate {
         it.dependencies.components.withModule(
-            STUB_MODULE,
+            ClochePlugin.STUB_MODULE,
             MinecraftComponentMetadataRule::class.java
         ) {
             it.params(
@@ -78,9 +80,20 @@ context(Project) internal fun createCommonTarget(
         return files(createIntersection.flatMap(JarIntersection::output))
     }
 
-    fun add(
+    fun dependencyHolder(compilation: CommonCompilation) = project.configurations.maybeCreate(
+        lowerCamelCaseGradleName(
+            commonTarget.featureName,
+            compilation.namePart,
+            "intersectionDependencies"
+        )
+    ).apply {
+        isCanBeConsumed = false
+        isCanBeResolved = false
+    }
+
+    fun addCompilation(
         compilation: CommonCompilation,
-        variant: PublicationVariant,
+        variant: PublicationSide,
         intersection: FileCollection,
         targetIntersection: String
     ) {
@@ -105,16 +118,7 @@ context(Project) internal fun createCommonTarget(
             }
         }
 
-        val dependencyHolder = project.configurations.create(
-            lowerCamelCaseGradleName(
-                commonTarget.featureName,
-                compilation.name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME },
-                "intersectionDependencies"
-            )
-        ) { configuration ->
-            configuration.isCanBeResolved = false
-            configuration.isCanBeConsumed = false
-        }
+        val dependencyHolder = dependencyHolder(compilation)
 
         val stub = project.dependencies.enforcedPlatform(ClochePlugin.STUB_DEPENDENCY) as ExternalModuleDependency
 
@@ -126,7 +130,7 @@ context(Project) internal fun createCommonTarget(
         project.dependencies.add(dependencyHolder.name, intersection)
 
         compilation.attributes {
-            it.attribute(VARIANT_ATTRIBUTE, variant)
+            it.attribute(SIDE_ATTRIBUTE, variant)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
             afterEvaluate { project ->
@@ -183,61 +187,103 @@ context(Project) internal fun createCommonTarget(
                 "net.msrandom:kmp-stub-annotations:1.0.0",
             )
         }
+    }
 
-        val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
+    fun add(
+        compilation: CommonTopLevelCompilation,
+        dataGetter: (MinecraftTargetInternal<*>) -> TargetCompilation,
+        testGetter: (MinecraftTargetInternal<*>) -> TargetCompilation,
+        variant: PublicationSide,
+        intersection: FileCollection,
+        targetIntersection: String,
+    ) {
+        addCompilation(compilation, variant, intersection, targetIntersection)
 
-        compilation.dependencySetupActions.all {
-            it.execute(dependencyHandler)
-        }
-
-        if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-            return
-        }
-
-        with(commonTarget) {
+        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             compilation.linkDynamically(commonTarget.main)
+
+            dependencyHolder(compilation).extendsFrom(dependencyHolder(commonTarget.main))
+        }
+
+        compilation.data.onConfigured {
+            addCompilation(
+                it,
+                variant,
+                intersection(
+                    it.name,
+                    commonInfo.map {
+                        it.dependants.associateWith {
+                            dataGetter(it)
+                        }
+                    }
+                ),
+                targetIntersection,
+            )
+
+            it.linkDynamically(compilation)
+            it.linkDynamically(commonTarget.main)
+
+            if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+                commonTarget.main.data.onConfigured { data ->
+                    it.linkDynamically(data)
+
+                    dependencyHolder(it).extendsFrom(dependencyHolder(data))
+                }
+            }
+        }
+
+        compilation.test.onConfigured {
+            addCompilation(
+                it,
+                variant,
+                intersection(
+                    it.name,
+                    commonInfo.map {
+                        it.dependants.associateWith {
+                            testGetter(it)
+                        }
+                    }
+                ),
+                targetIntersection,
+            )
+
+            it.linkDynamically(compilation)
+            it.linkDynamically(commonTarget.main)
+
+            if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+                commonTarget.main.test.onConfigured { test ->
+                    it.linkDynamically(test)
+
+                    dependencyHolder(it).extendsFrom(dependencyHolder(test))
+                }
+            }
         }
     }
 
-    commonTarget.compilations.all {
-        when (it.name) {
-            SourceSet.MAIN_SOURCE_SET_NAME -> {
-                // Potentially add two intersections, if all targets are FabricTarget with clientMode == Included
-                add(
-                    it,
-                    PublicationVariant.Common,
-                    intersection(
-                        it.name,
-                        commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal<*>::main) }),
-                    featureName,
-                )
-            }
+    add(
+        commonTarget.main,
+        { it.data.internalValue ?: it.main },
+        { it.test.internalValue ?: it.main },
+        // TODO Can potentially be joined if all targets are forge/includedClient targets
+        PublicationSide.Common,
+        intersection(
+            commonTarget.main.name,
+            commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal<*>::main) }),
+        featureName,
+    )
 
-            ClochePlugin.DATA_COMPILATION_NAME -> {
-                add(
-                    it,
-                    PublicationVariant.Client,
-                    intersection(
-                        it.name,
-                        commonInfo.map { it.dependants.associateWith { it.data ?: it.main } }
-                    ),
-                    featureName,
-                )
-            }
-
-            ClochePlugin.CLIENT_COMPILATION_NAME -> {
-                // Intersection should include MinecraftTarget::client where client is TargetCompilation, alongside all FabricTarget::main client jars if clientMode == Included
-                add(
-                    it,
-                    PublicationVariant.Client,
-                    intersection(it.name, commonInfo.map {
-                        it.dependants.associateWith {
-                            (it as? FabricTarget)?.client as? TargetCompilation ?: it.main
-                        }
-                    }),
-                    clientTargetMinecraftName,
-                )
-            }
-        }
+    commonTarget.client.onConfigured {
+        add(
+            it,
+            { (it as? FabricTargetImpl)?.client?.internalValue?.data?.internalValue ?: it.data.internalValue ?: it.main },
+            { (it as? FabricTargetImpl)?.client?.internalValue?.test?.internalValue ?: it.test.internalValue ?: it.main },
+            PublicationSide.Client,
+            intersection(it.name, commonInfo.map {
+                it.dependants.associateWith {
+                    (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation ?: it.main
+                }
+            }),
+            clientTargetMinecraftName,
+        )
     }
 }

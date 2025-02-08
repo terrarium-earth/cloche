@@ -3,8 +3,8 @@ package earth.terrarium.cloche.tasks
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import earth.terrarium.cloche.metadata.FabricMetadata
-import earth.terrarium.cloche.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.FabricMetadata
+import earth.terrarium.cloche.api.metadata.ModMetadata
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection

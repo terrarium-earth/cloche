@@ -1,20 +1,27 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
 import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
-import net.msrandom.minecraftcodev.runs.RunsContainer
+import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
+import net.msrandom.minecraftcodev.runs.extractNativesTaskName
+import net.msrandom.minecraftcodev.runs.task.DownloadAssets
+import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
@@ -42,51 +49,6 @@ fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: Cached
     }.map { it.executablePath }
 }
 
-private fun setupModTransformationPipeline(
-    project: Project,
-    target: MinecraftTargetInternal<*>,
-    remapNamespace: Provider<String>,
-    intermediaryMinecraft: Provider<FileSystemLocation>,
-) {
-    project.dependencies.registerTransform(ExtractIncludes::class.java) {
-        it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
-        it.to.attribute(
-            ModTransformationStateAttribute.ATTRIBUTE,
-            ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
-        )
-    }
-
-    // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
-    //  this can potentially be changed to a no-op transform but that's far slower
-    project.afterEvaluate {
-        if (remapNamespace.get().isEmpty()) {
-            return@afterEvaluate
-        }
-
-        project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
-            )
-
-            it.to.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, States.REMAPPED)
-            )
-
-            it.parameters {
-                it.mappings.set(target.loadMappings.flatMap(LoadMappings::output))
-
-                it.sourceNamespace.set(remapNamespace)
-
-                it.extraClasspath.from(project.files(intermediaryMinecraft))
-
-                it.cacheDirectory.set(getGlobalCacheDirectory(project))
-            }
-        }
-    }
-}
-
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Boolean) {
     fun add(compilation: TargetCompilation) {
@@ -95,6 +57,13 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
         createCompilationVariants(compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
+
+        val copyMixins = tasks.register(lowerCamelCaseGradleName("copy", target.featureName, compilation.namePart, "mixins"), Copy::class.java) {
+            it.from(configurations.named(compilation.sourceSet.mixinsConfigurationName))
+            it.destinationDir = project.layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
+        }
+
+        sourceSet.resources.srcDir(copyMixins.map(Copy::getDestinationDir))
 
         target.registerAccessWidenerMergeTask(compilation)
         target.addJarInjects(compilation)
@@ -122,17 +91,6 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
                 })
             }
         }
-
-        if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            compilation.linkDynamically(target.main)
-        }
-
-        setupModTransformationPipeline(
-            project,
-            target,
-            target.remapNamespace,
-            compilation.intermediaryMinecraftFile,
-        )
 
         val resolvableConfigurationNames = listOf(
             sourceSet.compileClasspathConfigurationName,
@@ -166,25 +124,52 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
         for (name in configurationNames) {
             configurations.findByName(name)?.attributes(compilation::attributes)
         }
+    }
 
-        val dependencyHandler = ClocheDependencyHandler(project, sourceSet)
+    add(target.main)
 
-        compilation.dependencySetupActions.all {
-            it.execute(dependencyHandler)
+    target.data.onConfigured {
+        add(it)
+        it.linkDynamically(target.main)
+    }
+
+    target.test.onConfigured {
+        add(it)
+        it.linkDynamically(target.main)
+    }
+
+    if (target is FabricTargetImpl) {
+        target.client.onConfigured { client ->
+            add(client)
+            client.linkDynamically(target.main)
+
+            client.data.onConfigured { data ->
+                add(data)
+                data.linkDynamically(client)
+                data.linkDynamically(target.main)
+
+                target.data.onConfigured {
+                    data.linkDynamically(it)
+                }
+            }
+
+            client.test.onConfigured { test ->
+                add(test)
+                test.linkDynamically(client)
+                test.linkDynamically(target.main)
+
+                target.test.onConfigured {
+                    test.linkDynamically(it)
+                }
+            }
         }
     }
 
-    fun addRunnable(runnable: Runnable) {
-        runnable as RunnableInternal
-
-        extension<RunsContainer>()
-            .create(target.name + TARGET_NAME_PATH_SEPARATOR + runnable.name) { builder ->
-                runnable.runSetupActions.all {
-                    it.execute(builder)
-                }
-            }
+    project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
+        it.version.set(target.minecraftVersion)
     }
 
-    target.compilations.all(::add)
-    target.runnables.all(::addRunnable)
+    project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
+        it.version.set(target.minecraftVersion)
+    }
 }

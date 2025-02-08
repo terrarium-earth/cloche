@@ -30,7 +30,7 @@ internal fun Project.createCompilationVariants(
             if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
                 spec.capability(
                     project.group.toString(),
-                    "${project.name}-${compilation.name}",
+                    "${project.name}-${compilation.capabilityName}",
                     project.version.toString(),
                 )
             }
@@ -48,4 +48,6 @@ internal fun Project.createCompilationVariants(
             }
         }
     }
+
+    compilation.addDependencies()
 }

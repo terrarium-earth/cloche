@@ -1,4 +1,4 @@
-package earth.terrarium.cloche.metadata
+package earth.terrarium.cloche.api.metadata
 
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
@@ -29,14 +29,14 @@ abstract class FabricMetadata {
 
         this.entrypoints.put(name, entrypoints)
     }
-}
 
-interface Entrypoint {
-    val value: Property<String>
-        @Input get
+    interface Entrypoint {
+        val value: Property<String>
+            @Input get
 
-    val adapter: Property<String>
-        @Optional
-        @Input
-        get
+        val adapter: Property<String>
+            @Optional
+            @Input
+            get
+    }
 }
