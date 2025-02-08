@@ -338,7 +338,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
 
-        sourceSet.resources.srcDir(generateModJson.flatMap { metadataDirectory })
+        sourceSet.resources.srcDir(generateModJson.zip(metadataDirectory, ::Pair).map { (_, dir) -> dir })
 
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
