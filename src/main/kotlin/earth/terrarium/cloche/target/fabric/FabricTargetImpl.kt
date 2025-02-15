@@ -289,7 +289,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 compilationSourceSet(this, name, isSingleTarget),
                 remapCommon.flatMap(RemapTask::outputFile),
                 project.files(),
-            )
+            ).first
         )
 
         val commonIntermediate = remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile)
@@ -338,7 +338,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
 
-        sourceSet.resources.srcDir(generateModJson.zip(metadataDirectory, ::Pair).map { (_, dir) -> dir })
+        sourceSet.resources.srcDir(metadataDirectory)
+
+        project.tasks.named(sourceSet.processResourcesTaskName) {
+            it.dependsOn(generateModJson)
+        }
 
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))

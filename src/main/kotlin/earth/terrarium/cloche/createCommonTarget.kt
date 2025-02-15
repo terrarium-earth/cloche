@@ -1,7 +1,5 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
@@ -35,6 +33,7 @@ context(Project) internal fun createCommonTarget(
     val featureName = commonTarget.featureName
     val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
 
+    // afterEvaluate needed because of the component rule using providers
     project.afterEvaluate {
         it.dependencies.components.withModule(
             ClochePlugin.STUB_MODULE,
@@ -59,22 +58,18 @@ context(Project) internal fun createCommonTarget(
 
         val name = lowerCamelCaseGradleName("create", commonTarget.name, compilationName, "intersection")
 
-        val createIntersection = if (name in tasks.names) {
-            tasks.named(name, JarIntersection::class.java)
-        } else {
-            tasks.register(project.addSetupTask(name), JarIntersection::class.java) {
-                it.group = "minecraft-stubs"
+        val createIntersection = tasks.maybeRegister(name, JarIntersection::class.java) {
+            it.group = "minecraft-stubs"
 
-                val jarName = if (compilationName == null) {
-                    commonTarget.capabilityName
-                } else {
-                    "${commonTarget.capabilityName}-$compilationName"
-                }
-
-                it.output.set(it.temporaryDir.resolve("$jarName-minecraft-stub.jar"))
-
-                it.files.from(compilations.map { it.map { it.value.finalMinecraftFile } }.orElse(listOf()))
+            val jarName = if (compilationName == null) {
+                commonTarget.capabilityName
+            } else {
+                "${commonTarget.capabilityName}-$compilationName"
             }
+
+            it.output.set(it.temporaryDir.resolve("$jarName-minecraft-stub.jar"))
+
+            it.files.from(compilations.map { it.map { it.value.finalMinecraftFile } }.orElse(listOf()))
         }
 
         return files(createIntersection.flatMap(JarIntersection::output))
@@ -200,7 +195,7 @@ context(Project) internal fun createCommonTarget(
         addCompilation(compilation, variant, intersection, targetIntersection)
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            compilation.linkDynamically(commonTarget.main)
+            compilation.addClasspathDependency(commonTarget.main)
 
             dependencyHolder(compilation).extendsFrom(dependencyHolder(commonTarget.main))
         }
@@ -220,12 +215,12 @@ context(Project) internal fun createCommonTarget(
                 targetIntersection,
             )
 
-            it.linkDynamically(compilation)
-            it.linkDynamically(commonTarget.main)
+            it.addClasspathDependency(compilation)
+            it.addClasspathDependency(commonTarget.main)
 
             if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
                 commonTarget.main.data.onConfigured { data ->
-                    it.linkDynamically(data)
+                    it.addClasspathDependency(data)
 
                     dependencyHolder(it).extendsFrom(dependencyHolder(data))
                 }
@@ -247,12 +242,12 @@ context(Project) internal fun createCommonTarget(
                 targetIntersection,
             )
 
-            it.linkDynamically(compilation)
-            it.linkDynamically(commonTarget.main)
+            it.addClasspathDependency(compilation)
+            it.addClasspathDependency(commonTarget.main)
 
             if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
                 commonTarget.main.test.onConfigured { test ->
-                    it.linkDynamically(test)
+                    it.addClasspathDependency(test)
 
                     dependencyHolder(it).extendsFrom(dependencyHolder(test))
                 }

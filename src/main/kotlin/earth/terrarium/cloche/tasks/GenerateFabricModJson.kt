@@ -64,9 +64,9 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 append(range.start.get())
             }
 
-            append(' ')
-
             if (range.end.isPresent) {
+                append(' ')
+
                 if (range.endExclusive.getOrElse(true)) {
                     append('<')
                 } else {
@@ -189,7 +189,7 @@ abstract class GenerateFabricModJson : DefaultTask() {
                     val key = dependency.modId.get()
                     val version = buildVersionRange(dependency.version.get()) ?: "*"
 
-                    if (dependency.required.get()) {
+                    if (dependency.required.getOrElse(false)) {
                         depends.addProperty(key, version)
                     } else {
                         suggests.addProperty(key, version)

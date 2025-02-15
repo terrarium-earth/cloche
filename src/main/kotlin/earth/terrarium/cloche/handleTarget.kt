@@ -8,21 +8,16 @@ import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.minecraftcodev.remapper.RemapAction
-import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
-import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -130,36 +125,36 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
 
     target.data.onConfigured {
         add(it)
-        it.linkDynamically(target.main)
+        it.addClasspathDependency(target.main)
     }
 
     target.test.onConfigured {
         add(it)
-        it.linkDynamically(target.main)
+        it.addClasspathDependency(target.main)
     }
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
             add(client)
-            client.linkDynamically(target.main)
+            client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->
                 add(data)
-                data.linkDynamically(client)
-                data.linkDynamically(target.main)
+                data.addClasspathDependency(client)
+                data.addClasspathDependency(target.main)
 
                 target.data.onConfigured {
-                    data.linkDynamically(it)
+                    data.addClasspathDependency(it)
                 }
             }
 
             client.test.onConfigured { test ->
                 add(test)
-                test.linkDynamically(client)
-                test.linkDynamically(target.main)
+                test.addClasspathDependency(client)
+                test.addClasspathDependency(target.main)
 
                 target.test.onConfigured {
-                    test.linkDynamically(it)
+                    test.addClasspathDependency(it)
                 }
             }
         }

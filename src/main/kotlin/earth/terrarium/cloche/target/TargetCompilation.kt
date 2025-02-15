@@ -36,20 +36,19 @@ internal fun registerCompilationTransformations(
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: FileCollection,
-): Provider<RegularFile> {
+): Pair<Provider<RegularFile>, Provider<RegularFile>> {
     val namePart = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     val project = target.project
 
     val accessWidenTask = project.tasks.maybeRegister(
-        project.addSetupTask(
-            lowerCamelCaseGradleName(
-                "accessWiden",
-                target.featureName,
-                namePart,
-                "minecraft"
-            )
-        ), AccessWiden::class.java
+        lowerCamelCaseGradleName(
+            "accessWiden",
+            target.featureName,
+            namePart,
+            "minecraft"
+        ),
+        AccessWiden::class.java,
     ) {
         it.group = "minecraft-transforms"
 
@@ -60,7 +59,7 @@ internal fun registerCompilationTransformations(
 
     val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
 
-    project.tasks.maybeRegister(
+    val decompile = project.tasks.maybeRegister(
         lowerCamelCaseGradleName("decompile", target.featureName, namePart, "minecraft"),
         Decompile::class.java,
     ) {
@@ -71,7 +70,7 @@ internal fun registerCompilationTransformations(
         it.classpath.from(extraClasspathFiles)
     }
 
-    return finalMinecraftFile
+    return finalMinecraftFile to decompile.flatMap(Decompile::outputFile)
 }
 
 internal fun compilationSourceSet(target: MinecraftTargetInternal<*>, name: String, isSingleTarget: Boolean): SourceSet {
@@ -144,13 +143,16 @@ constructor(
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
-    val finalMinecraftFile: Provider<RegularFile> = registerCompilationTransformations(
+    private val setupFiles = registerCompilationTransformations(
         target,
         name,
         sourceSet,
         namedMinecraftFile,
         extraClasspathFiles,
     )
+
+    val finalMinecraftFile: Provider<RegularFile> = setupFiles.first
+    val sources = setupFiles.second
 
     init {
         project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)

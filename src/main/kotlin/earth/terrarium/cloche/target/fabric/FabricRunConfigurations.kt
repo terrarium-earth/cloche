@@ -86,6 +86,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
 
+        // afterEvaluate needed because idea APIs are not lazy
         project.afterEvaluate {
             project.ideaModule(target.sourceSet) {
                 it.resourceDirs.add(target.datagenDirectory.get().asFile)
@@ -139,6 +140,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 }
             }
 
+            // afterEvaluate needed because idea APIs are not lazy
             project.afterEvaluate { _ ->
                 project.ideaModule(it.sourceSet) {
                     it.resourceDirs.add(target.datagenDirectory.get().asFile)
@@ -165,6 +167,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 }
             }
 
+            // afterEvaluate needed because idea APIs are not lazy
             project.afterEvaluate {
                 project.ideaModule(target.sourceSet) {
                     it.resourceDirs.add(target.datagenClientDirectory.get().asFile)

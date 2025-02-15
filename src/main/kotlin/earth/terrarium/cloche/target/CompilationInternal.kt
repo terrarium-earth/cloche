@@ -1,22 +1,23 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
-import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
+import earth.terrarium.cloche.ClochePlugin.Companion.IDEA_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.target.ClocheTarget
+import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
+import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.compilation.Compilation
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
-import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.SourceSet
 import org.gradle.jvm.tasks.Jar
-import org.gradle.language.jvm.tasks.ProcessResources
+import org.gradle.plugins.ide.idea.model.IdeaModel
 
 @JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation {
@@ -159,6 +160,25 @@ internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarg
             })
         } else {
             it.archiveClassifier.set(dev.map { if (it) "dev" else null })
+        }
+    }
+
+    val syncTask = tasks.named(IDEA_SYNC_TASK_NAME) { task ->
+        task.dependsOn(project.configurations.named(sourceSet.compileClasspathConfigurationName))
+
+        if (target is MinecraftTarget<*>) {
+            task.dependsOn(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
+        }
+    }
+
+    if (compilation is TargetCompilation) {
+        // afterEvaluate required as isDownloadSources is not lazy
+        afterEvaluate { project ->
+            syncTask.configure { task ->
+                if (project.extension<IdeaModel>().module.isDownloadSources) {
+                    task.dependsOn(compilation.sources)
+                }
+            }
         }
     }
 }

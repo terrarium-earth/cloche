@@ -1,8 +1,8 @@
 package earth.terrarium.cloche
 
 import com.google.devtools.ksp.gradle.KspGradleSubplugin
+import earth.terrarium.cloche.ClochePlugin.Companion.IDEA_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.target.ClocheTarget
-import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.CommonTargetInternal
 import earth.terrarium.cloche.target.CommonTopLevelCompilation
@@ -39,18 +39,18 @@ import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSetContainer
 
-// TODO
-@Deprecated("Should migrate to a single setup task that properly depends on the needed resolvable configurations")
-fun Project.addSetupTask(name: String): String {
+fun Project.ideaSyncHook() {
+    tasks.register(IDEA_SYNC_TASK_NAME)
+
     if (!System.getProperty("idea.sync.active", "false").toBoolean()) {
-        return name
+        return
     }
 
     val fullName =
         if (project == project.rootProject) {
-            ":$name"
+            IDEA_SYNC_TASK_NAME
         } else {
-            "${project.path}:$name"
+            "${project.path}:$IDEA_SYNC_TASK_NAME"
         }
 
     val taskNames = project.gradle.startParameter.taskNames
@@ -58,8 +58,6 @@ fun Project.addSetupTask(name: String): String {
     if (fullName !in taskNames) {
         project.gradle.startParameter.setTaskNames((taskNames + fullName).distinct())
     }
-
-    return name
 }
 
 fun Project.extend(
@@ -134,6 +132,8 @@ class ClochePlugin : Plugin<Project> {
                 target.extend(sourceSet.accessWidenersConfigurationName, it.accessWidenersConfigurationName)
             }
         }
+
+        target.ideaSyncHook()
 
         target.dependencies.components.withModule(
             "net.minecraftforge:forge",
@@ -280,19 +280,19 @@ class ClochePlugin : Plugin<Project> {
                     common.client.onConfigured {
                         it.data.onConfigured { data ->
                             common.data.onConfigured { commonData ->
-                                println("($target static) $data -> $commonData")
+                                println("($target only) (source dependency) $data -> $commonData")
                                 info.weakTreeLink(data.sourceSet, commonData.sourceSet)
                             }
                         }
 
                         it.test.onConfigured { test ->
                             common.test.onConfigured { commonTest ->
-                                println("($target static) $test -> $commonTest")
+                                println("($target only) (source dependency) $test -> $commonTest")
                                 info.weakTreeLink(test.sourceSet, commonTest.sourceSet)
                             }
                         }
 
-                        println("($target static) $it -> $common")
+                        println("($target only) (source dependency) $it -> ${common.main}")
                         info.weakTreeLink(it.sourceSet, common.sourceSet)
                     }
 
@@ -307,48 +307,48 @@ class ClochePlugin : Plugin<Project> {
                     target.data.onConfigured { data ->
                         val dependency = setDependenciesWithData(dependency)
 
-                        data.linkStatically(dependency)
+                        data.addSourceDependency(dependency)
                     }
 
                     target.test.onConfigured { test ->
                         val dependency = setDependenciesWithData(dependency)
 
-                        test.linkStatically(dependency)
+                        test.addSourceDependency(dependency)
                     }
 
                     if (target is FabricTargetImpl) {
                         target.client.onConfigured {
                             val dependency = setDependenciesWithClient(it, dependency)
 
-                            it.linkStatically(dependency)
+                            it.addSourceDependency(dependency)
 
                             it.data.onConfigured { data ->
-                                data.linkStatically(dependency.data())
+                                data.addSourceDependency(dependency.data())
                             }
 
                             it.test.onConfigured { test ->
-                                test.linkStatically(dependency.test())
+                                test.addSourceDependency(dependency.test())
                             }
                         }
                     }
 
                     val staticLinkage = target.sourceSet.extension<SourceSetStaticLinkageInfo>()
 
-                    target.main.linkStatically(dependency.main)
+                    target.main.addSourceDependency(dependency.main)
 
                     target.onClientIncluded {
                         dependency.client.onConfigured { client ->
-                            target.main.linkStatically(client)
+                            target.main.addSourceDependency(client)
 
                             target.data.onConfigured { targetData ->
                                 client.data.onConfigured { clientData ->
-                                    targetData.linkStatically(clientData)
+                                    targetData.addSourceDependency(clientData)
                                 }
                             }
 
                             target.test.onConfigured { targetTest ->
                                 client.test.onConfigured { clientTest ->
-                                    targetTest.linkStatically(clientTest)
+                                    targetTest.addSourceDependency(clientTest)
                                 }
                             }
                         }
@@ -367,7 +367,7 @@ class ClochePlugin : Plugin<Project> {
 
                 with(project) {
                     fun add(compilation: CompilationInternal, dependencyCompilation: CompilationInternal) {
-                        compilation.linkStatically(dependencyCompilation)
+                        compilation.addSourceDependency(dependencyCompilation)
                     }
 
                     add(commonTarget.main, dependency.main)
@@ -438,6 +438,8 @@ class ClochePlugin : Plugin<Project> {
         const val SERVER_RUNNABLE_NAME = "server"
         const val CLIENT_COMPILATION_NAME = "client"
         const val DATA_COMPILATION_NAME = "data"
+
+        const val IDEA_SYNC_TASK_NAME = "clocheIdeaSync"
 
         const val STUB_GROUP = "net.msrandom"
         const val STUB_NAME = "stub"

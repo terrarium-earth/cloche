@@ -107,6 +107,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
 
+        // afterEvaluate needed because idea APIs are not lazy
         project.afterEvaluate {
             project.ideaModule(target.sourceSet) {
                 it.resourceDirs.add(target.datagenDirectory.get().asFile)
@@ -164,6 +165,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
 
+        // afterEvaluate needed because idea APIs are not lazy
         project.afterEvaluate {
             project.ideaModule(target.sourceSet) {
                 it.resourceDirs.add(target.datagenClientDirectory.get().asFile)

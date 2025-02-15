@@ -226,7 +226,11 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             )
         }
 
-        sourceSet.resources.srcDir(generateModsToml.zip(metadataDirectory, ::Pair).map { (_, dir) -> dir })
+        sourceSet.resources.srcDir(metadataDirectory)
+
+        project.tasks.named(sourceSet.processResourcesTaskName) {
+            it.dependsOn(generateModsToml)
+        }
 
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
