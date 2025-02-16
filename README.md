@@ -3,14 +3,15 @@ A general-purpose Minecraft Gradle plugin for all sorts of use-cases.
 
 Cloche functions in terms of targets, a target can have any Minecraft version or mod loader setup that you compile to, all within the same project.
 
-A plethora of customizable features are enabled by default, including but not limited to:
-- Data Generation
+A plethora of easily configurable features, including but not limited to:
 - Separated client source-set where possible
+- Simple Data Generation
 - Tests for all different source-sets and configurations
 - Run configurations generated for various different cases
-- Pre-applied mixins, allowing for a better debug experience
+- Pre-applied mixins, allowing for a better debug experience (WIP)
 - Mod metadata(`fabric.mod.json`, `neoforge.mods.toml`, etc) generated for all targets
 - Multi-platform utilities when using multiple targets, such as Java @Expect/@Actual annotations and Kotlin multiplatform features
+  - Part of the [jvm-multiplatform](https://github.com/MsRandom/jvm-multiplatform) tool suite 
 
 ### Publishing and Consumption
 If you publish a library/mod API with Cloche, variants are automatically configured for consumers, thus if you use the library in common, it will automatically pick the right variants for each consuming target.
@@ -25,45 +26,90 @@ plugins {
 cloche {
     metadata {
         // Automatically generate mod metadata file
-        modId.set("modid")
-        name.set("Mod ID")
-        description.set("My Awesome Mod")
-        license.set("MIT")
-        authors.add("XYZ")
+        modId = "modid"
+        name = "Mod Name"
+        description = "My Awesome Mod"
+        license = "MIT"
+
+        author("XYZ")
     }
 
     // (Target setup goes here)
 }
 ```
+
 You can then set up the targets in various different ways, for example:
 
 ### Neoforge 1.21.1
 ```kt
-minecraftVersion.set("1.21.1")
+minecraftVersion = "1.21.1"
 
-// Having one target means single target mode, which means no common source sets used
+singleTarget {
+    // Single target mode
+    neoforge {
+        loaderVersion = "21.1.26"
+    }
+}
+```
+
+### Source sets and run configurations
+Within a target, you can configure data, tests and client source sets and runs(everything below is optional)
+```kt
+fabric {
+    data()
+    test()
+
+    // For separate client sourceset
+    client {
+        data()
+        test()
+    }
+
+    // otherwise
+    includedClient()
+
+    runs {
+        // 6 available types of autoconfigured run configurations
+        server()
+        client()
+
+        data()
+        clientData()
+
+        test()
+        clientTest()
+    }
+}
+
 neoforge {
-    loaderVersion.set("21.1.26")
+    data()
+    test()
+
+    // no client configuration as forge-like targets always include client classes
+
+    runs {
+        // Same as above
+    }
 }
 ```
 
 ### Multi-loader
 ```kt
-minecraftVersion.set("1.21.1")
+minecraftVersion = "1.21.1"
 
 common {
-    // common is implicit if there's multiple targets, but can be additionally configured
+    // common is implicit if not in single target mode, but can be additionally configured
     dependencies {
-        implementation(group = "some.module", name = "my-library", version = "1.0.0")
+        implementation(module(group = "some.module", name = "my-library", version = "1.0.0"))
     }
 }
 
 neoforge {
-    loaderVersion.set("21.1.26")
+    loaderVersion = "21.1.26"
 }
 
 fabric {
-    loaderVersion.set("0.16.2")
+    loaderVersion = "0.16.2"
 
     dependencies {
         fabricApi("0.102.1+1.21.1") // Optional
@@ -75,9 +121,9 @@ fabric {
 ```kt
 // There can be multiple targets of different versions, with a common Jar generated with their common APIs
 fabric("1.21.1") {
-    minecraftVersion.set("1.21.1")
+    minecraftVersion = "1.21.1"
 
-    loaderVersion.set("0.16.2")
+    loaderVersion = "0.16.2"
 
     dependencies {
         fabricApi("0.102.1+1.21.1")
@@ -85,13 +131,18 @@ fabric("1.21.1") {
 }
 
 fabric("1.19.4") {
-    minecraftVersion.set("1.19.4")
+    minecraftVersion = "1.19.4"
 
-    loaderVersion.set("0.14.19")
+    loaderVersion = "0.14.19"
+
     dependencies {
         fabricApi("0.79.0+1.19.4")
     }
 }
 ```
+
+### Note on naming
+When you have multiple combinations of mod loaders & minecraft versions(as is common for multi-version mods supporting both fabric and forge/neoforge),
+you can use the `:` character to split the directory structure, ie `fabric:1.20.1` for classifier `fabric-1.20.1` and directory structure `src/fabric/1.20.1`
 
 This could be expanded to any configuration of different loaders and versions.
