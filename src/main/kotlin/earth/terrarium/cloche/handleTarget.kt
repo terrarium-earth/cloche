@@ -15,6 +15,7 @@ import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
@@ -52,6 +53,8 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
         createCompilationVariants(compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
+
+        project.artifacts.add(Dependency.ARCHIVES_CONFIGURATION, project.tasks.named(sourceSet.jarTaskName))
 
         project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
             it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
