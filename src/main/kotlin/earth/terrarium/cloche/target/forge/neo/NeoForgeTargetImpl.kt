@@ -9,13 +9,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import org.gradle.api.artifacts.Dependency
-import org.gradle.api.artifacts.FileCollectionDependency
-import org.gradle.api.artifacts.ModuleDependency
-import org.gradle.api.artifacts.ProjectDependency
-import org.gradle.api.artifacts.component.ComponentArtifactIdentifier
-import org.gradle.api.artifacts.component.ModuleComponentIdentifier
-import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
@@ -100,24 +94,11 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
 
         val modFiles = runtimeClasspath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
+            val componentIdentifiers = modDependencies.incoming.resolutionResult.allComponents.map(ResolvedComponentResult::getId)
+
             classpath.incoming.artifactView {
-                // Use an artifact view with a component filter to preserve artifact transforms, no variant reselection to ensure consistent paths
-                it.componentFilter { component ->
-                    modDependencies.allDependencies.any {
-                        if (it is ProjectDependency) {
-                            component is ProjectComponentIdentifier && component.projectPath == it.path
-                        } else if (it is FileCollectionDependency) {
-                            // We don't check specifically for a subclass of ComponentIdentifier,
-                            //  but a ComponentArtifactIdentifier since file dependencies (as of writing this) have components that implement that.
-                            //  We also only check the file name, as a best-effort guess. Gradle does not expose the actual File in any way.
-                            component is ComponentArtifactIdentifier && !it.files.filter { it.name == component.displayName }.isEmpty
-                        } else if (it is ModuleDependency) {
-                            component is ModuleComponentIdentifier && it.group == component.group && it.name == component.module
-                        } else {
-                            false
-                        }
-                    }
-                }
+                // Use an artifact view with a component filter to preserve artifact transforms, no variant reselection to ensure consistency
+                it.componentFilter(componentIdentifiers::contains)
             }.files
         }
 

@@ -26,21 +26,21 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         lowerCamelCaseGradleName("generate", featureName, "legacyClasspath"),
         GenerateLegacyClasspath::class.java,
     ) {
-        it.classpath.from(main.sourceSet.runtimeClasspath)
+        it.classpath.from(main.sourceSet.runtimeClasspath - main.sourceSet.output)
     }
 
     override val generateLegacyDataClasspath = project.tasks.register(
         lowerCamelCaseGradleName("generate", featureName, "dataLegacyClasspath"),
         GenerateLegacyClasspath::class.java,
-        ) {
-        it.classpath.from(data.value.map { it.sourceSet.runtimeClasspath })
+    ) {
+        it.classpath.from(data.value.map { (it.sourceSet.runtimeClasspath - it.sourceSet.output) - main.sourceSet.output })
     }
 
     override val generateLegacyTestClasspath = project.tasks.register(
         lowerCamelCaseGradleName("generate", featureName, "testLegacyClasspath"),
         GenerateLegacyClasspath::class.java,
     ) {
-        it.classpath.from(test.value.map { it.sourceSet.runtimeClasspath })
+        it.classpath.from(test.value.map { (it.sourceSet.runtimeClasspath - it.sourceSet.output) - main.sourceSet.output })
     }
 
     init {
