@@ -399,6 +399,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             MergeAccessWideners::class.java
         ) {
             it.input.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
+            it.accessWidenerName.set(project.extension<ClocheExtension>().metadata.modId)
 
             val output = modId.zip(project.layout.buildDirectory.dir("generated"), ::Pair)
                 .map { (modId, directory) ->
