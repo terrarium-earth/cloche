@@ -1,0 +1,45 @@
+name: Feature Request
+description: File a feature request
+title: "[Feature Request]: "
+labels: [ enhancement ]
+body:
+  - type: textarea
+    id: related-problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is.
+    validations:
+      required: false
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution(s)
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Plugin Version
+      description: What version of the plugin are you on?
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: You may also give any additional information here.
+    validations:
+      required: false

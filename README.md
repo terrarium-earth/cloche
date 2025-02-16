@@ -23,6 +23,10 @@ plugins {
     id("earth.terrarium.cloche") version "VERSION"
 }
 
+// Group and version can be in gradle.properties as well
+group = "net.xyz"
+version = "1.0.0"
+
 cloche {
     metadata {
         // Automatically generate mod metadata file
