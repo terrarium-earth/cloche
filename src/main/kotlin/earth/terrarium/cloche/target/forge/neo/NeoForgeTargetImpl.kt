@@ -4,6 +4,7 @@ import earth.terrarium.cloche.NEOFORGE
 import earth.terrarium.cloche.api.target.NeoforgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
+import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
@@ -45,45 +46,27 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
     override val generateLegacyClasspath = project.tasks.register(
         lowerCamelCaseGradleName("generate", featureName, "legacyClasspath"),
         GenerateLegacyClasspath::class.java,
-    ) {
-        val classpath = project.files()
-
-        classpath.from(minecraftLibrariesConfiguration)
-        classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
-        classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
-
-        val modDependencies = project.objects.listProperty(Dependency::class.java)
-
-        // TODO Needs to include dependency compilations
-        modDependencies.addAll(main.dependencyHandler.modApi.dependencies)
-        modDependencies.addAll(main.dependencyHandler.modImplementation.dependencies)
-        modDependencies.addAll(main.dependencyHandler.modRuntimeOnly.dependencies)
-
-        val modFiles = project.configurations.named(sourceSet.runtimeClasspathConfigurationName).zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
-            classpath.incoming.artifactView {
-                it.componentFilter { component ->
-                    modDependencies.any {
-                        if (it is ProjectDependency) {
-                            component is ProjectComponentIdentifier && component.projectPath == it.path
-                        } else if (it is FileCollectionDependency) {
-                            component is ComponentArtifactIdentifier && !it.files.filter { it.toString() == component.toString() }.isEmpty
-                        } else if (it is ModuleDependency) {
-                            component is ModuleComponentIdentifier && it.group == component.group && it.name == component.module
-                        } else {
-                            false
-                        }
-                    }
-                }
-            }.files
-        }
-
-        it.classpath.from(classpath - project.files(modFiles))
+    ) { task ->
+        configureLegacyClasspath(task, sourceSet)
     }
 
-    // TODO Need to be be made per compilation separately so we can properly include the mod dependencies
-    override val generateLegacyDataClasspath get() = generateLegacyClasspath
+    override val generateLegacyDataClasspath = project.tasks.register(
+        lowerCamelCaseGradleName("generate", featureName, "dataLegacyClasspath"),
+        GenerateLegacyClasspath::class.java,
+    ) { task ->
+        data.onConfigured { data ->
+            configureLegacyClasspath(task, data.sourceSet)
+        }
+    }
 
-    override val generateLegacyTestClasspath get() = generateLegacyClasspath
+    override val generateLegacyTestClasspath = project.tasks.register(
+        lowerCamelCaseGradleName("generate", featureName, "testLegacyClasspath"),
+        GenerateLegacyClasspath::class.java,
+    ) { task ->
+        test.onConfigured { test ->
+            configureLegacyClasspath(task, test.sourceSet)
+        }
+    }
 
     init {
         minecraftLibrariesConfiguration.attributes {
@@ -103,6 +86,42 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
             it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
         }
+    }
+
+    private fun configureLegacyClasspath(task: GenerateLegacyClasspath, sourceSet: SourceSet) {
+        val runtimeClasspath = project.configurations.named(sourceSet.runtimeClasspathConfigurationName)
+
+        val classpath = project.files()
+
+        classpath.from(minecraftLibrariesConfiguration)
+        classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
+        classpath.from(runtimeClasspath)
+
+        val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
+
+        val modFiles = runtimeClasspath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
+            classpath.incoming.artifactView {
+                // Use an artifact view with a component filter to preserve artifact transforms, no variant reselection to ensure consistent paths
+                it.componentFilter { component ->
+                    modDependencies.allDependencies.any {
+                        if (it is ProjectDependency) {
+                            component is ProjectComponentIdentifier && component.projectPath == it.path
+                        } else if (it is FileCollectionDependency) {
+                            // We don't check specifically for a subclass of ComponentIdentifier,
+                            //  but a ComponentArtifactIdentifier since file dependencies (as of writing this) have components that implement that.
+                            //  We also only check the file name, as a best-effort guess. Gradle does not expose the actual File in any way.
+                            component is ComponentArtifactIdentifier && !it.files.filter { it.name == component.displayName }.isEmpty
+                        } else if (it is ModuleDependency) {
+                            component is ModuleComponentIdentifier && it.group == component.group && it.name == component.module
+                        } else {
+                            false
+                        }
+                    }
+                }
+            }.files
+        }
+
+        task.classpath.from(classpath - project.files(modFiles))
     }
 
     private fun addAttributes(sourceSet: SourceSet) {

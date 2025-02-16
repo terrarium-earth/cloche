@@ -1,6 +1,7 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import org.gradle.api.attributes.*
 
@@ -53,6 +54,6 @@ internal object ModTransformationStateAttribute {
 
     const val INITIAL = "none"
 
-    fun of(target: MinecraftTarget<*>, state: String) =
-        lowerCamelCaseName(target.featureName, state)
+    fun of(target: MinecraftTarget<*>, compilation: TargetCompilation, state: String) =
+        lowerCamelCaseName(target.featureName, compilation.namePart, state)
 }

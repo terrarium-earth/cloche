@@ -10,6 +10,7 @@ import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.fabric.FabricClientSecondarySourceSets
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
@@ -126,10 +127,16 @@ class ClochePlugin : Plugin<Project> {
             }
         }
 
-        target.extension<SourceSetContainer>().all { sourceSet ->
-            sourceSet.extension<SourceSetStaticLinkageInfo>().links.all {
-                target.extend(sourceSet.mixinsConfigurationName, it.mixinsConfigurationName)
-                target.extend(sourceSet.accessWidenersConfigurationName, it.accessWidenersConfigurationName)
+        target.extension<SourceSetContainer>().all {
+            it.extension<SourceSetStaticLinkageInfo>().links.all { dependency ->
+                target.extend(modConfigurationName(it.implementationConfigurationName), modConfigurationName(dependency.implementationConfigurationName))
+                target.extend(modConfigurationName(it.apiConfigurationName), modConfigurationName(dependency.apiConfigurationName))
+                target.extend(modConfigurationName(it.runtimeOnlyConfigurationName), modConfigurationName(dependency.runtimeOnlyConfigurationName))
+                target.extend(modConfigurationName(it.compileOnlyConfigurationName), modConfigurationName(dependency.compileOnlyConfigurationName))
+                target.extend(modConfigurationName(it.compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
+
+                target.extend(it.mixinsConfigurationName, dependency.mixinsConfigurationName)
+                target.extend(it.accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
             }
         }
 

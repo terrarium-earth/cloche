@@ -13,16 +13,22 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.tasks.SourceSet
 import org.gradle.jvm.tasks.Jar
 import org.gradle.plugins.ide.idea.model.IdeaModel
 
+fun modConfigurationName(name: String) =
+    lowerCamelCaseGradleName("mod", name)
+
 @JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation {
     val dependencyHandler: ClocheDependencyHandler = project.objects.newInstance(ClocheDependencyHandler::class.java)
-    val attributeActions: DomainObjectCollection<Action<AttributeContainer>> = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
+    val attributeActions: DomainObjectCollection<Action<AttributeContainer>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
 
     var withJavadoc: Boolean = false
     var withSources: Boolean = false
@@ -61,58 +67,73 @@ internal abstract class CompilationInternal : Compilation {
     }
 
     fun addDependencies() {
-        project.configurations.named(sourceSet.implementationConfigurationName) {
-            it.dependencies.addAllLater(dependencyHandler.implementation.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.implementation.dependencyConstraints)
+        fun Configuration.addDependencies(collector: DependencyCollector) {
+            dependencies.addAllLater(collector.dependencies)
+            dependencyConstraints.addAllLater(collector.dependencyConstraints)
+        }
 
-            it.dependencies.addAllLater(dependencyHandler.modImplementation.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modImplementation.dependencyConstraints)
+        val modImplementation =
+            project.configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
+                it.addDependencies(dependencyHandler.modImplementation)
+            }.get()
+
+        val modRuntimeOnly =
+            project.configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
+                it.addDependencies(dependencyHandler.modRuntimeOnly)
+            }.get()
+
+        val modCompileOnly =
+            project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
+                it.addDependencies(dependencyHandler.modCompileOnly)
+            }.get()
+
+        val modApi =
+            project.configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
+                it.addDependencies(dependencyHandler.modApi)
+            }.get()
+
+        val modCompileOnlyApi =
+            project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
+                it.addDependencies(dependencyHandler.modCompileOnlyApi)
+            }.get()
+
+        project.configurations.named(sourceSet.implementationConfigurationName) {
+            it.extendsFrom(modImplementation)
+
+            it.addDependencies(dependencyHandler.implementation)
         }
 
         project.configurations.named(sourceSet.compileOnlyConfigurationName) {
-            it.dependencies.addAllLater(dependencyHandler.compileOnly.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.compileOnly.dependencyConstraints)
+            it.extendsFrom(modCompileOnly)
 
-            it.dependencies.addAllLater(dependencyHandler.modCompileOnly.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modCompileOnly.dependencyConstraints)
+            it.addDependencies(dependencyHandler.compileOnly)
         }
 
         project.configurations.named(sourceSet.runtimeOnlyConfigurationName) {
-            it.dependencies.addAllLater(dependencyHandler.runtimeOnly.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.runtimeOnly.dependencyConstraints)
+            it.extendsFrom(modRuntimeOnly)
 
-            it.dependencies.addAllLater(dependencyHandler.modRuntimeOnly.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modRuntimeOnly.dependencyConstraints)
+            it.addDependencies(dependencyHandler.runtimeOnly)
         }
 
         project.configurations.named(sourceSet.apiConfigurationName) {
-            it.dependencies.addAllLater(dependencyHandler.api.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.api.dependencyConstraints)
+            it.extendsFrom(modApi)
 
-            it.dependencies.addAllLater(dependencyHandler.modApi.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modApi.dependencyConstraints)
+            it.addDependencies(dependencyHandler.api)
         }
 
         project.configurations.named(sourceSet.compileOnlyApiConfigurationName) {
-            it.dependencies.addAllLater(dependencyHandler.compileOnlyApi.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.compileOnlyApi.dependencyConstraints)
+            it.extendsFrom(modCompileOnlyApi)
 
-            it.dependencies.addAllLater(dependencyHandler.modCompileOnlyApi.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modCompileOnlyApi.dependencyConstraints)
+            it.addDependencies(dependencyHandler.compileOnlyApi)
         }
 
         project.configurations.named(sourceSet.accessWidenersConfigurationName) {
-            it.dependencies.addAllLater(dependencyHandler.modImplementation.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modImplementation.dependencyConstraints)
+            it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
-            it.dependencies.addAllLater(dependencyHandler.modCompileOnly.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modCompileOnly.dependencyConstraints)
-
-            it.dependencies.addAllLater(dependencyHandler.modApi.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modApi.dependencyConstraints)
-
-            it.dependencies.addAllLater(dependencyHandler.modCompileOnlyApi.dependencies)
-            it.dependencyConstraints.addAllLater(dependencyHandler.modCompileOnlyApi.dependencyConstraints)
+            it.extendsFrom(modImplementation)
+            it.extendsFrom(modCompileOnly)
+            it.extendsFrom(modApi)
+            it.extendsFrom(modCompileOnlyApi)
         }
     }
 
@@ -125,9 +146,15 @@ internal fun sourceSetName(compilationName: String, target: ClocheTarget) = when
     else -> lowerCamelCaseGradleName(target.featureName, compilationName)
 }
 
-internal fun Project.configureSourceSet(sourceSet: SourceSet, target: ClocheTarget, compilation: CompilationInternal, singleTarget: Boolean) {
+internal fun Project.configureSourceSet(
+    sourceSet: SourceSet,
+    target: ClocheTarget,
+    compilation: CompilationInternal,
+    singleTarget: Boolean
+) {
     if (!singleTarget) {
-        val compilationDirectory = project.layout.projectDirectory.dir("src").dir(target.namePath).dir(compilation.namePath)
+        val compilationDirectory =
+            project.layout.projectDirectory.dir("src").dir(target.namePath).dir(compilation.namePath)
 
         sourceSet.java.srcDir(compilationDirectory.dir("java"))
         sourceSet.resources.srcDir(compilationDirectory.dir("resources"))

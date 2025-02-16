@@ -26,8 +26,6 @@ internal object States {
     const val INCLUDES_EXTRACTED = "includesExtracted"
     const val MIXINS_STRIPPED = "mixinsStripped"
     const val REMAPPED = "remapped"
-    const val MIXIN = "mixin"
-    const val ACCESS_WIDENED = "accessWidened"
 }
 
 internal fun registerCompilationTransformations(
@@ -86,43 +84,45 @@ internal fun compilationSourceSet(target: MinecraftTargetInternal<*>, name: Stri
 private fun setupModTransformationPipeline(
     project: Project,
     target: MinecraftTargetInternal<*>,
-    remapNamespace: Provider<String>,
-    intermediateClasspath: FileCollection,
+    compilation: TargetCompilation,
 ) {
     project.dependencies.registerTransform(ExtractIncludes::class.java) {
         it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
         it.to.attribute(
             ModTransformationStateAttribute.ATTRIBUTE,
-            ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+            ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED)
         )
     }
 
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform but that's far slower
     project.afterEvaluate {
-        if (remapNamespace.get().isEmpty()) {
+        if (compilation.remapNamespace.get().isEmpty()) {
             return@afterEvaluate
         }
 
         project.dependencies.registerTransform(RemapAction::class.java) {
             it.from.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+                ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED)
             )
 
             it.to.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, States.REMAPPED)
+                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED)
             )
 
             it.parameters {
                 it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                it.sourceNamespace.set(remapNamespace)
+                it.sourceNamespace.set(compilation.remapNamespace)
 
-                it.extraClasspath.from(project.files(intermediateClasspath))
+                it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
 
                 it.cacheDirectory.set(getGlobalCacheDirectory(project))
+
+                it.modFiles.from(project.configurations.getByName(modConfigurationName(compilation.sourceSet.compileClasspathConfigurationName)))
+                it.modFiles.from(project.configurations.getByName(modConfigurationName(compilation.sourceSet.runtimeClasspathConfigurationName)))
             }
         }
     }
@@ -139,7 +139,7 @@ constructor(
     private val variant: PublicationSide,
     side: Side,
     isSingleTarget: Boolean,
-    remapNamespace: Provider<String>,
+    internal val remapNamespace: Provider<String>,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
@@ -158,13 +158,13 @@ constructor(
         project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)
         project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
 
-        setupModTransformationPipeline(project, target, remapNamespace, intermediaryMinecraftClasspath)
+        setupModTransformationPipeline(project, target, this)
 
         val state = remapNamespace.map {
             if (it.isEmpty()) {
-                ModTransformationStateAttribute.of(target, States.INCLUDES_EXTRACTED)
+                ModTransformationStateAttribute.of(target, this, States.INCLUDES_EXTRACTED)
             } else {
-                ModTransformationStateAttribute.of(target, States.REMAPPED)
+                ModTransformationStateAttribute.of(target, this, States.REMAPPED)
             }
         }
 

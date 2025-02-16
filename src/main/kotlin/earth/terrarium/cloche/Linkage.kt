@@ -3,6 +3,7 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.target.CommonCompilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
@@ -13,17 +14,24 @@ import org.gradle.api.tasks.SourceSet
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
 
 /**
- * Depend on the compiled output of [sourceSet], by requesting the capability to allow for resolution to the proper variants
+ * Depend on the compiled output of [dependency], by requesting the capability to allow for resolution to the proper variants
  */
 context(Project)
-private fun SourceSet.addClasspathDependency(sourceSet: SourceSet) {
-    extend(implementationConfigurationName, sourceSet.implementationConfigurationName)
-    extend(apiConfigurationName, sourceSet.apiConfigurationName)
-    extend(runtimeOnlyConfigurationName, sourceSet.runtimeOnlyConfigurationName)
-    extend(compileOnlyConfigurationName, sourceSet.compileOnlyConfigurationName)
-    extend(compileOnlyApiConfigurationName, sourceSet.compileOnlyApiConfigurationName)
-    extend(mixinsConfigurationName, sourceSet.mixinsConfigurationName)
-    extend(accessWidenersConfigurationName, sourceSet.accessWidenersConfigurationName)
+private fun SourceSet.addClasspathDependency(dependency: SourceSet) {
+    extend(implementationConfigurationName, dependency.implementationConfigurationName)
+    extend(apiConfigurationName, dependency.apiConfigurationName)
+    extend(runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
+    extend(compileOnlyConfigurationName, dependency.compileOnlyConfigurationName)
+    extend(compileOnlyApiConfigurationName, dependency.compileOnlyApiConfigurationName)
+
+    extend(modConfigurationName(implementationConfigurationName), modConfigurationName(dependency.implementationConfigurationName))
+    extend(modConfigurationName(apiConfigurationName), modConfigurationName(dependency.apiConfigurationName))
+    extend(modConfigurationName(runtimeOnlyConfigurationName), modConfigurationName(dependency.runtimeOnlyConfigurationName))
+    extend(modConfigurationName(compileOnlyConfigurationName), modConfigurationName(dependency.compileOnlyConfigurationName))
+    extend(modConfigurationName(compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
+
+    extend(mixinsConfigurationName, dependency.mixinsConfigurationName)
+    extend(accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
 }
 
 /**
