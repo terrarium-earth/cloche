@@ -111,7 +111,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                     },
                 )
 
-                buildVersionRange(dependency.version.get())?.let {
+                dependency.version.map { buildVersionRange(it) }.orNull?.let {
                     map["versionRange"] = it
                 }
 
