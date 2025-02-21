@@ -137,6 +137,7 @@ interface ModMetadata {
 
         val version: Property<VersionRange>
             @Nested
+            @Optional
             get
 
         val required: Property<Boolean>
