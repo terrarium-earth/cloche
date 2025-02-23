@@ -103,7 +103,6 @@ class ClochePlugin : Plugin<Project> {
         target.plugins.apply(ClassExtensionsPlugin::class.java)
 
         target.plugins.apply(JavaLibraryPlugin::class.java)
-        target.plugins.apply(ApplicationPlugin::class.java)
 
         target.plugins.withId("org.jetbrains.kotlin.jvm") {
             target.plugins.apply(KspGradleSubplugin::class.java)
@@ -287,19 +286,19 @@ class ClochePlugin : Plugin<Project> {
                     common.client.onConfigured {
                         it.data.onConfigured { data ->
                             common.data.onConfigured { commonData ->
-                                println("($target only) (source dependency) $data -> $commonData")
+                                println("(source dependency) ($target only) $data -> $commonData")
                                 info.weakTreeLink(data.sourceSet, commonData.sourceSet)
                             }
                         }
 
                         it.test.onConfigured { test ->
                             common.test.onConfigured { commonTest ->
-                                println("($target only) (source dependency) $test -> $commonTest")
+                                println("(source dependency) ($target only) $test -> $commonTest")
                                 info.weakTreeLink(test.sourceSet, commonTest.sourceSet)
                             }
                         }
 
-                        println("($target only) (source dependency) $it -> ${common.main}")
+                        println("(source dependency) ($target only) $it -> ${common.main}")
                         info.weakTreeLink(it.sourceSet, common.sourceSet)
                     }
 
