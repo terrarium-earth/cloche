@@ -97,7 +97,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         )
 
         dependencies.addAll(
-            commonMetadata.dependencies.get().map { dependency ->
+            (commonMetadata.dependencies.get() + targetMetadata.dependencies.get()).map { dependency ->
                 val map: MutableMap<String, Any> = mutableMapOf(
                     "modId" to dependency.modId.get(),
                     // TODO Don't add both fields
@@ -111,7 +111,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                     },
                 )
 
-                buildVersionRange(dependency.version.get())?.let {
+                dependency.version.map { buildVersionRange(it) }.orNull?.let {
                     map["versionRange"] = it
                 }
 
