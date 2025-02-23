@@ -8,14 +8,18 @@ import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
+import org.gradle.api.artifacts.dsl.Dependencies
+import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.file.Directory
+import org.gradle.api.plugins.jvm.PlatformDependencyModifiers
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 
+@Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
-interface MinecraftTarget<TMetadata : Any> : ClocheTarget, TargetSecondarySourceSets {
+interface MinecraftTarget<TMetadata : Any> : ClocheTarget, TargetSecondarySourceSets, Dependencies, PlatformDependencyModifiers {
     val minecraftVersion: Property<String>
         @Input get
 
@@ -39,6 +43,8 @@ interface MinecraftTarget<TMetadata : Any> : ClocheTarget, TargetSecondarySource
         }
 
     val metadata: TMetadata
+
+    val include: DependencyCollector
 
     fun mappings(action: Action<MappingsBuilder>)
 

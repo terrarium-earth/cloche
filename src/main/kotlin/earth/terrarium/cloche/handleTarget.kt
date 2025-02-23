@@ -54,8 +54,6 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
-        project.artifacts.add(Dependency.ARCHIVES_CONFIGURATION, project.tasks.named(sourceSet.jarTaskName))
-
         project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
             it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
@@ -191,4 +189,6 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
     project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
         it.version.set(target.minecraftVersion)
     }
+
+    project.artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)
 }

@@ -1,7 +1,6 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
 import org.gradle.api.Action
@@ -13,7 +12,7 @@ import javax.inject.Inject
 
 internal abstract class CommonTargetInternal @Inject constructor(
     private val name: String,
-    override val project: Project,
+    private val project: Project,
 ) : CommonTarget,
     CommonSecondarySourceSetsInternal {
     val main: CommonTopLevelCompilation = run {

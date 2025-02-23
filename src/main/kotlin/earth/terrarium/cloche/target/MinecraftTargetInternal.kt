@@ -2,7 +2,6 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.api.*
 import earth.terrarium.cloche.api.run.RunConfigurations
-import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
@@ -13,12 +12,19 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
+import org.gradle.jvm.tasks.Jar
+
+internal fun Configuration.addCollectedDependencies(collector: DependencyCollector) {
+    dependencies.addAllLater(collector.dependencies)
+    dependencyConstraints.addAllLater(collector.dependencyConstraints)
+}
 
 internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val name: String) : MinecraftTarget<TMetadata> {
     abstract val main: TargetCompilation
@@ -41,6 +47,15 @@ internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val nam
         it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
 
         it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+    }
+
+    abstract val includeJarTask: TaskProvider<out Jar>
+
+    val includeConfiguration: Configuration = project.configurations.create(lowerCamelCaseGradleName(target.featureName, "include")) {
+        it.addCollectedDependencies(include)
+
+        it.isCanBeConsumed = false
+        it.isTransitive = false
     }
 
     val mappingsBuildDependenciesHolder: Configuration =

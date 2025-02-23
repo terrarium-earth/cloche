@@ -15,6 +15,7 @@ import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
+import net.msrandom.minecraftcodev.forge.task.JarJar
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -23,9 +24,9 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
+import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
@@ -77,7 +78,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     final override lateinit var main: TargetCompilation
 
-    final override var data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
+    final override val data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
         val data = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
@@ -100,7 +101,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         data
     }
 
-    final override var test: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
+    final override val test: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
         val data = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
@@ -122,6 +123,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         data
     }
+
+    override lateinit var includeJarTask: TaskProvider<JarJar>
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get
@@ -211,19 +214,43 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         this.isSingleTarget = isSingleTarget
 
-        main = run {
-            project.objects.newInstance(
-                TargetCompilation::class.java,
-                SourceSet.MAIN_SOURCE_SET_NAME,
-                this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                minecraftFile,
-                project.files(),
-                PublicationSide.Joined,
-                Side.CLIENT,
-                isSingleTarget,
-                remapNamespace,
-            )
+        main = project.objects.newInstance(
+            TargetCompilation::class.java,
+            SourceSet.MAIN_SOURCE_SET_NAME,
+            this,
+            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+            minecraftFile,
+            project.files(),
+            PublicationSide.Joined,
+            Side.CLIENT,
+            isSingleTarget,
+            remapNamespace,
+        )
+
+        includeJarTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarJar"),
+            JarJar::class.java,
+        ) {
+            val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
+            val remapJar = main.remapJarTask
+
+            if (!isSingleTarget) {
+                it.archiveClassifier.set(classifierName)
+            }
+
+            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
+
+            it.input.set(remapNamespace.flatMap {
+                val jarTask = if (it.isEmpty()) {
+                    jar
+                } else {
+                    remapJar
+                }
+
+                jarTask.flatMap(Jar::getArchiveFile)
+            })
+
+            it.includesConfiguration.set(includeConfiguration)
         }
 
         sourceSet.resources.srcDir(metadataDirectory)

@@ -8,7 +8,6 @@ import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.MappingDependencyProvider
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.FabricMetadata
-import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
@@ -20,6 +19,7 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
+import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
@@ -28,10 +28,14 @@ import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.Action
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.file.RegularFile
+import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
 import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
@@ -156,7 +160,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         it.classpath.from(commonLibrariesConfiguration)
         it.classpath.from(clientLibrariesConfiguration)
-        it.classpath.from(remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile))
+        it.classpath.from(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile))
 
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
@@ -179,6 +183,22 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.targetMetadata.set(metadata)
         it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
     }
+
+    private val generateMappingsArtifact = project.tasks.register(
+        lowerCamelCaseGradleName("generate", featureName, "mappingsArtifact"),
+        Zip::class.java,
+    ) {
+        it.destinationDirectory.set(it.temporaryDir)
+        it.archiveBaseName.set("$featureName-mappings")
+        it.archiveVersion.set(null as String?)
+
+        it.from(loadMappingsTask.flatMap(LoadMappings::output)) {
+            it.into("mappings")
+        }
+    }
+
+    lateinit var mergeJarTask: TaskProvider<Jar>
+    override lateinit var includeJarTask: TaskProvider<JarInJar>
 
     private var hasIncludedClientValue = false
     private val hasIncludedClient = project.provider { hasIncludedClientValue }
@@ -337,6 +357,51 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         this.isSingleTarget = isSingleTarget
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
+
+        project.dependencies.add(
+            main.sourceSet.runtimeOnlyConfigurationName,
+            project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)),
+        )
+
+        mergeJarTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "mergeJar"),
+            Jar::class.java,
+        ) {
+            if (isSingleTarget) {
+                it.archiveClassifier.set("merged")
+            } else {
+                it.archiveClassifier.set("$classifierName-merged")
+            }
+
+            it.from(project.zipTree(main.remapJarTask.flatMap(Jar::getArchiveFile)))
+            it.from(project.zipTree(client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile)))
+
+            // Needed cause manifest will be duplicated
+            it.duplicatesStrategy = DuplicatesStrategy.INCLUDE
+        }
+
+        includeJarTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarInJar"),
+            JarInJar::class.java,
+        ) {
+            if (!isSingleTarget) {
+                it.archiveClassifier.set(classifierName)
+            }
+
+            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
+
+            it.input.set(hasIncludedClient.flatMap {
+                val jarTask = if (it) {
+                    main.remapJarTask
+                } else {
+                    mergeJarTask
+                }
+
+                jarTask.flatMap(Jar::getArchiveFile)
+            })
+
+            it.includeFiles.from(includeConfiguration)
+        }
 
         sourceSet.resources.srcDir(metadataDirectory)
 

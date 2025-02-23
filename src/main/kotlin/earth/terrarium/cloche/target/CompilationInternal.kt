@@ -13,20 +13,24 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
-import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.tasks.SourceSet
 import org.gradle.jvm.tasks.Jar
 import org.gradle.plugins.ide.idea.model.IdeaModel
+import javax.inject.Inject
 
 fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
 
 @JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation {
+    abstract val project: Project
+        @Inject
+        get
+
     val dependencyHandler: ClocheDependencyHandler = project.objects.newInstance(ClocheDependencyHandler::class.java)
+
     val attributeActions: DomainObjectCollection<Action<AttributeContainer>> =
         project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
 
@@ -67,64 +71,59 @@ internal abstract class CompilationInternal : Compilation {
     }
 
     fun addDependencies() {
-        fun Configuration.addDependencies(collector: DependencyCollector) {
-            dependencies.addAllLater(collector.dependencies)
-            dependencyConstraints.addAllLater(collector.dependencyConstraints)
-        }
-
         val modImplementation =
             project.configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
-                it.addDependencies(dependencyHandler.modImplementation)
+                it.addCollectedDependencies(dependencyHandler.modImplementation)
             }.get()
 
         val modRuntimeOnly =
             project.configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
-                it.addDependencies(dependencyHandler.modRuntimeOnly)
+                it.addCollectedDependencies(dependencyHandler.modRuntimeOnly)
             }.get()
 
         val modCompileOnly =
             project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
-                it.addDependencies(dependencyHandler.modCompileOnly)
+                it.addCollectedDependencies(dependencyHandler.modCompileOnly)
             }.get()
 
         val modApi =
             project.configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
-                it.addDependencies(dependencyHandler.modApi)
+                it.addCollectedDependencies(dependencyHandler.modApi)
             }.get()
 
         val modCompileOnlyApi =
             project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
-                it.addDependencies(dependencyHandler.modCompileOnlyApi)
+                it.addCollectedDependencies(dependencyHandler.modCompileOnlyApi)
             }.get()
 
         project.configurations.named(sourceSet.implementationConfigurationName) {
             it.extendsFrom(modImplementation)
 
-            it.addDependencies(dependencyHandler.implementation)
+            it.addCollectedDependencies(dependencyHandler.implementation)
         }
 
         project.configurations.named(sourceSet.compileOnlyConfigurationName) {
             it.extendsFrom(modCompileOnly)
 
-            it.addDependencies(dependencyHandler.compileOnly)
+            it.addCollectedDependencies(dependencyHandler.compileOnly)
         }
 
         project.configurations.named(sourceSet.runtimeOnlyConfigurationName) {
             it.extendsFrom(modRuntimeOnly)
 
-            it.addDependencies(dependencyHandler.runtimeOnly)
+            it.addCollectedDependencies(dependencyHandler.runtimeOnly)
         }
 
         project.configurations.named(sourceSet.apiConfigurationName) {
             it.extendsFrom(modApi)
 
-            it.addDependencies(dependencyHandler.api)
+            it.addCollectedDependencies(dependencyHandler.api)
         }
 
         project.configurations.named(sourceSet.compileOnlyApiConfigurationName) {
             it.extendsFrom(modCompileOnlyApi)
 
-            it.addDependencies(dependencyHandler.compileOnlyApi)
+            it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
         }
 
         project.configurations.named(sourceSet.accessWidenersConfigurationName) {
