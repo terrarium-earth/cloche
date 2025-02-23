@@ -12,6 +12,7 @@ import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
+import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
@@ -19,6 +20,8 @@ import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.api.tasks.TaskProvider
+import org.gradle.jvm.tasks.Jar
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
@@ -153,6 +156,15 @@ constructor(
 
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.first
     val sources = setupFiles.second
+
+    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"), RemapJar::class.java) {
+        it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
+        it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+        it.targetNamespace.set(remapNamespace)
+        it.classpath.from(sourceSet.compileClasspath)
+
+        it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+    }
 
     init {
         project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)

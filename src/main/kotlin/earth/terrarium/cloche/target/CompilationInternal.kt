@@ -168,25 +168,43 @@ internal fun Project.configureSourceSet(
         // TODO Groovy + Scala?
     }
 
+    val prefix = if (singleTarget || target.name == COMMON) {
+        null
+    } else {
+        target.classifierName
+    }
+
+    val suffix = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
+        null
+    } else {
+        compilation.capabilityName
+    }
+
+    val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
+
     tasks.named(sourceSet.jarTaskName, Jar::class.java) {
-        val dev = (target as? MinecraftTargetInternal<*>)?.remapNamespace?.map { it.isNotEmpty() } ?: provider { false }
-
-        if (!singleTarget && target.name != COMMON) {
-            val classifier = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-                target.capabilityName
-            } else {
-                "${target.capabilityName}-${compilation.capabilityName}"
-            }
-
-            it.archiveClassifier.set(dev.map {
-                if (it) {
+        if (target is MinecraftTargetInternal<*>) {
+            val archiveClassifier = target.remapNamespace.map {
+                if (it.isEmpty()) {
+                    classifier
+                } else if (classifier != null) {
                     "$classifier-dev"
                 } else {
-                    classifier
+                    "dev"
                 }
-            })
-        } else {
-            it.archiveClassifier.set(dev.map { if (it) "dev" else null })
+            }
+
+            it.archiveClassifier.set(archiveClassifier)
+        } else if (classifier != null) {
+            it.archiveClassifier.set(classifier)
+        }
+    }
+
+    if (compilation is TargetCompilation) {
+        compilation.remapJarTask.configure {
+            if (classifier != null) {
+                it.archiveClassifier.set(classifier)
+            }
         }
     }
 
