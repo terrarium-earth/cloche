@@ -9,6 +9,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import org.apache.commons.lang3.SystemUtils
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
@@ -18,6 +19,12 @@ import javax.inject.Inject
 
 private val NEOFORGE_DISTRIBUTION_ATTRIBUTE = Attribute.of("net.neoforged.distribution", String::class.java)
 private val NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE = Attribute.of("net.neoforged.operatingsystem", String::class.java)
+
+private val OS_NAME = if (SystemUtils.IS_OS_MAC) {
+    "osx"
+} else {
+    DefaultNativePlatform.host().operatingSystem.toFamilyName()
+}
 
 internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), NeoforgeTarget {
     final override val group
@@ -67,7 +74,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             it.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
             it.attribute(
                 NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
-                DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                OS_NAME,
             )
         }
 
@@ -94,7 +101,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
 
         val modFiles = runtimeClasspath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
-            val componentIdentifiers = modDependencies.incoming.resolutionResult.allComponents.map(ResolvedComponentResult::getId)
+            val componentIdentifiers = modDependencies.incoming.resolutionResult.allComponents.map(ResolvedComponentResult::getId) - modDependencies.incoming.resolutionResult.root.id
 
             classpath.incoming.artifactView {
                 // Use an artifact view with a component filter to preserve artifact transforms, no variant reselection to ensure consistency
@@ -110,7 +117,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             it.attributes.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
             it.attributes.attribute(
                 NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
-                DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                OS_NAME,
             )
         }
 
@@ -119,7 +126,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             it.attributes
                 .attribute(
                     NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
-                    DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                    OS_NAME,
                 )
         }
     }
@@ -128,8 +135,14 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         super.initialize(isSingleTarget)
 
         addAttributes(sourceSet)
-        data.onConfigured { addAttributes(it.sourceSet) }
-        test.onConfigured { addAttributes(it.sourceSet) }
+
+        data.onConfigured {
+            addAttributes(it.sourceSet)
+        }
+
+        test.onConfigured {
+            addAttributes(it.sourceSet)
+        }
     }
 
     final override fun version(minecraftVersion: String, loaderVersion: String) =
