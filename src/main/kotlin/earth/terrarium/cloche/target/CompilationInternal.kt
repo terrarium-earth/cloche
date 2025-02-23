@@ -42,7 +42,7 @@ internal abstract class CompilationInternal : Compilation {
     val namePath
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '/')
 
-    val namePart
+    val collapsedName
         get() = featureName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     override fun withJavadocJar() {

@@ -62,9 +62,9 @@ context(Project) internal fun createCommonTarget(
             it.group = "minecraft-stubs"
 
             val jarName = if (compilationName == null) {
-                commonTarget.capabilityName
+                commonTarget.classifierName
             } else {
-                "${commonTarget.capabilityName}-$compilationName"
+                "${commonTarget.classifierName}-$compilationName"
             }
 
             it.output.set(it.temporaryDir.resolve("$jarName-minecraft-stub.jar"))
@@ -78,8 +78,8 @@ context(Project) internal fun createCommonTarget(
     fun dependencyHolder(compilation: CommonCompilation) = project.configurations.maybeCreate(
         lowerCamelCaseGradleName(
             commonTarget.featureName,
-            compilation.namePart,
-            "intersectionDependencies"
+            compilation.collapsedName,
+            "intersectionDependencies",
         )
     ).apply {
         isCanBeConsumed = false

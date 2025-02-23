@@ -275,7 +275,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {
         val task = project.tasks.register(
-            lowerCamelCaseGradleName("generate", name, compilation.namePart, "accessTransformer"),
+            lowerCamelCaseGradleName("generate", name, compilation.collapsedName, "accessTransformer"),
             GenerateAccessTransformer::class.java
         ) {
             it.input.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))

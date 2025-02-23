@@ -77,7 +77,7 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
             it.isTransitive = false
         }
 
-        val copyMixins = tasks.register(lowerCamelCaseGradleName("copy", target.featureName, compilation.namePart, "mixins"), Copy::class.java) {
+        val copyMixins = tasks.register(lowerCamelCaseGradleName("copy", target.featureName, compilation.collapsedName, "mixins"), Copy::class.java) {
             it.from(configurations.named(compilation.sourceSet.mixinsConfigurationName))
             it.destinationDir = project.layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
         }

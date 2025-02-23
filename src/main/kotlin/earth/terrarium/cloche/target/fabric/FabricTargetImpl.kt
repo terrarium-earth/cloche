@@ -395,7 +395,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         val modId = project.extension<ClocheExtension>().metadata.modId
 
         val task = project.tasks.register(
-            lowerCamelCaseGradleName("merge", name, compilation.namePart, "accessWideners"),
+            lowerCamelCaseGradleName("merge", name, compilation.collapsedName, "accessWideners"),
             MergeAccessWideners::class.java
         ) {
             it.input.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))

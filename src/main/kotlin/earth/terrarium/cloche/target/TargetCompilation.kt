@@ -35,7 +35,7 @@ internal fun registerCompilationTransformations(
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: FileCollection,
 ): Pair<Provider<RegularFile>, Provider<RegularFile>> {
-    val namePart = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+    val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     val project = target.project
 
@@ -43,8 +43,8 @@ internal fun registerCompilationTransformations(
         lowerCamelCaseGradleName(
             "accessWiden",
             target.featureName,
-            namePart,
-            "minecraft"
+            collapsedName,
+            "minecraft",
         ),
         AccessWiden::class.java,
     ) {
@@ -58,7 +58,7 @@ internal fun registerCompilationTransformations(
     val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
 
     val decompile = project.tasks.maybeRegister(
-        lowerCamelCaseGradleName("decompile", target.featureName, namePart, "minecraft"),
+        lowerCamelCaseGradleName("decompile", target.featureName, collapsedName, "minecraft"),
         Decompile::class.java,
     ) {
         it.group = "sources"
