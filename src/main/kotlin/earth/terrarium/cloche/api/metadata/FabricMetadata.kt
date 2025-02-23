@@ -1,19 +1,26 @@
 package earth.terrarium.cloche.api.metadata
 
+import earth.terrarium.cloche.api.metadata.ModMetadata.Dependency
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
-abstract class FabricMetadata {
-    abstract val entrypoints: MapProperty<String, List<Entrypoint>>
+interface FabricMetadata {
+    val entrypoints: MapProperty<String, List<Entrypoint>>
         @Input get
 
-    abstract val objectFactory: ObjectFactory
+    val objectFactory: ObjectFactory
         @Inject get
+
+    val dependencies: ListProperty<Dependency>
+        @Nested
+        get
 
     fun entrypoint(name: String, value: String) = entrypoint(name) {
         it.value.set(value)
@@ -29,6 +36,9 @@ abstract class FabricMetadata {
 
         this.entrypoints.put(name, entrypoints)
     }
+
+    fun dependency(action: Action<Dependency>) =
+        dependencies.add(objectFactory.newInstance(Dependency::class.java).also(action::execute))
 
     interface Entrypoint {
         val value: Property<String>

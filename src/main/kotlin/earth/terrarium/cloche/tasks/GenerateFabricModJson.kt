@@ -10,7 +10,14 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.*
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Nested
+import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 import kotlin.io.path.writeText
 
 abstract class GenerateFabricModJson : DefaultTask() {
@@ -183,11 +190,12 @@ abstract class GenerateFabricModJson : DefaultTask() {
             depends.addProperty("fabricloader", ">=${loaderDependencyVersion.get()}")
             depends.addProperty("fabric", "*")
 
-            if (commonMetadata.dependencies.get().isNotEmpty()) {
+            val dependencies = commonMetadata.dependencies.get() + targetMetadata.dependencies.get()
+            if (dependencies.isNotEmpty()) {
                 val suggests = JsonObject()
-                for (dependency in commonMetadata.dependencies.get()) {
+                for (dependency in dependencies) {
                     val key = dependency.modId.get()
-                    val version = buildVersionRange(dependency.version.get()) ?: "*"
+                    val version = dependency.version.map { buildVersionRange(it) }.getOrElse("*")
 
                     if (dependency.required.getOrElse(false)) {
                         depends.addProperty(key, version)
