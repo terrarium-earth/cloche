@@ -4,11 +4,17 @@ import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.MappingDependencyProvider
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.FabricMetadata
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.api.target.FabricTarget
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.compilationSourceSet
+import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -305,7 +311,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         val commonClasspath = list(
             registerCompilationTransformations(
                 this,
-                name,
+                "common",
                 compilationSourceSet(this, name, isSingleTarget),
                 remapCommon.flatMap(RemapTask::outputFile),
                 project.files(),
