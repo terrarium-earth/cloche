@@ -1,13 +1,14 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.ForgeTarget
-import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.NeoforgeTarget
-import earth.terrarium.cloche.api.metadata.ModMetadata
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CommonTargetInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
@@ -33,21 +34,27 @@ interface TargetContainer {
     fun fabric(name: String): FabricTarget = fabric(name) {}
     fun fabric(@DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(FABRIC, configure)
     fun fabric(configure: Action<FabricTarget>): FabricTarget = fabric(FABRIC, configure)
-    fun fabric(name: String, @DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(name, configure::call)
+    fun fabric(name: String, @DelegatesTo(FabricTarget::class)  configure: Closure<*>): FabricTarget = fabric(name) {
+        configure.rehydrate(it, this, this).call()
+    }
     fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget
 
     fun forge(): ForgeTarget = forge(FORGE)
     fun forge(name: String): ForgeTarget = forge(name) {}
     fun forge(@DelegatesTo(ForgeTarget::class) configure: Closure<*>): ForgeTarget = forge(FORGE, configure)
     fun forge(configure: Action<ForgeTarget>): ForgeTarget = forge(FORGE, configure)
-    fun forge(name: String, @DelegatesTo(ForgeTarget::class) configure: Closure<*>): ForgeTarget = forge(name, configure::call)
+    fun forge(name: String, @DelegatesTo(ForgeTarget::class) configure: Closure<*>): ForgeTarget = forge(name) {
+        configure.rehydrate(it, this, this).call()
+    }
     fun forge(name: String, configure: Action<ForgeTarget>): ForgeTarget
 
     fun neoforge(): NeoforgeTarget = neoforge(NEOFORGE)
     fun neoforge(name: String): NeoforgeTarget = neoforge(name) {}
     fun neoforge(@DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(NEOFORGE, configure)
     fun neoforge(configure: Action<NeoforgeTarget>): NeoforgeTarget = neoforge(NEOFORGE, configure)
-    fun neoforge(name: String, @DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(name, configure::call)
+    fun neoforge(name: String, @DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(name) {
+        configure.rehydrate(it, this, this).call()
+    }
     fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget
 }
 
