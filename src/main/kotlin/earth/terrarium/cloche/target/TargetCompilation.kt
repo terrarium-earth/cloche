@@ -1,6 +1,9 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.*
+import earth.terrarium.cloche.ModTransformationStateAttribute
+import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.TargetAttributes
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -42,7 +45,7 @@ internal fun registerCompilationTransformations(
 
     val project = target.project
 
-    val accessWidenTask = project.tasks.maybeRegister(
+    val accessWidenTask = project.tasks.register(
         lowerCamelCaseGradleName(
             "accessWiden",
             target.featureName,
@@ -60,7 +63,7 @@ internal fun registerCompilationTransformations(
 
     val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
 
-    val decompile = project.tasks.maybeRegister(
+    val decompile = project.tasks.register(
         lowerCamelCaseGradleName("decompile", target.featureName, collapsedName, "minecraft"),
         Decompile::class.java,
     ) {
