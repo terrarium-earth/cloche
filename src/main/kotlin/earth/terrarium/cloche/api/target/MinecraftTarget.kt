@@ -53,5 +53,7 @@ interface MinecraftTarget<TMetadata : Any> : ClocheTarget, TargetSecondarySource
 
     fun runs(action: Action<RunConfigurations>)
 
-    fun runs(@DelegatesTo(RunConfigurations::class) closure: Closure<*>) = runs(closure::call)
+    fun runs(@DelegatesTo(RunConfigurations::class) closure: Closure<*>) = runs {
+        closure.rehydrate(it, this, this).call()
+    }
 }
