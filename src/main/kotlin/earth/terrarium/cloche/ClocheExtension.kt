@@ -165,7 +165,9 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     fun common(name: String): CommonTarget = common(name) {}
     fun common(@DelegatesTo(CommonTarget::class) configure: Closure<*>): CommonTarget = common(COMMON, configure)
     fun common(configure: Action<CommonTarget>): CommonTarget = common(COMMON, configure)
-    fun common(name: String, @DelegatesTo(CommonTarget::class) configure: Closure<*>): CommonTarget = common(name, configure::call)
+    fun common(name: String, @DelegatesTo(CommonTarget::class) configure: Closure<*>): CommonTarget = common(name) {
+        configure.rehydrate(it, this, this).call()
+    }
 
     fun common(name: String, configure: Action<CommonTarget>): CommonTarget =
         commonTargets.maybeCreate(name).also(configure::execute)

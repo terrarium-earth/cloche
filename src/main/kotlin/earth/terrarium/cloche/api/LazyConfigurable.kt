@@ -11,7 +11,9 @@ interface LazyConfigurable<out T : Any> {
     operator fun invoke(action: Action<@UnsafeVariance T>) = configure(action)
 
     fun call() = configure()
-    fun call(closure: Closure<*>) = configure(closure::call)
+    fun call(closure: Closure<*>) = configure {
+        closure.rehydrate(it, this, this).call()
+    }
 
     fun configure(action: Action<@UnsafeVariance T>? = null): T
 }
