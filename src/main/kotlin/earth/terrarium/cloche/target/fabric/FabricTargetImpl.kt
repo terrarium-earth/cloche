@@ -496,6 +496,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         hasIncludedClientValue = true
 
+        clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+
+        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.extendsFrom(clientLibrariesConfiguration)
+        }
+
+        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+            it.extendsFrom(clientLibrariesConfiguration)
+        }
+
         for (action in includedClientActions) {
             action()
         }
