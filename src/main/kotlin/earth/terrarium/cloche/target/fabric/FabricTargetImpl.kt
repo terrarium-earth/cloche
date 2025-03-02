@@ -39,7 +39,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
-import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
@@ -306,7 +305,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         val commonClasspath = list(
             registerCompilationTransformations(
                 this,
-                "common",
+                lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
                 compilationSourceSet(this, name, isSingleTarget),
                 remapCommon.flatMap(RemapTask::outputFile),
                 project.files(),
