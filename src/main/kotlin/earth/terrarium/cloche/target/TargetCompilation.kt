@@ -139,13 +139,13 @@ internal abstract class TargetCompilation
 constructor(
     private val name: String,
     override val target: MinecraftTargetInternal<*>,
-    internal val intermediaryMinecraftClasspath: FileCollection,
+    val intermediaryMinecraftClasspath: FileCollection,
     namedMinecraftFile: Provider<RegularFile>,
-    extraClasspathFiles: FileCollection,
+    val extraClasspathFiles: FileCollection,
     private val variant: PublicationSide,
     side: Side,
     isSingleTarget: Boolean,
-    internal val remapNamespace: Provider<String>,
+    val remapNamespace: Provider<String>,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 

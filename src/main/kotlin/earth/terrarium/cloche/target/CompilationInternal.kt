@@ -210,7 +210,9 @@ internal fun Project.configureSourceSet(
     val syncTask = tasks.named(IDEA_SYNC_TASK_NAME) { task ->
         task.dependsOn(project.configurations.named(sourceSet.compileClasspathConfigurationName))
 
-        if (target is MinecraftTarget<*>) {
+        if (compilation is TargetCompilation) {
+            task.dependsOn(compilation.finalMinecraftFile)
+            task.dependsOn(compilation.extraClasspathFiles)
             task.dependsOn(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
         }
     }

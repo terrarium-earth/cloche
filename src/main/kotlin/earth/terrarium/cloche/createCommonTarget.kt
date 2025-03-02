@@ -3,14 +3,10 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
-import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
-import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
-import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.intersection.JarIntersection
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Provider
@@ -28,37 +24,17 @@ internal class CommonInfo(
 context(Project) internal fun createCommonTarget(
     commonTarget: CommonTargetInternal,
     commonInfo: Provider<CommonInfo>,
-    onlyCommonOfType: Provider<Boolean>
+    onlyCommonOfType: Provider<Boolean>,
 ) {
-    val featureName = commonTarget.featureName
-    val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
-
-    // afterEvaluate needed because of the component rule using providers
-    project.afterEvaluate {
-        it.dependencies.components.withModule(
-            ClochePlugin.STUB_MODULE,
-            MinecraftComponentMetadataRule::class.java
-        ) {
-            it.params(
-                getGlobalCacheDirectory(project),
-                commonInfo.get().dependants.map { it.minecraftVersion.get() },
-                VERSION_MANIFEST_URL,
-                project.gradle.startParameter.isOffline,
-                featureName,
-                clientTargetMinecraftName,
-            )
-        }
-    }
-
     fun intersection(
         compilationName: String,
-        compilations: Provider<Map<MinecraftTargetInternal<*>, TargetCompilation>>
+        compilations: Provider<List<TargetCompilation>>,
     ): FileCollection {
         val compilationName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
-        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilationName, "intersection")
+        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilationName, "api-stub")
 
-        val createIntersection = tasks.maybeRegister(name, JarIntersection::class.java) {
+        val generateStub = tasks.register(name, GenerateStubApi::class.java) {
             it.group = "minecraft-stubs"
 
             val jarName = if (compilationName == null) {
@@ -67,12 +43,33 @@ context(Project) internal fun createCommonTarget(
                 "${commonTarget.classifierName}-$compilationName"
             }
 
-            it.output.set(it.temporaryDir.resolve("$jarName-minecraft-stub.jar"))
+            it.apiFileName.set("$jarName-api-stub.jar")
 
-            it.files.from(compilations.map { it.map { it.value.finalMinecraftFile } }.orElse(listOf()))
+            val configurations = project.configurations
+            val objects = project.objects
+
+            it.classpaths.set(compilations.map {
+                it.map {
+                    val classpath = objects.newInstance(GenerateStubApi.Classpath::class.java)
+
+                    classpath.artifacts.set(
+                        configurations.named(it.sourceSet.compileClasspathConfigurationName)
+                            .map { it.incoming.artifacts })
+                    classpath.extraFiles.from(it.finalMinecraftFile)
+                    classpath.extraFiles.from(it.extraClasspathFiles)
+
+                    classpath
+                }
+            })
+
+            it.dependsOn(files(compilations.map {
+                it.map {
+                    configurations.named(it.sourceSet.compileClasspathConfigurationName)
+                }
+            }))
         }
 
-        return files(createIntersection.flatMap(JarIntersection::output))
+        return fileTree(generateStub.flatMap(GenerateStubApi::outputDirectory)).builtBy(generateStub)
     }
 
     fun dependencyHolder(compilation: CommonCompilation) = project.configurations.maybeCreate(
@@ -90,7 +87,6 @@ context(Project) internal fun createCommonTarget(
         compilation: CommonCompilation,
         variant: PublicationSide,
         intersection: FileCollection,
-        targetIntersection: String
     ) {
         val sourceSet = with(commonTarget) {
             compilation.sourceSet
@@ -115,13 +111,6 @@ context(Project) internal fun createCommonTarget(
 
         val dependencyHolder = dependencyHolder(compilation)
 
-        val stub = project.dependencies.enforcedPlatform(ClochePlugin.STUB_DEPENDENCY) as ExternalModuleDependency
-
-        stub.capabilities {
-            it.requireCapability("net.msrandom:$targetIntersection")
-        }
-
-        project.dependencies.add(dependencyHolder.name, stub)
         project.dependencies.add(dependencyHolder.name, intersection)
 
         compilation.attributes {
@@ -190,14 +179,11 @@ context(Project) internal fun createCommonTarget(
         testGetter: (MinecraftTargetInternal<*>) -> TargetCompilation,
         variant: PublicationSide,
         intersection: FileCollection,
-        targetIntersection: String,
     ) {
-        addCompilation(compilation, variant, intersection, targetIntersection)
+        addCompilation(compilation, variant, intersection)
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             compilation.addClasspathDependency(commonTarget.main)
-
-            dependencyHolder(compilation).extendsFrom(dependencyHolder(commonTarget.main))
         }
 
         compilation.data.onConfigured {
@@ -207,12 +193,9 @@ context(Project) internal fun createCommonTarget(
                 intersection(
                     it.name,
                     commonInfo.map {
-                        it.dependants.associateWith {
-                            dataGetter(it)
-                        }
+                        it.dependants.map(dataGetter)
                     }
                 ),
-                targetIntersection,
             )
 
             it.addClasspathDependency(compilation)
@@ -221,8 +204,6 @@ context(Project) internal fun createCommonTarget(
             if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
                 commonTarget.main.data.onConfigured { data ->
                     it.addClasspathDependency(data)
-
-                    dependencyHolder(it).extendsFrom(dependencyHolder(data))
                 }
             }
         }
@@ -234,12 +215,9 @@ context(Project) internal fun createCommonTarget(
                 intersection(
                     it.name,
                     commonInfo.map {
-                        it.dependants.associateWith {
-                            testGetter(it)
-                        }
+                        it.dependants.map(testGetter)
                     }
                 ),
-                targetIntersection,
             )
 
             it.addClasspathDependency(compilation)
@@ -248,8 +226,6 @@ context(Project) internal fun createCommonTarget(
             if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
                 commonTarget.main.test.onConfigured { test ->
                     it.addClasspathDependency(test)
-
-                    dependencyHolder(it).extendsFrom(dependencyHolder(test))
                 }
             }
         }
@@ -259,26 +235,35 @@ context(Project) internal fun createCommonTarget(
         commonTarget.main,
         { it.data.internalValue ?: it.main },
         { it.test.internalValue ?: it.main },
-        // TODO Can potentially be joined if all targets are forge/includedClient targets
         PublicationSide.Common,
         intersection(
             commonTarget.main.name,
-            commonInfo.map { it.dependants.associateWith(MinecraftTargetInternal<*>::main) }),
-        featureName,
+            commonInfo.map { it.dependants.map(MinecraftTargetInternal<*>::main) }),
     )
 
     commonTarget.client.onConfigured {
         add(
             it,
-            { (it as? FabricTargetImpl)?.client?.internalValue?.data?.internalValue ?: it.data.internalValue ?: it.main },
-            { (it as? FabricTargetImpl)?.client?.internalValue?.test?.internalValue ?: it.test.internalValue ?: it.main },
+            {
+                (it as? FabricTargetImpl)?.client?.internalValue?.let {
+                    it.data.internalValue ?: it
+                }
+                    ?: it.data.internalValue
+                    ?: it.main
+            },
+            {
+                (it as? FabricTargetImpl)?.client?.internalValue?.let {
+                    it.test.internalValue ?: it
+                }
+                    ?: it.test.internalValue
+                    ?: it.main
+            },
             PublicationSide.Client,
             intersection(it.name, commonInfo.map {
-                it.dependants.associateWith {
+                it.dependants.map {
                     (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation ?: it.main
                 }
             }),
-            clientTargetMinecraftName,
         )
     }
 }
