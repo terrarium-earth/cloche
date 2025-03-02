@@ -195,6 +195,12 @@ constructor(
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
+        project.configurations.named(sourceSet.accessWidenersConfigurationName) {
+            it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+
+            it.extendsFrom(target.mappingsBuildDependenciesHolder)
+        }
+
         // Use detached configuration for idea compat
         val minecraftFiles = project.files(finalMinecraftFile) + extraClasspathFiles
         val minecraftFileConfiguration =

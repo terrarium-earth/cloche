@@ -55,6 +55,7 @@ context(Project) internal fun createCommonTarget(
                     classpath.artifacts.set(
                         configurations.named(it.sourceSet.compileClasspathConfigurationName)
                             .map { it.incoming.artifacts })
+
                     classpath.extraFiles.from(it.finalMinecraftFile)
                     classpath.extraFiles.from(it.extraClasspathFiles)
 
@@ -238,7 +239,8 @@ context(Project) internal fun createCommonTarget(
         PublicationSide.Common,
         intersection(
             commonTarget.main.name,
-            commonInfo.map { it.dependants.map(MinecraftTargetInternal<*>::main) }),
+            commonInfo.map { it.dependants.map(MinecraftTargetInternal<*>::main) },
+        ),
     )
 
     commonTarget.client.onConfigured {
