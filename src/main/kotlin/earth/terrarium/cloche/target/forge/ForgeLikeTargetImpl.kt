@@ -9,6 +9,8 @@ import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
+import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
@@ -30,8 +32,6 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.gradle.nativeplatform.OperatingSystemFamily
-import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
@@ -42,10 +42,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.isCanBeConsumed = false
 
             it.attributes.attribute(
-                OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                MinecraftOperatingSystemAttribute.attribute,
                 project.objects.named(
-                    OperatingSystemFamily::class.java,
-                    DefaultNativePlatform.host().operatingSystem.toFamilyName(),
+                    MinecraftOperatingSystemAttribute::class.java,
+                    operatingSystemName(),
                 ),
             )
 

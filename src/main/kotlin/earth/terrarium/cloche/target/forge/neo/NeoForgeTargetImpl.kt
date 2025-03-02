@@ -5,6 +5,7 @@ import earth.terrarium.cloche.api.target.NeoforgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import earth.terrarium.cloche.target.modConfigurationName
+import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
@@ -19,12 +20,6 @@ import javax.inject.Inject
 
 private val NEOFORGE_DISTRIBUTION_ATTRIBUTE = Attribute.of("net.neoforged.distribution", String::class.java)
 private val NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE = Attribute.of("net.neoforged.operatingsystem", String::class.java)
-
-private val OS_NAME = if (SystemUtils.IS_OS_MAC) {
-    "osx"
-} else {
-    DefaultNativePlatform.host().operatingSystem.toFamilyName()
-}
 
 internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), NeoforgeTarget {
     final override val group
@@ -72,9 +67,10 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
     init {
         minecraftLibrariesConfiguration.attributes {
             it.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
+
             it.attribute(
                 NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
-                OS_NAME,
+                operatingSystemName(),
             )
         }
 
@@ -117,7 +113,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             it.attributes.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
             it.attributes.attribute(
                 NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
-                OS_NAME,
+                operatingSystemName(),
             )
         }
 
@@ -126,7 +122,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             it.attributes
                 .attribute(
                     NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
-                    OS_NAME,
+                    operatingSystemName(),
                 )
         }
     }

@@ -8,17 +8,13 @@ import earth.terrarium.cloche.api.MappingDependencyProvider
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.CompilationInternal
-import earth.terrarium.cloche.target.LazyConfigurableInternal
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.compilationSourceSet
-import earth.terrarium.cloche.target.lazyConfigurable
-import earth.terrarium.cloche.target.registerCompilationTransformations
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
+import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
+import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -43,7 +39,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
-import org.gradle.nativeplatform.OperatingSystemFamily
 import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
@@ -56,10 +51,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.isCanBeConsumed = false
 
             it.attributes.attribute(
-                OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                MinecraftOperatingSystemAttribute.attribute,
                 project.objects.named(
-                    OperatingSystemFamily::class.java,
-                    DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                    MinecraftOperatingSystemAttribute::class.java,
+                    operatingSystemName(),
                 ),
             )
         }
@@ -69,10 +64,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.isCanBeConsumed = false
 
             it.attributes.attribute(
-                OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                MinecraftOperatingSystemAttribute.attribute,
                 project.objects.named(
-                    OperatingSystemFamily::class.java,
-                    DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                    MinecraftOperatingSystemAttribute::class.java,
+                    operatingSystemName(),
                 ),
             )
         }

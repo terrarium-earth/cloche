@@ -2,8 +2,10 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
+import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -22,8 +24,6 @@ import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
-import org.gradle.nativeplatform.OperatingSystemFamily
-import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -129,10 +129,10 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
         for (name in resolvableConfigurationNames) {
             configurations.named(name) { configuration ->
                 configuration.attributes.attribute(
-                    OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                    MinecraftOperatingSystemAttribute.attribute,
                     objects.named(
-                        OperatingSystemFamily::class.java,
-                        DefaultNativePlatform.host().operatingSystem.toFamilyName()
+                        MinecraftOperatingSystemAttribute::class.java,
+                        operatingSystemName(),
                     ),
                 )
             }
