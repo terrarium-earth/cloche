@@ -61,6 +61,14 @@ abstract class GenerateFabricModJson : DefaultTask() {
         }
 
         return buildString {
+            if (range.start == range.end) {
+                require(range.startInclusive.getOrElse(true)) {
+                    "No version in the range"
+                }
+                append(range.start.get())
+                return@buildString
+            }
+
             if (range.start.isPresent) {
                 if (range.startInclusive.getOrElse(true)) {
                     append(">=")
@@ -72,7 +80,7 @@ abstract class GenerateFabricModJson : DefaultTask() {
             }
 
             if (range.end.isPresent) {
-                append(' ')
+                if (range.start.isPresent) append(' ')
 
                 if (range.endExclusive.getOrElse(true)) {
                     append('<')
