@@ -128,7 +128,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         )
 
         val toml = mutableMapOf(
-            "modLoader" to "javafml",
+            "modLoader" to targetMetadata.modLoader.getOrElse("javafml"),
             "loaderVersion" to "[${loaderDependencyVersion.get()},)",
             "license" to commonMetadata.license.get(),
             "dependencies" to mapOf(commonMetadata.modId.get() to dependencies),

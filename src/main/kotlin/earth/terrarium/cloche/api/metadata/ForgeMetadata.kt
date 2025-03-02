@@ -11,6 +11,11 @@ import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
 interface ForgeMetadata {
+    val modLoader: Property<String>
+        @Optional
+        @Input
+        get
+
     val showAsResourcePack: Property<Boolean>
         @Optional
         @Input
