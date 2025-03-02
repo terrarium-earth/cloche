@@ -61,6 +61,14 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 append(range.start.get())
             }
 
+            if (range.start == range.end) {
+                require(range.startInclusive.getOrElse(true)) {
+                    "No version in the range"
+                }
+                append(']')
+                return@buildString
+            }
+
             append(',')
 
             if (range.end.isPresent) {
@@ -156,7 +164,8 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         }
 
         if (commonMetadata.contributors.get().isNotEmpty()) {
-            mod["credits"] = "Contributors: ${commonMetadata.contributors.get().joinToString(transform = ::convertPerson)}"
+            mod["credits"] =
+                "Contributors: ${commonMetadata.contributors.get().joinToString(transform = ::convertPerson)}"
         }
 
         if (commonMetadata.authors.get().isNotEmpty()) {
