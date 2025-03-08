@@ -1,24 +1,16 @@
 package earth.terrarium.cloche.tasks
 
-import com.google.gson.Gson
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.custom.convertToJsonFromSerializable
+import kotlinx.serialization.json.*
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.Nested
-import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputFile
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.TaskAction
-import kotlin.io.path.writeText
+import org.gradle.api.tasks.*
+import kotlin.io.path.outputStream
 
 abstract class GenerateFabricModJson : DefaultTask() {
     abstract val loaderDependencyVersion: Property<String>
@@ -93,13 +85,13 @@ abstract class GenerateFabricModJson : DefaultTask() {
         }
     }
 
-    private fun convertPerson(person: ModMetadata.Person) = JsonObject().apply {
-        addProperty("name", person.name.get())
+    private fun convertPerson(person: ModMetadata.Person) = buildMap {
+        put("name", JsonPrimitive(person.name.get()))
 
         if (person.contact.isPresent) {
-            addProperty("contact", person.contact.get())
+            put("contact", JsonPrimitive(person.contact.get()))
         }
-    }
+    }.let(::JsonObject)
 
     @TaskAction
     fun makeJson() {
@@ -107,119 +99,120 @@ abstract class GenerateFabricModJson : DefaultTask() {
         val commonMetadata = commonMetadata.get()
         val targetMetadata = targetMetadata.get()
 
-        val json = JsonObject().apply {
-            addProperty("schemaVersion", 1)
-            addProperty("id", commonMetadata.modId.get())
-            addProperty("version", modVersion.get())
+        val json = buildMap {
+            put("schemaVersion", JsonPrimitive(1))
+            put("id", JsonPrimitive(commonMetadata.modId.get()))
+            put("version", JsonPrimitive(modVersion.get()))
 
-            if (commonMetadata.name.isPresent) addProperty("name", commonMetadata.name.get())
-            if (commonMetadata.description.isPresent) addProperty("description", commonMetadata.description.get())
+            if (commonMetadata.name.isPresent) put("name", JsonPrimitive(commonMetadata.name.get()))
+            if (commonMetadata.description.isPresent) put(
+                "description",
+                JsonPrimitive(commonMetadata.description.get())
+            )
 
             if (commonMetadata.authors.get().isNotEmpty()) {
-                add(
+                put(
                     "authors",
-                    JsonArray().apply { commonMetadata.authors.get().forEach { add(convertPerson(it)) } },
+                    JsonArray(commonMetadata.authors.get().map(::convertPerson))
                 )
             }
 
             if (commonMetadata.contributors.get().isNotEmpty()) {
-                add(
+                put(
                     "contributors",
-                    JsonArray().apply { commonMetadata.contributors.get().forEach { add(convertPerson(it)) } }
+                    JsonArray(commonMetadata.contributors.get().map(::convertPerson))
                 )
             }
 
             if (commonMetadata.url.isPresent) {
-                add(
+                put(
                     "contact",
-                    JsonObject().apply {
-                        addProperty("homepage", commonMetadata.url.get())
-                    }
+                    JsonObject(mapOf("homepage" to JsonPrimitive(commonMetadata.url.get()))),
                 )
             }
 
-            addProperty("license", commonMetadata.license.get())
+            put("license", JsonPrimitive(commonMetadata.license.get()))
 
             if (commonMetadata.icon.isPresent) {
-                addProperty("icon", commonMetadata.icon.get())
+                put("icon", JsonPrimitive(commonMetadata.icon.get()))
             }
 
             if (accessWidener.isPresent) {
-                addProperty("accessWidener", accessWidener.get())
+                put("accessWidener", JsonPrimitive(accessWidener.get()))
             }
 
-            val mixins = JsonArray()
-
-            val clientMixins = JsonArray().apply {
-                for (config in clientMixinConfigs) {
-                    add(config.name)
-                }
+            val commonMixins = mixinConfigs.map {
+                JsonPrimitive(it.name)
             }
 
-            for (config in mixinConfigs) {
-                mixins.add(config.name)
+            val clientMixins = clientMixinConfigs.map {
+                JsonObject(
+                    mapOf(
+                        "config" to JsonPrimitive(it.name),
+                        "environment" to JsonPrimitive("client"),
+                    )
+                )
             }
 
-            for (config in clientMixinConfigs) {
-                mixins.add(JsonObject().apply {
-                    addProperty("config", config.name)
-                    addProperty("environment", "client")
-                })
+            if (commonMixins.isNotEmpty() || clientMixins.isNotEmpty()) {
+                put("mixins", JsonArray(commonMixins + clientMixins))
             }
 
-            if (mixins.size() > 0) {
-                add("mixins", mixins)
-            }
-
-            val depends = JsonObject()
+            val depends = mutableMapOf<String, String>()
 
             val entrypoints = targetMetadata.entrypoints.get()
 
             if (entrypoints.isNotEmpty()) {
-                add("entrypoints", JsonObject().apply {
-                    for ((key, values) in entrypoints.entries) {
-                        val array = JsonArray()
+                put("entrypoints", JsonObject(entrypoints.mapValues { (key, value) ->
+                    JsonArray(value.map { entrypoint ->
+                        JsonObject(buildMap {
+                            put("value", JsonPrimitive(entrypoint.value.get()))
 
-                        for (entrypoint in values) {
-                            array.add(JsonObject().apply {
-                                addProperty("value", entrypoint.value.get())
-
-                                if (entrypoint.adapter.isPresent) {
-                                    addProperty("adapter", entrypoint.adapter.get())
-                                }
-                            })
-                        }
-
-                        add(key, array)
-                    }
-                })
+                            if (entrypoint.adapter.isPresent) {
+                                put("adapter", JsonPrimitive(entrypoint.adapter.get()))
+                            }
+                        })
+                    })
+                }))
             }
 
-            depends.addProperty("fabricloader", ">=${loaderDependencyVersion.get()}")
-            depends.addProperty("fabric", "*")
+            depends.put("fabricloader", ">=${loaderDependencyVersion.get()}")
+            depends.put("fabric", "*")
 
             val dependencies = commonMetadata.dependencies.get() + targetMetadata.dependencies.get()
+
             if (dependencies.isNotEmpty()) {
-                val suggests = JsonObject()
+                val suggests = mutableMapOf<String, String>()
+
                 for (dependency in dependencies) {
                     val key = dependency.modId.get()
                     val version = dependency.version.map { buildVersionRange(it) }.getOrElse("*")
 
                     if (dependency.required.getOrElse(false)) {
-                        depends.addProperty(key, version)
+                        depends[key] = version
                     } else {
-                        suggests.addProperty(key, version)
+                        suggests[key] = version
                     }
                 }
 
-                if (suggests.size() != 0) {
-                    add("suggests", suggests)
+                if (suggests.isNotEmpty()) {
+                    put("suggests", JsonObject(suggests.mapValues { (_, value) -> JsonPrimitive(value) }))
                 }
             }
 
-            add("depends", depends)
+            put("depends", JsonObject(depends.mapValues { (_, value) -> JsonPrimitive(value) }))
+
+            val custom = commonMetadata.custom.get() + targetMetadata.custom.get()
+
+            if (custom.isNotEmpty()) {
+                put("custom", JsonObject(custom.mapValues { (_, value) -> convertToJsonFromSerializable(value) }))
+            }
         }
 
-        file.writeText(Gson().toJson(json))
+        output.getAsPath().outputStream().use {
+            Json {
+                prettyPrint = true
+            }.encodeToStream(json, it)
+        }
     }
 }

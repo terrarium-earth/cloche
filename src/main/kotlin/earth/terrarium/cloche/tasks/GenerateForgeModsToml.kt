@@ -3,6 +3,9 @@ package earth.terrarium.cloche.tasks
 import com.moandjiezana.toml.TomlWriter
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.custom.convertToJsonFromSerializable
+import earth.terrarium.cloche.api.metadata.custom.convertToObjectFromSerializable
+import kotlinx.serialization.json.JsonPrimitive
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
@@ -17,6 +20,7 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import kotlin.io.path.outputStream
 
+// TODO Migrate to use ktoml
 abstract class GenerateForgeModsToml : DefaultTask() {
     abstract val loaderDependencyVersion: Property<String>
         @Input get
@@ -174,6 +178,16 @@ abstract class GenerateForgeModsToml : DefaultTask() {
 
         toml["mods"] = arrayOf(mod)
 
-        TomlWriter().write(toml, output.outputStream())
+        val custom = commonMetadata.custom.get() + targetMetadata.modProperties.get()
+
+        if (custom.isNotEmpty()) {
+            toml["modproperties"] = custom.mapValues { (_, value) ->
+                convertToObjectFromSerializable(value)
+            }
+        }
+
+        output.outputStream().use {
+            TomlWriter().write(toml, it)
+        }
     }
 }
