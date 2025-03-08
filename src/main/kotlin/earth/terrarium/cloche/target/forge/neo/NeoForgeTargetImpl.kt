@@ -73,7 +73,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         }
 
         generateModsToml.configure {
-            it.loaderDependencyVersion.set("1")
+            it.loaderDependencyVersion.set(metadata.loaderVersion.orElse(loaderVersionRange("1")))
 
             it.output.set(metadataDirectory.map {
                 it.dir("META-INF").file("neoforge.mods.toml")

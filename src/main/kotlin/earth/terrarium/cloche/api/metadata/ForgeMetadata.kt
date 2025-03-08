@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.api.metadata
 
 import earth.terrarium.cloche.api.metadata.ModMetadata.Dependency
+import earth.terrarium.cloche.api.metadata.ModMetadata.VersionRange
 import earth.terrarium.cloche.api.metadata.custom.JsonSerializable
 import earth.terrarium.cloche.api.metadata.custom.convertToSerializable
 import org.gradle.api.Action
@@ -18,6 +19,11 @@ interface ForgeMetadata {
     val modLoader: Property<String>
         @Optional
         @Input
+        get
+
+    val loaderVersion: Property<VersionRange>
+        @Nested
+        @Optional
         get
 
     val showAsResourcePack: Property<Boolean>
@@ -71,4 +77,11 @@ interface ForgeMetadata {
 
     fun modProperty(name: String, value: Any?) =
         modProperties.put(name, convertToSerializable(objects, value))
+
+    fun loaderVersion(version: String) = loaderVersion {
+        it.start.set(version)
+    }
+
+    fun loaderVersion(action: Action<VersionRange>) =
+        loaderVersion.set(objects.newInstance(VersionRange::class.java).also(action::execute))
 }

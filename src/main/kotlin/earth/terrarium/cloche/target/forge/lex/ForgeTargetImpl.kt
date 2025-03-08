@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target.forge.lex
 
 import earth.terrarium.cloche.FORGE
+import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
@@ -44,6 +45,14 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
     }
 
     init {
+        generateModsToml.configure {
+            it.loaderDependencyVersion.set(
+                metadata.loaderVersion.orElse(loaderVersion.map {
+                    loaderVersionRange(it.substringBefore('.'))
+                }),
+            )
+        }
+
         resolvePatchedMinecraft.configure {
             it.output.set(
                 project.layout.file(

@@ -3,27 +3,20 @@ package earth.terrarium.cloche.tasks
 import com.moandjiezana.toml.TomlWriter
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
-import earth.terrarium.cloche.api.metadata.custom.convertToJsonFromSerializable
 import earth.terrarium.cloche.api.metadata.custom.convertToObjectFromSerializable
-import kotlinx.serialization.json.JsonPrimitive
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import org.gradle.api.DefaultTask
+import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.Nested
-import org.gradle.api.tasks.OutputFile
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.*
 import kotlin.io.path.outputStream
 
 // TODO Migrate to use ktoml
 abstract class GenerateForgeModsToml : DefaultTask() {
-    abstract val loaderDependencyVersion: Property<String>
-        @Input get
+    abstract val loaderDependencyVersion: Property<ModMetadata.VersionRange>
+        @Nested get
 
     abstract val output: RegularFileProperty
         @OutputFile get
@@ -99,12 +92,18 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         val commonMetadata = commonMetadata.get()
         val targetMetadata = targetMetadata.get()
 
+        val loaderVersionRange = buildVersionRange(loaderDependencyVersion.get())
+
+        if (loaderVersionRange == null) {
+            throw InvalidUserCodeException("Empty loader version range specified for a forge-like target.")
+        }
+
         val dependencies: MutableList<Map<String, Any>> = mutableListOf(
             mapOf(
                 "modId" to loaderName.get(),
                 "type" to "required",
                 "mandatory" to true,
-                "versionRange" to "[${loaderDependencyVersion.get()},)"
+                "versionRange" to loaderVersionRange!!
             )
         )
 
@@ -133,7 +132,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
 
         val toml = mutableMapOf(
             "modLoader" to targetMetadata.modLoader.getOrElse("javafml"),
-            "loaderVersion" to "[${loaderDependencyVersion.get()},)",
+            "loaderVersion" to loaderVersionRange,
             "license" to commonMetadata.license.get(),
             "dependencies" to mapOf(commonMetadata.modId.get() to dependencies),
             "mixins" to mixinConfigs.map {

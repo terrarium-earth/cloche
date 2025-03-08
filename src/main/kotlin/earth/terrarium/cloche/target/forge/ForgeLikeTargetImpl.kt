@@ -5,6 +5,7 @@ import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
+import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
@@ -160,10 +161,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         lowerCamelCaseGradleName("generate", featureName, "modsToml"),
         GenerateForgeModsToml::class.java
     ) {
-        it.loaderDependencyVersion.set(loaderVersion.map {
-            it.substringBefore('.')
-        })
-
         it.output.set(metadataDirectory.map {
             it.dir("META-INF").file("mods.toml")
         })
@@ -192,6 +189,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         })
 
         project.dependencies.add(universal.name, forgeDependency {})
+    }
+
+    protected fun loaderVersionRange(version: String): ModMetadata.VersionRange = objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
+        start.set(version)
     }
 
     private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<Dependency> =
