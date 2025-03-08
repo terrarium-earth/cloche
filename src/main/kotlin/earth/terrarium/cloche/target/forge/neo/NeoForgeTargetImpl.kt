@@ -10,12 +10,10 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import org.apache.commons.lang3.SystemUtils
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
-import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import javax.inject.Inject
 
 private val NEOFORGE_DISTRIBUTION_ATTRIBUTE = Attribute.of("net.neoforged.distribution", String::class.java)
@@ -94,7 +92,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
         classpath.from(runtimeClasspath)
 
-        val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeOnlyConfigurationName))
+        val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeClasspathConfigurationName))
 
         val modFiles = runtimeClasspath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
             val componentIdentifiers = modDependencies.incoming.resolutionResult.allComponents.map(ResolvedComponentResult::getId) - modDependencies.incoming.resolutionResult.root.id
