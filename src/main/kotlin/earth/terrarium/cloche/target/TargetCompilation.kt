@@ -9,15 +9,17 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
-import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
+import org.gradle.api.Action
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.result.ResolvedComponentResult
+import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -33,6 +35,28 @@ internal object States {
     const val INCLUDES_EXTRACTED = "includesExtracted"
     const val MIXINS_STRIPPED = "mixinsStripped"
     const val REMAPPED = "remapped"
+}
+
+internal fun Project.getModFiles(configurationName: String, isTransitive: Boolean = true, configure: Action<ArtifactView.ViewConfiguration>? = null): FileCollection {
+    val classpath = project.configurations.named(configurationName)
+
+    val modDependencies = project.configurations.named(modConfigurationName(configurationName))
+
+    return project.files(classpath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
+        val resolutionResult = modDependencies.incoming.resolutionResult
+
+        val componentIdentifiers = if (isTransitive) {
+            resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
+        } else {
+            resolutionResult.root.dependencies.filterIsInstance<ResolvedDependencyResult>().map { it.selected.id }
+        }
+
+        classpath.incoming.artifactView {
+            it.componentFilter(componentIdentifiers::contains)
+
+            configure?.execute(it)
+        }.files
+    })
 }
 
 internal fun registerCompilationTransformations(
@@ -60,20 +84,7 @@ internal fun registerCompilationTransformations(
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        val runtimeClasspath = project.configurations.named(sourceSet.runtimeClasspathConfigurationName)
-
-        val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeClasspathConfigurationName))
-
-        val modFiles = runtimeClasspath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
-            val componentIdentifiers = modDependencies.incoming.resolutionResult.allComponents.map(ResolvedComponentResult::getId) - modDependencies.incoming.resolutionResult.root.id
-
-            classpath.incoming.artifactView {
-                // Use an artifact view with a component filter to preserve artifact transforms, no variant reselection to ensure consistency
-                it.componentFilter(componentIdentifiers::contains)
-            }.files
-        }
-
-        it.accessWideners.from(modFiles)
+        it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
     }
 
     val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
@@ -125,12 +136,12 @@ private fun setupModTransformationPipeline(
         project.dependencies.registerTransform(RemapAction::class.java) {
             it.from.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED)
+                ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED),
             )
 
             it.to.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED)
+                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
             )
 
             it.parameters {
@@ -142,8 +153,26 @@ private fun setupModTransformationPipeline(
 
                 it.cacheDirectory.set(getGlobalCacheDirectory(project))
 
-                it.modFiles.from(project.configurations.getByName(modConfigurationName(compilation.sourceSet.compileClasspathConfigurationName)))
-                it.modFiles.from(project.configurations.getByName(modConfigurationName(compilation.sourceSet.runtimeClasspathConfigurationName)))
+                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
+                    it.attributes {
+                        it.attribute(
+                            ModTransformationStateAttribute.ATTRIBUTE,
+                            ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED),
+                        )
+                    }
+                }
+
+                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
+                    it.attributes {
+                        it.attribute(
+                            ModTransformationStateAttribute.ATTRIBUTE,
+                            ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED),
+                        )
+                    }
+                }
+
+                it.modFiles.from(modCompileClasspath)
+                it.modFiles.from(modRuntimeClasspath)
             }
         }
     }
@@ -189,9 +218,11 @@ constructor(
 
         setupModTransformationPipeline(project, target, this)
 
+        val includesExtractedState = ModTransformationStateAttribute.of(target, this, States.INCLUDES_EXTRACTED)
+
         val state = remapNamespace.map {
             if (it.isEmpty()) {
-                ModTransformationStateAttribute.of(target, this, States.INCLUDES_EXTRACTED)
+                includesExtractedState
             } else {
                 ModTransformationStateAttribute.of(target, this, States.REMAPPED)
             }

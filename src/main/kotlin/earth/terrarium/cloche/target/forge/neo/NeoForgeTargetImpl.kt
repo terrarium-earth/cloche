@@ -4,13 +4,12 @@ import earth.terrarium.cloche.NEOFORGE
 import earth.terrarium.cloche.api.target.NeoforgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
-import earth.terrarium.cloche.target.modConfigurationName
+import earth.terrarium.cloche.target.getModFiles
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
@@ -84,26 +83,13 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
     }
 
     private fun configureLegacyClasspath(task: GenerateLegacyClasspath, sourceSet: SourceSet) {
-        val runtimeClasspath = project.configurations.named(sourceSet.runtimeClasspathConfigurationName)
-
         val classpath = project.files()
 
         classpath.from(minecraftLibrariesConfiguration)
         classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
-        classpath.from(runtimeClasspath)
+        classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
 
-        val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeClasspathConfigurationName))
-
-        val modFiles = runtimeClasspath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
-            val componentIdentifiers = modDependencies.incoming.resolutionResult.allComponents.map(ResolvedComponentResult::getId) - modDependencies.incoming.resolutionResult.root.id
-
-            classpath.incoming.artifactView {
-                // Use an artifact view with a component filter to preserve artifact transforms, no variant reselection to ensure consistency
-                it.componentFilter(componentIdentifiers::contains)
-            }.files
-        }
-
-        task.classpath.from(classpath - project.files(modFiles))
+        task.classpath.from(classpath - project.getModFiles(sourceSet.runtimeClasspathConfigurationName, isTransitive = false))
     }
 
     private fun addAttributes(sourceSet: SourceSet) {
