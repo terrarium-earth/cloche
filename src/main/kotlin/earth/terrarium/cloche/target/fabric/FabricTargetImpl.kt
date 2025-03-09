@@ -10,7 +10,7 @@ import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
+import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -216,7 +216,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 FabricClientSecondarySourceSets::class.java,
                 ClochePlugin.CLIENT_COMPILATION_NAME,
                 this,
-                project.files(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile), remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile)),
+                project.files(
+                    remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
+                    remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile)
+                ),
                 remapClient.flatMap(RemapTask::outputFile),
                 project.files(main.finalMinecraftFile),
                 PublicationSide.Client,
@@ -302,18 +305,25 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
-        val commonClasspath = list(
-            registerCompilationTransformations(
-                this,
-                lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
-                compilationSourceSet(this, name, isSingleTarget),
-                remapCommon.flatMap(RemapTask::outputFile),
-                project.files(),
-            ).first
-        )
+        val commonTask = registerCompilationTransformations(
+            this,
+            lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
+            compilationSourceSet(this, name, isSingleTarget),
+            remapCommon.flatMap(RemapTask::outputFile),
+            project.files(),
+        ).first
+
+        commonTask.configure {
+            it.accessWideners.from(accessWideners)
+        }
+
+        val commonClasspath = list(commonTask.flatMap(AccessWiden::outputFile))
 
         // TODO Once client splitting is done, we might not always need the client Jar
-        val intermediateClasspath = project.files(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile), remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile))
+        val intermediateClasspath = project.files(
+            remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
+            remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile)
+        )
 
         val remappedFile = clientAlternative(
             normal = remapCommon.flatMap(RemapTask::outputFile),
@@ -457,7 +467,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             lowerCamelCaseGradleName("merge", name, compilation.collapsedName, "accessWideners"),
             MergeAccessWideners::class.java
         ) {
-            it.input.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
+            it.input.from(accessWideners)
             it.accessWidenerName.set(project.extension<ClocheExtension>().metadata.modId)
 
             val output = modId.zip(project.layout.buildDirectory.dir("generated"), ::Pair)

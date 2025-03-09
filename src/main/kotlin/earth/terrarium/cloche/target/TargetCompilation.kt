@@ -5,11 +5,11 @@ import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
 import earth.terrarium.cloche.TargetAttributes
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
+import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
@@ -17,6 +17,7 @@ import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import org.gradle.api.Project
+import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -40,7 +41,7 @@ internal fun registerCompilationTransformations(
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: FileCollection,
-): Pair<Provider<RegularFile>, Provider<RegularFile>> {
+): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
     val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     val project = target.project
@@ -58,7 +59,21 @@ internal fun registerCompilationTransformations(
 
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-        it.accessWideners.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
+
+        val runtimeClasspath = project.configurations.named(sourceSet.runtimeClasspathConfigurationName)
+
+        val modDependencies = project.configurations.named(modConfigurationName(sourceSet.runtimeClasspathConfigurationName))
+
+        val modFiles = runtimeClasspath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
+            val componentIdentifiers = modDependencies.incoming.resolutionResult.allComponents.map(ResolvedComponentResult::getId) - modDependencies.incoming.resolutionResult.root.id
+
+            classpath.incoming.artifactView {
+                // Use an artifact view with a component filter to preserve artifact transforms, no variant reselection to ensure consistency
+                it.componentFilter(componentIdentifiers::contains)
+            }.files
+        }
+
+        it.accessWideners.from(modFiles)
     }
 
     val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
@@ -74,7 +89,7 @@ internal fun registerCompilationTransformations(
         it.classpath.from(extraClasspathFiles)
     }
 
-    return finalMinecraftFile to decompile.flatMap(Decompile::outputFile)
+    return accessWidenTask to decompile.flatMap(Decompile::outputFile)
 }
 
 internal fun compilationSourceSet(target: MinecraftTargetInternal<*>, name: String, isSingleTarget: Boolean): SourceSet {
@@ -103,7 +118,7 @@ private fun setupModTransformationPipeline(
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform but that's far slower
     project.afterEvaluate {
-        if (compilation.remapNamespace.get().isEmpty()) {
+        if (target.remapNamespace.get().isEmpty()) {
             return@afterEvaluate
         }
 
@@ -121,7 +136,7 @@ private fun setupModTransformationPipeline(
             it.parameters {
                 it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                it.sourceNamespace.set(compilation.remapNamespace)
+                it.sourceNamespace.set(target.remapNamespace)
 
                 it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
 
@@ -157,7 +172,7 @@ constructor(
         extraClasspathFiles,
     )
 
-    val finalMinecraftFile: Provider<RegularFile> = setupFiles.first
+    val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)
     val sources = setupFiles.second
 
     val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"), RemapJar::class.java) {
@@ -170,7 +185,6 @@ constructor(
     }
 
     init {
-        project.dependencies.add(sourceSet.accessWidenersConfigurationName, accessWideners)
         project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
 
         setupModTransformationPipeline(project, target, this)
@@ -195,10 +209,8 @@ constructor(
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
-        project.configurations.named(sourceSet.accessWidenersConfigurationName) {
-            it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
-
-            it.extendsFrom(target.mappingsBuildDependenciesHolder)
+        setupFiles.first.configure {
+            it.accessWideners.from(accessWideners)
         }
 
         // Use detached configuration for idea compat

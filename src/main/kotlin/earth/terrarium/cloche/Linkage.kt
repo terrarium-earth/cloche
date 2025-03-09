@@ -4,7 +4,6 @@ import earth.terrarium.cloche.target.CommonCompilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.modConfigurationName
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
@@ -31,7 +30,6 @@ private fun SourceSet.addClasspathDependency(dependency: SourceSet) {
     extend(modConfigurationName(compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
 
     extend(mixinsConfigurationName, dependency.mixinsConfigurationName)
-    extend(accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
 }
 
 /**
@@ -48,6 +46,7 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
     }
 
     sourceSet.addClasspathDependency(dependency.sourceSet)
+    accessWideners.from(dependency.accessWideners)
 }
 
 /**
@@ -66,6 +65,7 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
     }
 
     sourceSet.addClasspathDependency(dependency.sourceSet)
+    accessWideners.from(dependency.accessWideners)
 }
 
 /**
@@ -78,4 +78,5 @@ internal fun CompilationInternal.addSourceDependency(dependency: CompilationInte
     sourceSet.extension<SourceSetStaticLinkageInfo>().link(dependency.sourceSet)
 
     project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
+    accessWideners.from(dependency.accessWideners)
 }

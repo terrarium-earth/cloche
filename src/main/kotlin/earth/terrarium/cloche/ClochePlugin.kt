@@ -135,7 +135,6 @@ class ClochePlugin : Plugin<Project> {
                 target.extend(modConfigurationName(it.compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
 
                 target.extend(it.mixinsConfigurationName, dependency.mixinsConfigurationName)
-                target.extend(it.accessWidenersConfigurationName, dependency.accessWidenersConfigurationName)
             }
         }
 

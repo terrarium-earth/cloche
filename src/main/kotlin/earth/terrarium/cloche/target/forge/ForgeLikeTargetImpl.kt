@@ -9,7 +9,6 @@ import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -306,7 +305,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             lowerCamelCaseGradleName("generate", name, compilation.collapsedName, "accessTransformer"),
             GenerateAccessTransformer::class.java
         ) {
-            it.input.from(project.configurations.named(sourceSet.accessWidenersConfigurationName))
+            it.input.from(accessWideners)
 
             val output = project.layout.buildDirectory.dir("generated")
                 .map { directory ->

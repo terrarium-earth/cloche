@@ -2,7 +2,6 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
@@ -159,7 +158,7 @@ context(Project) internal fun createCommonTarget(
             sourceSet.annotationProcessorConfigurationName,
             JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
         )
-        project.dependencies.add(sourceSet.accessWidenersConfigurationName, compilation.accessWideners)
+
         project.dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {

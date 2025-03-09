@@ -3,11 +3,9 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClochePlugin.Companion.IDEA_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.target.ClocheTarget
-import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.compilation.Compilation
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
@@ -124,15 +122,6 @@ internal abstract class CompilationInternal : Compilation {
             it.extendsFrom(modCompileOnlyApi)
 
             it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
-        }
-
-        project.configurations.named(sourceSet.accessWidenersConfigurationName) {
-            it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
-
-            it.extendsFrom(modImplementation)
-            it.extendsFrom(modCompileOnly)
-            it.extendsFrom(modApi)
-            it.extendsFrom(modCompileOnlyApi)
         }
     }
 

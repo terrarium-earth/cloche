@@ -103,7 +103,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 "modId" to loaderName.get(),
                 "type" to "required",
                 "mandatory" to true,
-                "versionRange" to loaderVersionRange!!
+                "versionRange" to loaderVersionRange,
             )
         )
 
