@@ -1,5 +1,6 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -44,8 +45,8 @@ context(Project) internal fun createCommonTarget(
 
             it.apiFileName.set("$jarName-api-stub.jar")
 
-            val configurations = project.configurations
-            val objects = project.objects
+            val configurations = configurations
+            val objects = objects
 
             it.classpaths.set(compilations.map {
                 it.map {
@@ -72,7 +73,7 @@ context(Project) internal fun createCommonTarget(
         return fileTree(generateStub.flatMap(GenerateStubApi::outputDirectory)).builtBy(generateStub)
     }
 
-    fun dependencyHolder(compilation: CommonCompilation) = project.configurations.maybeCreate(
+    fun dependencyHolder(compilation: CommonCompilation) = configurations.maybeCreate(
         lowerCamelCaseGradleName(
             commonTarget.featureName,
             compilation.collapsedName,
@@ -92,7 +93,7 @@ context(Project) internal fun createCommonTarget(
             compilation.sourceSet
         }
 
-        project.createCompilationVariants(
+        createCompilationVariants(
             compilation,
             sourceSet,
             commonTarget.name == COMMON || commonTarget.publish
@@ -100,10 +101,10 @@ context(Project) internal fun createCommonTarget(
 
         configureSourceSet(sourceSet, commonTarget, compilation, false)
 
-        project.components.named("java") { java ->
+        components.named("java") { java ->
             java as AdhocComponentWithVariants
 
-            java.addVariantsFromConfiguration(project.configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
+            java.addVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
                 // Common compilations are not runnable.
                 variant.skip()
             }
@@ -111,7 +112,7 @@ context(Project) internal fun createCommonTarget(
 
         val dependencyHolder = dependencyHolder(compilation)
 
-        project.dependencies.add(dependencyHolder.name, intersection)
+        dependencies.add(dependencyHolder.name, intersection)
 
         compilation.attributes {
             it.attribute(SIDE_ATTRIBUTE, variant)
@@ -134,7 +135,7 @@ context(Project) internal fun createCommonTarget(
             }
         }
 
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+        configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.extendsFrom(dependencyHolder)
 
             it.attributes(compilation::attributes)
@@ -146,20 +147,33 @@ context(Project) internal fun createCommonTarget(
             sourceSet.javadocElementsConfigurationName,
             sourceSet.sourcesElementsConfigurationName
         )) {
-            project.configurations.findByName(name)?.attributes(compilation::attributes)
+            configurations.findByName(name)?.attributes(compilation::attributes)
         }
 
-        project.dependencies.add(
+        dependencies.add(
             sourceSet.compileOnlyConfigurationName,
             "net.msrandom:java-expect-actual-annotations:1.0.0"
         )
 
-        project.dependencies.add(
+        dependencies.add(
             sourceSet.annotationProcessorConfigurationName,
             JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
         )
 
-        project.dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
+        plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
+            val kspConfigurationName = if (SourceSet.isMain(sourceSet)) {
+                "ksp"
+            } else {
+                lowerCamelCaseGradleName("ksp", sourceSet.name)
+            }
+
+            dependencies.add(
+                kspConfigurationName,
+                KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR,
+            )
+        }
+
+        dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")

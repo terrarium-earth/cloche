@@ -218,7 +218,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 this,
                 project.files(
                     remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
-                    remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile)
+                    remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
                 ),
                 remapClient.flatMap(RemapTask::outputFile),
                 project.files(main.finalMinecraftFile),
@@ -322,7 +322,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         // TODO Once client splitting is done, we might not always need the client Jar
         val intermediateClasspath = project.files(
             remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
-            remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile)
+            remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
         )
 
         val remappedFile = clientAlternative(

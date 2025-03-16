@@ -104,10 +104,8 @@ class ClochePlugin : Plugin<Project> {
 
         target.plugins.apply(JavaLibraryPlugin::class.java)
 
-        target.plugins.withId("org.jetbrains.kotlin.jvm") {
+        target.plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
             target.plugins.apply(KspGradleSubplugin::class.java)
-
-            // target.dependencies.add("ksp", "net.msrandom:kmp-stubs-processor:1.0.0")
         }
 
         target.dependencies.attributesSchema { schema ->
@@ -451,5 +449,7 @@ class ClochePlugin : Plugin<Project> {
         const val STUB_VERSION = "0.0.0"
         const val STUB_MODULE = "$STUB_GROUP:$STUB_NAME"
         const val STUB_DEPENDENCY = "$STUB_MODULE:$STUB_VERSION"
+
+        const val KOTLIN_JVM_PLUGIN_ID = "org.jetbrains.kotlin.jvm"
     }
 }

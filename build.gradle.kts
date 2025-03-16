@@ -5,6 +5,8 @@ plugins {
     `java-gradle-plugin`
     `maven-publish`
     idea
+
+    id("com.google.devtools.ksp") version "2.1.0-1.0.29"
 }
 
 gradlePlugin {
@@ -44,7 +46,7 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-intersections", version = "0.5.24")
 
     implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.10")
-    implementation(group = "net.msrandom", name = "java-virtual-source-sets", version = "1.2.1")
+    implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.2.2")
     implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.2")
 
     implementation(group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version = "2.1.0-1.0.29")
