@@ -11,7 +11,7 @@ import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSet
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
-const val KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR = "net.msrandom:kmp-actual-stubs-processor:1.0.2"
+const val KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR = "net.msrandom:kmp-actual-stubs-processor:1.0.3"
 
 /**
  * Depend on the compiled output of [dependency], by requesting the capability to allow for resolution to the proper variants
