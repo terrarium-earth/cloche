@@ -101,7 +101,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             ),
             RemapTask::class.java,
         ) {
-            it.group = "minecraft-resolution"
+            it.group = "minecraft-transforms"
 
             it.inputFile.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
             it.sourceNamespace.set("obf")

@@ -4,16 +4,11 @@ import com.google.devtools.ksp.gradle.KspGradleSubplugin
 import earth.terrarium.cloche.ClochePlugin.Companion.IDEA_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
-import earth.terrarium.cloche.target.CommonTargetInternal
-import earth.terrarium.cloche.target.CommonTopLevelCompilation
-import earth.terrarium.cloche.target.CompilationInternal
-import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricClientSecondarySourceSets
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
-import net.msrandom.minecraftcodev.accesswidener.accessWidenersConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftDependenciesOperatingSystemMetadataRule
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -34,7 +29,7 @@ import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
-import org.gradle.api.plugins.ApplicationPlugin
+import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Provider
@@ -107,6 +102,8 @@ class ClochePlugin : Plugin<Project> {
         target.plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
             target.plugins.apply(KspGradleSubplugin::class.java)
         }
+
+        (target.repositories as ExtensionAware).extensions.create("cloche", ClocheRepositoriesExtension::class.java, target.repositories)
 
         target.dependencies.attributesSchema { schema ->
             schema.attribute(SIDE_ATTRIBUTE) {
