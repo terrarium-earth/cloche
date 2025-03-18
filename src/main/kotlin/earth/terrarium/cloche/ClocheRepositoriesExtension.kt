@@ -5,6 +5,7 @@ import groovy.lang.DelegatesTo
 import org.gradle.api.Action
 import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+import org.gradle.api.plugins.ExtensionAware
 import javax.inject.Inject
 
 private const val NEOFORGE_RELEASES_CHANNEL = "releases"
@@ -17,9 +18,27 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
     }
 
     @JvmOverloads
-    fun all(configure: Action<in MavenArtifactRepository>? = null) = apply("maven.msrandom.net/repository/root", configure)
+    fun all(configure: Action<in MavenArtifactRepository>? = null) {
+        librariesMinecraft(configure)
+
+        repositoryHandler.mavenCentral {
+            configure?.execute(it)
+        }
+
+        main(configure)
+        mavenFabric(configure)
+        mavenNeoforged(configure = configure)
+        mavenForge(configure)
+    }
 
     fun all(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = all {
+        configure.rehydrate(it, this, this).call()
+    }
+
+    @JvmOverloads
+    fun main(configure: Action<in MavenArtifactRepository>? = null) = apply("maven.msrandom.net/repository/root", configure)
+
+    fun main(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = main {
         configure.rehydrate(it, this, this).call()
     }
 
@@ -50,5 +69,11 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
     @JvmOverloads
     fun mavenNeoforged(channel: String = NEOFORGE_RELEASES_CHANNEL, @DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenNeoforged(channel) {
         configure.rehydrate(it, this, this).call()
+    }
+
+    companion object {
+        fun register(repositoryHandler: RepositoryHandler) {
+            (repositoryHandler as ExtensionAware).extensions.create("cloche", ClocheRepositoriesExtension::class.java, repositoryHandler)
+        }
     }
 }
