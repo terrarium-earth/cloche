@@ -36,16 +36,16 @@ internal abstract class CompilationInternal : Compilation {
     var withSources: Boolean = false
 
     val featureName
-        get() = lowerCamelCaseGradleName(name)
+        get() = lowerCamelCaseGradleName(collapsedName)
 
     val capabilityName
-        get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '-')
+        get() = collapsedName?.replace(TARGET_NAME_PATH_SEPARATOR, '-')
 
     val namePath
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '/')
 
     val collapsedName
-        get() = featureName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+        get() = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     override fun withJavadocJar() {
         withJavadoc = true
@@ -162,11 +162,7 @@ internal fun Project.configureSourceSet(
         target.classifierName
     }
 
-    val suffix = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-        null
-    } else {
-        compilation.capabilityName
-    }
+    val suffix = compilation.capabilityName
 
     val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
 

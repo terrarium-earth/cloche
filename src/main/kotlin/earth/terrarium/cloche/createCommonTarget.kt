@@ -1,6 +1,7 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
+import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -27,21 +28,17 @@ context(Project) internal fun createCommonTarget(
     onlyCommonOfType: Provider<Boolean>,
 ) {
     fun intersection(
-        compilationName: String,
+        compilation: CommonCompilation,
         compilations: Provider<List<TargetCompilation>>,
     ): FileCollection {
-        val compilationName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
-
-        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilationName, "api-stub")
+        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "api-stub")
 
         val generateStub = tasks.register(name, GenerateStubApi::class.java) {
             it.group = "minecraft-stubs"
 
-            val jarName = if (compilationName == null) {
-                commonTarget.classifierName
-            } else {
-                "${commonTarget.classifierName}-$compilationName"
-            }
+            val jarName = compilation.capabilityName?.let {
+                "${commonTarget.classifierName}-$it"
+            } ?: commonTarget.classifierName
 
             it.apiFileName.set("$jarName-api-stub.jar")
 
@@ -76,7 +73,7 @@ context(Project) internal fun createCommonTarget(
     fun dependencyHolder(compilation: CommonCompilation) = configurations.maybeCreate(
         lowerCamelCaseGradleName(
             commonTarget.featureName,
-            compilation.collapsedName,
+            compilation.featureName,
             "intersectionDependencies",
         )
     ).apply {
@@ -205,7 +202,7 @@ context(Project) internal fun createCommonTarget(
                 it,
                 variant,
                 intersection(
-                    it.name,
+                    it,
                     commonInfo.map {
                         it.dependants.map(dataGetter)
                     }
@@ -227,7 +224,7 @@ context(Project) internal fun createCommonTarget(
                 it,
                 variant,
                 intersection(
-                    it.name,
+                    it,
                     commonInfo.map {
                         it.dependants.map(testGetter)
                     }
@@ -251,7 +248,7 @@ context(Project) internal fun createCommonTarget(
         { it.test.internalValue ?: it.main },
         PublicationSide.Common,
         intersection(
-            commonTarget.main.name,
+            commonTarget.main,
             commonInfo.map { it.dependants.map(MinecraftTargetInternal<*>::main) },
         ),
     )
@@ -274,7 +271,7 @@ context(Project) internal fun createCommonTarget(
                     ?: it.main
             },
             PublicationSide.Client,
-            intersection(it.name, commonInfo.map {
+            intersection(it, commonInfo.map {
                 it.dependants.map {
                     (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation ?: it.main
                 }

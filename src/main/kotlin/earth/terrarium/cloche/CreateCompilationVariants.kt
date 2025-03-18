@@ -27,10 +27,10 @@ internal fun Project.createCompilationVariants(
 
             spec.capability(project.group.toString(), project.name, project.version.toString())
 
-            if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
+            compilation.capabilityName?.let {
                 spec.capability(
                     project.group.toString(),
-                    "${project.name}-${compilation.capabilityName}",
+                    "${project.name}-$it",
                     project.version.toString(),
                 )
             }
