@@ -23,6 +23,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
+import net.msrandom.minecraftcodev.fabric.task.ProcessIncludedJars
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -182,6 +183,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
         it.targetMetadata.set(metadata)
         it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
+        it.includedJars.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
     }
 
     private val generateMappingsArtifact = project.tasks.register(
@@ -198,6 +200,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     lateinit var mergeJarTask: TaskProvider<Jar>
+    lateinit var processIncludedJarsTask: TaskProvider<ProcessIncludedJars>
     override lateinit var includeJarTask: TaskProvider<JarInJar>
 
     private var hasIncludedClientValue = false
@@ -384,10 +387,18 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.duplicatesStrategy = DuplicatesStrategy.INCLUDE
         }
 
+        processIncludedJarsTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "processIncludedJars"),
+            ProcessIncludedJars::class.java
+        ) {
+            it.includeConfiguration.set(includeConfiguration)
+        }
+
         includeJarTask = project.tasks.register(
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarInJar"),
             JarInJar::class.java,
         ) {
+
             if (!isSingleTarget) {
                 it.archiveClassifier.set(classifierName)
             }
@@ -404,7 +415,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 jarTask.flatMap(Jar::getArchiveFile)
             })
 
-            it.includeFiles.from(includeConfiguration)
+            it.includedFiles.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
