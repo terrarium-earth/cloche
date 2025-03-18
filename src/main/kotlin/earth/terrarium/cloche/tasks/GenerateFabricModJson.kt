@@ -43,11 +43,6 @@ abstract class GenerateFabricModJson : DefaultTask() {
         @InputFiles
         get
 
-    abstract val includedJars: ConfigurableFileCollection
-        @PathSensitive(PathSensitivity.RELATIVE)
-        @InputFiles
-        get
-
     init {
         modVersion.convention(project.provider { project.version.toString() })
     }
@@ -203,14 +198,6 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 if (suggests.isNotEmpty()) {
                     put("suggests", JsonObject(suggests.mapValues { (_, value) -> JsonPrimitive(value) }))
                 }
-            }
-
-            if(!includedJars.isEmpty) {
-                put("jars", JsonArray(includedJars.map {
-                    buildJsonObject {
-                        put("file", "META-INF/jars/${it.name}")
-                    }
-                }))
             }
 
             put("depends", JsonObject(depends.mapValues { (_, value) -> JsonPrimitive(value) }))

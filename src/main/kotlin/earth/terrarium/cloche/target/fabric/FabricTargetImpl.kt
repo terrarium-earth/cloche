@@ -9,6 +9,7 @@ import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.tasks.FabricModJsonJars
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -183,7 +184,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
         it.targetMetadata.set(metadata)
         it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
-        it.includedJars.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
     }
 
     private val generateMappingsArtifact = project.tasks.register(
@@ -201,6 +201,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     lateinit var mergeJarTask: TaskProvider<Jar>
     lateinit var processIncludedJarsTask: TaskProvider<ProcessIncludedJars>
+    lateinit var generateJarsModJsonEntry: TaskProvider<FabricModJsonJars>
     override lateinit var includeJarTask: TaskProvider<JarInJar>
 
     private var hasIncludedClientValue = false
@@ -394,10 +395,21 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.includeConfiguration.set(includeConfiguration)
         }
 
+        generateJarsModJsonEntry = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "generateModJsonJarsEntry"),
+            FabricModJsonJars::class.java
+        ) {
+            val fabricmodjson = generateModJson.map { it.output.get() }
+            it.inputFile.set(fabricmodjson)
+            it.outputFile.set(fabricmodjson)
+            it.includedJars.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
+        }
+
         includeJarTask = project.tasks.register(
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarInJar"),
             JarInJar::class.java,
         ) {
+            it.dependsOn(generateJarsModJsonEntry)
 
             if (!isSingleTarget) {
                 it.archiveClassifier.set(classifierName)
