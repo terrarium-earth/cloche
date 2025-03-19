@@ -9,7 +9,7 @@ import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.target.*
-import earth.terrarium.cloche.tasks.FabricModJsonJars
+import earth.terrarium.cloche.tasks.GenerateModJsonJarsEntry
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -201,7 +201,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     lateinit var mergeJarTask: TaskProvider<Jar>
     lateinit var processIncludedJarsTask: TaskProvider<ProcessIncludedJars>
-    lateinit var generateJarsModJsonEntry: TaskProvider<FabricModJsonJars>
+    lateinit var generateJarsModJsonEntry: TaskProvider<GenerateModJsonJarsEntry>
     override lateinit var includeJarTask: TaskProvider<JarInJar>
 
     private var hasIncludedClientValue = false
@@ -396,12 +396,18 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         generateJarsModJsonEntry = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "generateModJsonJarsEntry"),
-            FabricModJsonJars::class.java
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "modJsonJarsEntry"),
+            GenerateModJsonJarsEntry::class.java
         ) {
-            val fabricmodjson = generateModJson.map { it.output.get() }
-            it.inputFile.set(fabricmodjson)
-            it.outputFile.set(fabricmodjson)
+            it.jar.set(hasIncludedClient.flatMap {
+                val jarTask = if (it) {
+                    main.remapJarTask
+                } else {
+                    mergeJarTask
+                }
+
+                jarTask.flatMap(Jar::getArchiveFile)
+            })
             it.includedJars.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
         }
 
@@ -417,15 +423,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
 
-            it.input.set(hasIncludedClient.flatMap {
-                val jarTask = if (it) {
-                    main.remapJarTask
-                } else {
-                    mergeJarTask
-                }
-
-                jarTask.flatMap(Jar::getArchiveFile)
-            })
+            it.input.set(generateJarsModJsonEntry.flatMap(GenerateModJsonJarsEntry::jar))
 
             it.includedFiles.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
         }
