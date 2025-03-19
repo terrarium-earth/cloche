@@ -9,6 +9,7 @@ import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.tasks.GenerateModJsonJarsEntry
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -23,6 +24,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
+import net.msrandom.minecraftcodev.fabric.task.ProcessIncludedJars
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -198,6 +200,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     lateinit var mergeJarTask: TaskProvider<Jar>
+    lateinit var processIncludedJarsTask: TaskProvider<ProcessIncludedJars>
+    lateinit var generateJarsModJsonEntry: TaskProvider<GenerateModJsonJarsEntry>
     override lateinit var includeJarTask: TaskProvider<JarInJar>
 
     private var hasIncludedClientValue = false
@@ -384,17 +388,18 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.duplicatesStrategy = DuplicatesStrategy.INCLUDE
         }
 
-        includeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarInJar"),
-            JarInJar::class.java,
+        processIncludedJarsTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "processIncludedJars"),
+            ProcessIncludedJars::class.java
         ) {
-            if (!isSingleTarget) {
-                it.archiveClassifier.set(classifierName)
-            }
+            it.includeConfiguration.set(includeConfiguration)
+        }
 
-            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
-
-            it.input.set(hasIncludedClient.flatMap {
+        generateJarsModJsonEntry = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "modJsonJarsEntry"),
+            GenerateModJsonJarsEntry::class.java
+        ) {
+            it.jar.set(hasIncludedClient.flatMap {
                 val jarTask = if (it) {
                     main.remapJarTask
                 } else {
@@ -403,8 +408,24 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
                 jarTask.flatMap(Jar::getArchiveFile)
             })
+            it.includedJars.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
+        }
 
-            it.includeFiles.from(includeConfiguration)
+        includeJarTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarInJar"),
+            JarInJar::class.java,
+        ) {
+            it.dependsOn(generateJarsModJsonEntry)
+
+            if (!isSingleTarget) {
+                it.archiveClassifier.set(classifierName)
+            }
+
+            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
+
+            it.input.set(generateJarsModJsonEntry.flatMap(GenerateModJsonJarsEntry::jar))
+
+            it.includedFiles.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
