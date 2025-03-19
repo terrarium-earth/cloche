@@ -36,6 +36,7 @@ abstract class GenerateModJsonJarsEntry : DefaultTask() {
 
     @TaskAction
     fun processFabricModJson() {
+        if(includedJars.isEmpty) return
         zipFileSystem(jar.getAsPath()).use {
             val input = it.getPath("fabric.mod.json")
             if (!input.exists()) throw IllegalStateException("Cannot process nonexistent mod json")
@@ -45,14 +46,11 @@ abstract class GenerateModJsonJarsEntry : DefaultTask() {
 
             val json = buildJsonObject {
                 inputJson.forEach { (key, value) -> put(key, value) }
-
-                if (!includedJars.isEmpty) {
-                    put("jars", JsonArray(includedJars.map {
-                        buildJsonObject {
-                            put("file", "META-INF/jars/${it.name}")
-                        }
-                    }))
-                }
+                put("jars", JsonArray(includedJars.map {
+                    buildJsonObject {
+                        put("file", "META-INF/jars/${it.name}")
+                    }
+                }))
             }
 
             input.outputStream().use {
