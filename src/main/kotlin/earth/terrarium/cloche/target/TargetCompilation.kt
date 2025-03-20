@@ -9,7 +9,6 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
-import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
@@ -118,14 +117,6 @@ private fun setupModTransformationPipeline(
     target: MinecraftTargetInternal<*>,
     compilation: TargetCompilation,
 ) {
-    project.dependencies.registerTransform(ExtractIncludes::class.java) {
-        it.from.attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
-        it.to.attribute(
-            ModTransformationStateAttribute.ATTRIBUTE,
-            ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED)
-        )
-    }
-
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform but that's far slower
     project.afterEvaluate {
@@ -136,7 +127,7 @@ private fun setupModTransformationPipeline(
         project.dependencies.registerTransform(RemapAction::class.java) {
             it.from.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED),
+                ModTransformationStateAttribute.INITIAL,
             )
 
             it.to.attribute(
@@ -157,7 +148,7 @@ private fun setupModTransformationPipeline(
                     it.attributes {
                         it.attribute(
                             ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED),
+                            ModTransformationStateAttribute.INITIAL,
                         )
                     }
                 }
@@ -166,7 +157,7 @@ private fun setupModTransformationPipeline(
                     it.attributes {
                         it.attribute(
                             ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.of(target, compilation, States.INCLUDES_EXTRACTED),
+                            ModTransformationStateAttribute.INITIAL,
                         )
                     }
                 }
@@ -218,11 +209,9 @@ constructor(
 
         setupModTransformationPipeline(project, target, this)
 
-        val includesExtractedState = ModTransformationStateAttribute.of(target, this, States.INCLUDES_EXTRACTED)
-
         val state = remapNamespace.map {
             if (it.isEmpty()) {
-                includesExtractedState
+                ModTransformationStateAttribute.INITIAL
             } else {
                 ModTransformationStateAttribute.of(target, this, States.REMAPPED)
             }
