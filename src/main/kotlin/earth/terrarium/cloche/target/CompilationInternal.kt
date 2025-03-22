@@ -123,6 +123,10 @@ internal abstract class CompilationInternal : Compilation {
 
             it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
         }
+
+        project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
+            it.addCollectedDependencies(dependencyHandler.annotationProcessor)
+        }
     }
 
     override fun toString() = target.name + TARGET_NAME_PATH_SEPARATOR + name
