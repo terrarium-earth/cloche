@@ -60,8 +60,7 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
             }
 
             is Settings -> {
-                ClocheRepositoriesExtension.register(target.buildscript.repositories)
-                ClocheRepositoriesExtension.register(target.pluginManagement.repositories)
+                ClocheRepositoriesExtension.register(target.dependencyResolutionManagement.repositories)
             }
         }
     }
