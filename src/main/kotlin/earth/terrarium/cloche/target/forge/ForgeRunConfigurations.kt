@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
@@ -58,6 +59,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
     }
 
     override val client = project.lazyConfigurable {
@@ -74,6 +76,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
     }
 
     override val data = project.lazyConfigurable {
@@ -96,6 +99,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
             .sourceSet(target.data.value.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenDirectory)
@@ -154,6 +158,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
             .sourceSet(target.data.value.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenClientDirectory)
@@ -214,6 +219,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             }
         }
             .sourceSet(target.test.value.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
     }
 
     override val clientTest: LazyConfigurableInternal<MinecraftRunConfiguration> = project.lazyConfigurable {

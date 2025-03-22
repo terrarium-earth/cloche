@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
@@ -37,6 +38,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             it.server()
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
     }
 
     override val client = project.lazyConfigurable {
@@ -58,6 +60,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(target.client.value.map(Compilation::sourceSet).orElse(target.sourceSet))
+            .addMixinJavaAgent()
     }
 
     override val data = project.lazyConfigurable {
@@ -75,6 +78,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(target.data.value.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenDirectory)
@@ -125,7 +129,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }.sourceSet(
             target.client.value.flatMap { it.data.value }.orElse(target.data.value).map(Compilation::sourceSet)
-        )
+        ).addMixinJavaAgent()
 
         target.client.onConfigured {
             project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -209,6 +213,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             it.gameTestServer()
         }
             .sourceSet(target.test.value.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
     }
 
     override val clientTest = project.lazyConfigurable {
@@ -232,5 +237,6 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             .sourceSet(
                 target.client.value.flatMap { it.test.value }.orElse(target.test.value).map(Compilation::sourceSet)
             )
+            .addMixinJavaAgent()
     }
 }

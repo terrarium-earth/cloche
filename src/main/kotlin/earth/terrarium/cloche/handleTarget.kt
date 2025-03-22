@@ -54,6 +54,8 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
+        addMixinProcessor(project, sourceSet)
+
         project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
             it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
