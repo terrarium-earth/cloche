@@ -7,7 +7,11 @@ import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
@@ -31,6 +35,7 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
@@ -170,6 +175,19 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.loaderName.set(loaderName)
     }
 
+    private val generateMappingsArtifact = project.tasks.register(
+        lowerCamelCaseGradleName("generate", featureName, "mappingsArtifact"),
+        Zip::class.java,
+    ) {
+        it.destinationDirectory.set(it.temporaryDir)
+        it.archiveBaseName.set("$featureName-mappings")
+        it.archiveVersion.set(null as String?)
+
+        it.from(loadMappingsTask.flatMap(LoadMappings::output)) {
+            it.into("mappings")
+        }
+    }
+
     private val minecraftFile = remapNamespace.flatMap {
         if (it.isEmpty()) {
             resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
@@ -225,6 +243,11 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             Side.CLIENT,
             isSingleTarget,
             remapNamespace,
+        )
+
+        project.dependencies.add(
+            main.sourceSet.runtimeOnlyConfigurationName,
+            project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)),
         )
 
         includeJarTask = project.tasks.register(
