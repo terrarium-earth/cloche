@@ -20,6 +20,7 @@ import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
@@ -27,6 +28,7 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
+import org.gradle.language.jvm.tasks.ProcessResources
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
@@ -204,10 +206,18 @@ constructor(
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
     }
 
+    val refmapDirectory: Provider<Directory> = project.layout.buildDirectory.dir("generated").map {
+        it.dir("refmap").dir(sourceSet.name)
+    }
+
     init {
         project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
 
         setupModTransformationPipeline(project, target, this)
+
+        project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
+            it.from(refmapDirectory)
+        }
 
         val state = remapNamespace.map {
             if (it.isEmpty()) {

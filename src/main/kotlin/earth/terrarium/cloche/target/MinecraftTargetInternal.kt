@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.api.*
@@ -77,6 +79,8 @@ internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val nam
     override fun attributes(action: Action<AttributeContainer>) = main.attributes(action)
 
     abstract fun registerAccessWidenerMergeTask(compilation: CompilationInternal)
+
+    abstract fun addAnnotationProcessors(compilation: CompilationInternal)
 
     open fun addJarInjects(compilation: CompilationInternal) {}
 

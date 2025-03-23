@@ -11,6 +11,7 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
@@ -27,7 +28,10 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: CachedMinecraftParameters): Provider<RegularFile> {
+fun Project.javaExecutableFor(
+    version: Provider<String>,
+    cacheParameters: CachedMinecraftParameters
+): Provider<RegularFile> {
     val javaVersion = version.flatMap { version ->
         cacheParameters.directory.flatMap { cacheDirectory ->
             cacheParameters.versionManifestUrl.flatMap { url ->
@@ -54,7 +58,7 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
-        addMixinProcessor(project, sourceSet)
+        target.addAnnotationProcessors(compilation)
 
         project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
             it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
@@ -77,9 +81,13 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
             it.isTransitive = false
         }
 
-        val copyMixins = tasks.register(lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"), Copy::class.java) {
+        val copyMixins = tasks.register(
+            lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"),
+            Copy::class.java
+        ) {
             it.from(configurations.named(compilation.sourceSet.mixinsConfigurationName))
-            it.destinationDir = project.layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
+            it.destinationDir =
+                project.layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
         }
 
         sourceSet.resources.srcDir(copyMixins.map(Copy::getDestinationDir))
@@ -101,6 +109,37 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
         // TODO do the same for the javadoc tasks
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
             compile.options.release.set(javaVersion)
+
+            val emptyArguments = project.provider<List<String>> { emptyList() }
+
+            val objects = project.objects
+
+            val arguments = target.remapNamespace.flatMap {
+                if (it.isEmpty()) {
+                    emptyArguments
+                } else {
+                    val arguments = objects.listProperty(String::class.java)
+
+                    val modId = project.extension<ClocheExtension>().metadata.modId
+
+                    val refmapFile = compilation.refmapDirectory.zip(modId, ::Pair).map { (refmapDirectory, modId) ->
+                        val name = compilation.collapsedName?.let { "$modId-$it-refmap.json" } ?: "$modId-refmap.json"
+
+                        refmapDirectory.file(name)
+                    }
+
+                    val argument = refmapFile.map {
+                        "-AoutRefMapFile=$it"
+                    }
+
+                    arguments.add(argument)
+                    arguments.add("-AdefaultObfuscationEnv=${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}:$it")
+
+                    arguments
+                }
+            }
+
+            compile.options.compilerArgumentProviders.add(arguments::get)
         }
 
         plugins.withId("org.jetbrains.kotlin.jvm") {

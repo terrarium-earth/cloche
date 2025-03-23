@@ -25,6 +25,7 @@ import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.Usage
 import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
@@ -35,6 +36,7 @@ import org.gradle.jvm.tasks.Jar
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
+@Suppress("UnstableApiUsage")
 internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     MinecraftTargetInternal<ForgeMetadata>(name), ForgeLikeTarget {
     protected val minecraftLibrariesConfiguration: Configuration =
@@ -190,16 +192,15 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         project.dependencies.add(universal.name, forgeDependency {})
     }
 
-    protected fun loaderVersionRange(version: String): ModMetadata.VersionRange = objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
-        start.set(version)
-    }
+    protected fun loaderVersionRange(version: String): ModMetadata.VersionRange =
+        objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
+            start.set(version)
+        }
 
-    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<Dependency> =
+    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<ExternalModuleDependency> =
         minecraftVersion.flatMap { minecraftVersion ->
             loaderVersion.map { forgeVersion ->
-                project.dependencies.create("$group:$artifact").apply {
-                    this as ExternalModuleDependency
-
+                module(group, artifact, null).apply {
                     version { version ->
                         version.strictly(version(minecraftVersion, forgeVersion))
                     }
@@ -265,16 +266,16 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.extendsFrom(minecraftLibrariesConfiguration)
         }
 
+        project.dependencies.add(
+            sourceSet.runtimeOnlyConfigurationName,
+            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
+        )
+
         val userdev = forgeDependency {
             capabilities {
                 it.requireFeature("moddev-bundle")
             }
         }
-
-        project.dependencies.add(
-            sourceSet.runtimeOnlyConfigurationName,
-            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
-        )
 
         project.dependencies.addProvider(sourceSet.patchesConfigurationName, userdev)
 
@@ -319,6 +320,12 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.from(task.flatMap(GenerateAccessTransformer::output)) {
                 it.into("META-INF")
             }
+        }
+    }
+
+    override fun addAnnotationProcessors(compilation: CompilationInternal) {
+        project.configurations.named(compilation.sourceSet.annotationProcessorConfigurationName) {
+            it.extendsFrom(minecraftLibrariesConfiguration)
         }
     }
 

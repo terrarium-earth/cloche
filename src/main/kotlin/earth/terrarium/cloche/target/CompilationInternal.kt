@@ -36,7 +36,7 @@ internal abstract class CompilationInternal : Compilation {
     var withSources: Boolean = false
 
     val featureName
-        get() = lowerCamelCaseGradleName(collapsedName)
+        get() = collapsedName?.let { lowerCamelCaseGradleName(it) }
 
     val capabilityName
         get() = collapsedName?.replace(TARGET_NAME_PATH_SEPARATOR, '-')
