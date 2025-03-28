@@ -11,7 +11,7 @@ import org.gradle.api.plugins.PluginAware
 fun Project.ideaSyncHook() {
     tasks.register(IDEA_SYNC_TASK_NAME)
 
-    if (!System.getProperty("idea.sync.active", "false").toBoolean()) {
+    if (!System.getProperty("idea.sync.active", "false").toBoolean() && !System.getProperty("plugin.dir", "false").toBoolean()) {
         return
     }
 
