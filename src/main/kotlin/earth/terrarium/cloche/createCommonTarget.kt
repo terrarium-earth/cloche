@@ -49,9 +49,7 @@ context(Project) internal fun createCommonTarget(
                 it.map {
                     val classpath = objects.newInstance(GenerateStubApi.Classpath::class.java)
 
-                    classpath.artifacts.set(
-                        configurations.named(it.sourceSet.compileClasspathConfigurationName)
-                            .map { it.incoming.artifacts })
+                    classpath.artifacts.set(getNonProjectArtifacts(it.sourceSet.compileClasspathConfigurationName).map { it.artifacts })
 
                     classpath.extraFiles.from(it.finalMinecraftFile)
                     classpath.extraFiles.from(it.extraClasspathFiles)
@@ -62,7 +60,7 @@ context(Project) internal fun createCommonTarget(
 
             it.dependsOn(files(compilations.map {
                 it.map {
-                    configurations.named(it.sourceSet.compileClasspathConfigurationName)
+                    getRelevantSyncArtifacts(it.sourceSet.compileClasspathConfigurationName)
                 }
             }))
         }
