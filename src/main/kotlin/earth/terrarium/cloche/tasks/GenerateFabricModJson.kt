@@ -178,6 +178,12 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 }))
             }
 
+            val languageAdapters = targetMetadata.languageAdapters.get()
+
+            if (languageAdapters.isNotEmpty()) {
+                put("languageAdapters", JsonObject(languageAdapters.mapValues { (_, value) -> JsonPrimitive(value) }))
+            }
+
             depends.put("fabricloader", ">=${loaderDependencyVersion.get()}")
             depends.put("fabric", "*")
 

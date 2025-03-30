@@ -18,6 +18,9 @@ interface FabricMetadata {
     val entrypoints: MapProperty<String, List<Entrypoint>>
         @Input get
 
+    val languageAdapters: MapProperty<String, String>
+        @Input get
+
     val dependencies: ListProperty<Dependency>
         @Nested
         get
@@ -42,6 +45,10 @@ interface FabricMetadata {
         }
 
         this.entrypoints.put(name, entrypoints)
+    }
+
+    fun languageAdapter(name: String, value: String) {
+        this.languageAdapters.put(name, value)
     }
 
     fun dependency(action: Action<Dependency>) =
