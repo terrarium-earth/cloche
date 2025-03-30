@@ -205,10 +205,6 @@ constructor(
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
     }
 
-    val refmapDirectory: Provider<Directory> = project.layout.buildDirectory.dir("generated").map {
-        it.dir("refmap").dir(sourceSet.name)
-    }
-
     init {
         project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
 

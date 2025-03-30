@@ -514,28 +514,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     override fun addAnnotationProcessors(compilation: CompilationInternal) {
         compilation.dependencyHandler.annotationProcessor.add(fabricLoader)
-        compilation.dependencyHandler.annotationProcessor.add(project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
-        compilation.dependencyHandler.annotationProcessor.add(module("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
-
-        project.tasks.named(compilation.sourceSet.compileJavaTaskName, JavaCompile::class.java) {
-            val inMapFile = lowerCamelCaseGradleName("inMapFile", MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE, MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE)
-            val outMapFile = lowerCamelCaseGradleName("outMapFile", MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE, MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE)
-
-            val mixinMappings = it.temporaryDir.resolve("mixin-ap.tiny")
-            it.outputs.file(mixinMappings).withPropertyName("mixin-ap").optional();
-
-            val inMapFileArgument = loadMappingsTask.flatMap(LoadMappings::output).map {
-                "-A$inMapFile=${it}"
-            }
-
-            it.options.compilerArgumentProviders.add(CommandLineArgumentProvider {
-                listOf(
-                    inMapFileArgument.get(),
-                    "-A$outMapFile=${mixinMappings}",
-                    "-AdefaultObfuscationEnv=${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}",
-                )
-            })
-        }
     }
 
     override fun mappings(action: Action<MappingsBuilder>) {

@@ -109,34 +109,6 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
         // TODO do the same for the javadoc tasks
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
             compile.options.release.set(javaVersion)
-
-            val emptyArguments = project.provider<List<String>> { emptyList() }
-
-            val objects = project.objects
-
-            val arguments = target.remapNamespace.flatMap {
-                if (it.isEmpty()) {
-                    emptyArguments
-                } else {
-                    val arguments = objects.listProperty(String::class.java)
-
-                    val modId = project.extension<ClocheExtension>().metadata.modId
-
-                    val refmapFile = compilation.refmapDirectory.zip(modId, ::Pair).map { (refmapDirectory, modId) ->
-                        val name = compilation.collapsedName?.let { "$modId-$it-refmap.json" } ?: "$modId-refmap.json"
-
-                        refmapDirectory.file(name)
-                    }
-
-                    val argument = refmapFile.map {
-                        "-AoutRefMapFile=$it"
-                    }
-
-                    argument.map { listOf(it) }
-                }
-            }
-
-            compile.options.compilerArgumentProviders.add(arguments::get)
         }
 
         plugins.withId("org.jetbrains.kotlin.jvm") {
