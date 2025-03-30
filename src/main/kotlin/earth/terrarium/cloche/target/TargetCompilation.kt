@@ -28,7 +28,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.gradle.language.jvm.tasks.ProcessResources
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
@@ -214,10 +213,6 @@ constructor(
         project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
 
         setupModTransformationPipeline(project, target, this)
-
-        project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
-            it.from(refmapDirectory)
-        }
 
         val state = remapNamespace.map {
             if (it.isEmpty()) {

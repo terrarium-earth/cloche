@@ -529,7 +529,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
 
             it.options.compilerArgumentProviders.add(CommandLineArgumentProvider {
-                listOf(inMapFileArgument.get(), "-A$outMapFile=${mixinMappings}")
+                listOf(
+                    inMapFileArgument.get(),
+                    "-A$outMapFile=${mixinMappings}",
+                    "-AdefaultObfuscationEnv=${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}",
+                )
             })
         }
     }

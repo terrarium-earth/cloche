@@ -54,11 +54,11 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
     fun add(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 
+        target.addAnnotationProcessors(compilation)
+
         createCompilationVariants(compilation, sourceSet, true)
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
-
-        target.addAnnotationProcessors(compilation)
 
         project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
             it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
@@ -132,10 +132,7 @@ internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Bool
                         "-AoutRefMapFile=$it"
                     }
 
-                    arguments.add(argument)
-                    arguments.add("-AdefaultObfuscationEnv=${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}:$it")
-
-                    arguments
+                    argument.map { listOf(it) }
                 }
             }
 
