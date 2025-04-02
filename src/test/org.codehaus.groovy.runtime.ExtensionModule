@@ -1,0 +1,3 @@
+moduleName = cloche
+moduleVersion = 1.0
+extensionClasses = earth.terrarium.cloche.ClocheRepositoriesExtension

@@ -10,6 +10,7 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
+import java.io.File
 import kotlin.io.path.outputStream
 
 abstract class GenerateFabricModJson : DefaultTask() {
@@ -141,14 +142,15 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 put("accessWidener", JsonPrimitive(accessWidener.get()))
             }
 
-            val commonMixins = mixinConfigs.map {
-                JsonPrimitive(it.name)
-            }
+            val mixinNames = mixinConfigs.map(File::getName)
+            val clientMixinNames = clientMixinConfigs.map(File::getName) - mixinNames
 
-            val clientMixins = clientMixinConfigs.map {
+            val commonMixins = mixinNames.map(::JsonPrimitive)
+
+            val clientMixins = clientMixinNames.map {
                 JsonObject(
                     mapOf(
-                        "config" to JsonPrimitive(it.name),
+                        "config" to JsonPrimitive(it),
                         "environment" to JsonPrimitive("client"),
                     )
                 )

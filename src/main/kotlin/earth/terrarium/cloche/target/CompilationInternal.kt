@@ -9,10 +9,14 @@ import earth.terrarium.cloche.api.target.compilation.Compilation
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
+import org.gradle.api.Buildable
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ArtifactView
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.jvm.tasks.Jar
 import org.gradle.plugins.ide.idea.model.IdeaModel
@@ -20,6 +24,23 @@ import javax.inject.Inject
 
 fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
+
+context(Project)
+fun getNonProjectArtifacts(configurationName: String): Provider<ArtifactView> {
+    return configurations.named(configurationName).map {
+        it.incoming.artifactView {
+            it.componentFilter {
+                // We do *not* want to build anything during sync.
+                it !is ProjectComponentIdentifier
+            }
+        }
+    }
+}
+
+context(Project)
+fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> {
+    return getNonProjectArtifacts(configurationName).map { it.files }
+}
 
 @JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation {
@@ -36,16 +57,16 @@ internal abstract class CompilationInternal : Compilation {
     var withSources: Boolean = false
 
     val featureName
-        get() = lowerCamelCaseGradleName(name)
+        get() = lowerCamelCaseGradleName(collapsedName)
 
     val capabilityName
-        get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '-')
+        get() = collapsedName?.replace(TARGET_NAME_PATH_SEPARATOR, '-')
 
     val namePath
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '/')
 
     val collapsedName
-        get() = featureName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+        get() = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     override fun withJavadocJar() {
         withJavadoc = true
@@ -123,6 +144,10 @@ internal abstract class CompilationInternal : Compilation {
 
             it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
         }
+
+        project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
+            it.addCollectedDependencies(dependencyHandler.annotationProcessor)
+        }
     }
 
     override fun toString() = target.name + TARGET_NAME_PATH_SEPARATOR + name
@@ -162,11 +187,7 @@ internal fun Project.configureSourceSet(
         target.classifierName
     }
 
-    val suffix = if (compilation.name == SourceSet.MAIN_SOURCE_SET_NAME) {
-        null
-    } else {
-        compilation.capabilityName
-    }
+    val suffix = compilation.capabilityName
 
     val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
 
@@ -197,20 +218,28 @@ internal fun Project.configureSourceSet(
     }
 
     val syncTask = tasks.named(IDEA_SYNC_TASK_NAME) { task ->
-        task.dependsOn(project.configurations.named(sourceSet.compileClasspathConfigurationName))
+        task.dependsOn(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
 
         if (compilation is TargetCompilation) {
             task.dependsOn(compilation.finalMinecraftFile)
             task.dependsOn(compilation.extraClasspathFiles)
-            task.dependsOn(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
+            task.dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
         }
     }
 
     if (compilation is TargetCompilation) {
         // afterEvaluate required as isDownloadSources is not lazy
-        afterEvaluate { project ->
+        if (project == rootProject) {
+            afterEvaluate { project ->
+                syncTask.configure { task ->
+                    if (project.extension<IdeaModel>().module.isDownloadSources) {
+                        task.dependsOn(compilation.sources)
+                    }
+                }
+            }
+        } else {
             syncTask.configure { task ->
-                if (project.extension<IdeaModel>().module.isDownloadSources) {
+                if (rootProject.extension<IdeaModel>().module.isDownloadSources) {
                     task.dependsOn(compilation.sources)
                 }
             }
