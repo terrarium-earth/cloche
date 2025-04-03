@@ -34,6 +34,7 @@ internal object States {
     const val INCLUDES_EXTRACTED = "includesExtracted"
     const val MIXINS_STRIPPED = "mixinsStripped"
     const val REMAPPED = "remapped"
+    const val NO_NAME_MAPPING = "noNameMapping"
 }
 
 internal fun Project.getModFiles(configurationName: String, isTransitive: Boolean = true, configure: Action<ArtifactView.ViewConfiguration>? = null): FileCollection {
