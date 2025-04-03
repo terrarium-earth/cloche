@@ -1,11 +1,13 @@
 package earth.terrarium.cloche.target.forge.lex
 
+import earth.terrarium.cloche.FMLLoaderTransformationStateAttribute
 import earth.terrarium.cloche.FORGE
-import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.States
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import org.gradle.api.tasks.Internal
@@ -63,6 +65,24 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
                     }
                 )
             )
+        }
+    }
+
+    override fun initialize(isSingleTarget: Boolean) {
+        super.initialize(isSingleTarget)
+
+        project.afterEvaluate {
+            project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
+                it.from.attribute(
+                    FMLLoaderTransformationStateAttribute.ATTRIBUTE,
+                    FMLLoaderTransformationStateAttribute.INITIAL,
+                )
+
+                it.to.attribute(
+                    FMLLoaderTransformationStateAttribute.ATTRIBUTE,
+                    FMLLoaderTransformationStateAttribute.of(target, main, States.NO_NAME_MAPPING),
+                )
+            }
         }
     }
 

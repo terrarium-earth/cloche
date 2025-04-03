@@ -2,7 +2,6 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.FMLLoaderTransformationStateAttribute
 import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
@@ -11,7 +10,6 @@ import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.States
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
@@ -20,7 +18,6 @@ import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
-import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
@@ -248,20 +245,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             isSingleTarget,
             remapNamespace,
         )
-
-        project.afterEvaluate {
-            project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
-                it.from.attribute(
-                    FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-                    FMLLoaderTransformationStateAttribute.INITIAL,
-                )
-
-                it.to.attribute(
-                    FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-                    FMLLoaderTransformationStateAttribute.of(target, main, States.NO_NAME_MAPPING),
-                )
-            }
-        }
 
         project.dependencies.add(
             main.sourceSet.runtimeOnlyConfigurationName,
