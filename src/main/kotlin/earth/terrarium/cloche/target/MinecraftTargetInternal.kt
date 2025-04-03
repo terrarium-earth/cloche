@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.api.*
+import earth.terrarium.cloche.api.MappingDependencyProvider
+import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
@@ -65,7 +66,7 @@ internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val nam
     override val mixins get() = main.mixins
     override val sourceSet get() = main.sourceSet
 
-    override val target get() = this
+    override val target: MinecraftTarget<TMetadata> get() = this
 
     abstract val mappingProviders: ListProperty<MappingDependencyProvider>
         @Internal get
