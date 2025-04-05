@@ -47,10 +47,6 @@ interface FabricMetadata {
         this.entrypoints.put(name, entrypoints)
     }
 
-    fun languageAdapter(name: String, value: String) {
-        this.languageAdapters.put(name, value)
-    }
-
     fun dependency(action: Action<Dependency>) =
         dependencies.add(objects.newInstance(Dependency::class.java).also(action::execute))
 
