@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.api
 
+import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.maybeRegister
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftMappings
@@ -8,8 +9,24 @@ import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+
+internal fun officialMappingsDependency(project: Project, target: MinecraftTarget): FileCollection {
+    val taskName = lowerCamelCaseGradleName("resolve", target.featureName, "clientMappings")
+
+    val task = project.tasks.maybeRegister<ResolveMinecraftMappings>(taskName) {
+        it.group = "minecraft-resolution"
+
+        it.server.set(false)
+
+        it.version.set(target.minecraftVersion)
+    }
+
+    return project.files(task.flatMap(ResolveMinecraftMappings::output))
+}
 
 class MappingsBuilder internal constructor(
     private val target: MinecraftTargetInternal,
@@ -20,9 +37,15 @@ class MappingsBuilder internal constructor(
             convention(true)
         }
 
-    private val _isDefault: Property<Boolean> = project.objects.property(Boolean::class.javaObjectType).apply {
-        convention(true)
-    }
+    private val _isDefault: Property<Boolean> =
+        project.objects.property(Boolean::class.javaObjectType).apply {
+            convention(true)
+        }
+
+    private val _isConfigured: Property<Boolean> =
+        project.objects.property(Boolean::class.javaObjectType).apply {
+            convention(false)
+        }
 
     internal val isOfficialCompatible: Provider<Boolean>
         get() = _isOfficialCompatible
@@ -30,21 +53,16 @@ class MappingsBuilder internal constructor(
     internal val isDefault: Provider<Boolean>
         get() = _isDefault
 
+    internal val isConfigured: Provider<Boolean>
+        get() = _isConfigured
+
     private val configurationName
         get() = target.sourceSet.mappingsConfigurationName
 
     fun official() {
-        val taskName = lowerCamelCaseGradleName("resolve", target.featureName, "clientMappings")
+        configure()
 
-        val task = project.tasks.maybeRegister<ResolveMinecraftMappings>(taskName) {
-            it.group = "minecraft-resolution"
-
-            it.server.set(false)
-
-            it.version.set(target.minecraftVersion)
-        }
-
-        project.dependencies.add(configurationName, project.files(task.flatMap(ResolveMinecraftMappings::output)))
+        project.dependencies.add(configurationName, officialMappingsDependency(project, target))
     }
 
     fun parchment(version: String) {
@@ -111,13 +129,23 @@ class MappingsBuilder internal constructor(
     fun yarn(version: String) {
         officialIncompatible()
 
-
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.map { minecraftVersion ->
+                yarnDependency(minecraftVersion, version)
+            },
+        )
     }
 
     fun yarn(version: Provider<String>) {
         officialIncompatible()
 
-
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.zip(version, ::Pair).map { (version, minecraftVersion) ->
+                yarnDependency(minecraftVersion, version)
+            },
+        )
     }
 
     fun custom(dependency: Dependency) {
@@ -133,14 +161,24 @@ class MappingsBuilder internal constructor(
     }
 
     private fun officialIncompatible() {
-        _isDefault.set(false)
+        officialCompatible()
+
         _isOfficialCompatible.set(false)
     }
 
     private fun officialCompatible() {
+        configure()
+
         _isDefault.set(false)
     }
 
-    private fun parchmentDependency(minecraftVersion: String, parchmentVersion: String) =
-        project.dependencies.create("org.parchmentmc.data:parchment-$minecraftVersion:$parchmentVersion")
+    private fun configure() {
+        _isConfigured.set(true)
+    }
+
+    private fun parchmentDependency(minecraftVersion: String, version: String) =
+        project.dependencies.create("org.parchmentmc.data:parchment-$minecraftVersion:$version")
+
+    private fun yarnDependency(minecraftVersion: String, version: String) =
+        project.dependencies.create("net.fabricmc:yarn:$minecraftVersion+$version")
 }

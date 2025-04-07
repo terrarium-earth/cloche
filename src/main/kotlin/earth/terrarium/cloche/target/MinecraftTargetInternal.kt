@@ -91,6 +91,16 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
         mappingActions.all { action ->
             action.execute(mappings)
         }
+
+        project.configurations.named(sourceSet.mappingsConfigurationName) {
+            it.dependencies.addAllLater(mappings.isConfigured.map {
+                if (it) {
+                    emptyList()
+                } else {
+                    listOf(project.dependencies.create(officialMappingsDependency(project, this)))
+                }
+            })
+        }
     }
 
     abstract fun onClientIncluded(action: () -> Unit)
