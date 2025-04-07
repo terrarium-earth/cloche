@@ -17,14 +17,13 @@ import javax.inject.Inject
 
 internal abstract class FabricClientSecondarySourceSets @Inject constructor(
     name: String,
-    target: MinecraftTargetInternal<*>,
+    target: MinecraftTargetInternal,
     intermediaryMinecraftClasspath: FileCollection,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: FileCollection,
     variant: PublicationSide,
     side: Side,
     isSingleTarget: Boolean,
-    remapNamespace: Provider<String>,
 ) : TargetCompilation(
     name,
     target,
@@ -34,7 +33,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
     variant,
     side,
     isSingleTarget,
-    remapNamespace,
 ), TargetSecondarySourceSets {
     override val data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
         project.objects.newInstance(
@@ -47,7 +45,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
             PublicationSide.Client,
             side,
             isSingleTarget,
-            remapNamespace,
         )
     }
 
@@ -62,7 +59,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
             PublicationSide.Client,
             side,
             isSingleTarget,
-            remapNamespace,
         )
     }
 }

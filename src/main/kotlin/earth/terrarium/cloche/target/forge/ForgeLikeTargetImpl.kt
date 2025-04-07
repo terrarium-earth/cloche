@@ -35,8 +35,9 @@ import org.gradle.jvm.tasks.Jar
 import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
+@Suppress("UnstableApiUsage")
 internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
-    MinecraftTargetInternal<ForgeMetadata>(name), ForgeLikeTarget {
+    MinecraftTargetInternal(name), ForgeLikeTarget {
     protected val minecraftLibrariesConfiguration: Configuration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
             it.isCanBeConsumed = false
@@ -90,7 +91,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 PublicationSide.Joined,
                 Side.UNKNOWN,
                 isSingleTarget,
-                remapNamespace,
             )
         }
 
@@ -113,7 +113,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 PublicationSide.Joined,
                 Side.UNKNOWN,
                 isSingleTarget,
-                remapNamespace,
             )
         }
 
@@ -128,9 +127,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get
-
-    override val remapNamespace: Provider<String>
-        get() = providerFactory.provider { MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE }
 
     override val runs: ForgeRunConfigurations = project.objects.newInstance(ForgeRunConfigurations::class.java, this)
 
@@ -153,7 +149,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
-        it.sourceNamespace.set(remapNamespace)
+        it.sourceNamespace.set(minecraftRemapNamespace)
     }
 
     protected val generateModsToml: TaskProvider<GenerateForgeModsToml> = project.tasks.register(
@@ -170,7 +166,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.loaderName.set(loaderName)
     }
 
-    private val minecraftFile = remapNamespace.flatMap {
+    private val minecraftFile = minecraftRemapNamespace.flatMap {
         if (it.isEmpty()) {
             resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
         } else {
@@ -210,8 +206,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
 
     override fun initialize(isSingleTarget: Boolean) {
-        super.initialize(isSingleTarget)
-
         this.isSingleTarget = isSingleTarget
 
         main = project.objects.newInstance(
@@ -224,7 +218,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             PublicationSide.Joined,
             Side.CLIENT,
             isSingleTarget,
-            remapNamespace,
         )
 
         includeJarTask = project.tasks.register(
@@ -240,7 +233,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
             it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
 
-            it.input.set(remapNamespace.flatMap {
+            it.input.set(modRemapNamespace.flatMap {
                 val jarTask = if (it.isEmpty()) {
                     jar
                 } else {
@@ -285,17 +278,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         project.dependencies.addProvider(sourceSet.mappingsConfigurationName, userdev)
 
-        project.configurations.named(sourceSet.mappingsConfigurationName) {
-            val mappingDependencyList = minecraftVersion.flatMap { minecraftVersion ->
-                mappingProviders.map { providers ->
-                    providers.map { mapping ->
-                        mapping(minecraftVersion, featureName)
-                    }
-                }
-            }
-
-            it.dependencies.addAllLater(mappingDependencyList)
-        }
+        registerMappings()
     }
 
     protected abstract fun version(minecraftVersion: String, loaderVersion: String): String

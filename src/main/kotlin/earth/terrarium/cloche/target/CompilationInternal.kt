@@ -42,14 +42,18 @@ fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> {
     return getNonProjectArtifacts(configurationName).map { it.files }
 }
 
+@Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation {
     abstract val project: Project
         @Inject
         get
 
-    val dependencyHandler: ClocheDependencyHandler = project.objects.newInstance(ClocheDependencyHandler::class.java)
+    val dependencyHandler: ClocheDependencyHandler by lazy(LazyThreadSafetyMode.NONE) {
+        project.objects.newInstance(ClocheDependencyHandler::class.java, target.minecraftVersion)
+    }
 
+    @Suppress("UNCHECKED_CAST")
     val attributeActions: DomainObjectCollection<Action<AttributeContainer>> =
         project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
 
@@ -192,8 +196,8 @@ internal fun Project.configureSourceSet(
     val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
 
     tasks.named(sourceSet.jarTaskName, Jar::class.java) {
-        if (target is MinecraftTargetInternal<*>) {
-            val archiveClassifier = target.remapNamespace.map {
+        if (target is MinecraftTargetInternal) {
+            val archiveClassifier = target.modRemapNamespace.map {
                 if (it.isEmpty()) {
                     classifier
                 } else if (classifier != null) {

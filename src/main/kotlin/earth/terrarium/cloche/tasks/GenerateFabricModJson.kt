@@ -96,7 +96,6 @@ abstract class GenerateFabricModJson : DefaultTask() {
 
     @TaskAction
     fun makeJson() {
-        val file = output.getAsPath()
         val commonMetadata = commonMetadata.get()
         val targetMetadata = targetMetadata.get()
 
@@ -185,7 +184,6 @@ abstract class GenerateFabricModJson : DefaultTask() {
             }
 
             depends.put("fabricloader", ">=${loaderDependencyVersion.get()}")
-            depends.put("fabric", "*")
 
             val dependencies = commonMetadata.dependencies.get() + targetMetadata.dependencies.get()
 

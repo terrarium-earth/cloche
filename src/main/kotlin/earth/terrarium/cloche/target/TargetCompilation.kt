@@ -59,7 +59,7 @@ internal fun Project.getModFiles(configurationName: String, isTransitive: Boolea
 }
 
 internal fun registerCompilationTransformations(
-    target: MinecraftTargetInternal<*>,
+    target: MinecraftTargetInternal,
     compilationName: String,
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
@@ -102,7 +102,7 @@ internal fun registerCompilationTransformations(
     return accessWidenTask to decompile.flatMap(Decompile::outputFile)
 }
 
-internal fun compilationSourceSet(target: MinecraftTargetInternal<*>, name: String, isSingleTarget: Boolean): SourceSet {
+internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String, isSingleTarget: Boolean): SourceSet {
     val name = if (isSingleTarget) {
         name
     } else {
@@ -114,13 +114,13 @@ internal fun compilationSourceSet(target: MinecraftTargetInternal<*>, name: Stri
 
 private fun setupModTransformationPipeline(
     project: Project,
-    target: MinecraftTargetInternal<*>,
+    target: MinecraftTargetInternal,
     compilation: TargetCompilation,
 ) {
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform but that's far slower
     project.afterEvaluate {
-        if (target.remapNamespace.get().isEmpty()) {
+        if (target.modRemapNamespace.get().isEmpty()) {
             return@afterEvaluate
         }
 
@@ -138,7 +138,7 @@ private fun setupModTransformationPipeline(
             it.parameters {
                 it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                it.sourceNamespace.set(target.remapNamespace)
+                it.sourceNamespace.set(target.modRemapNamespace.get())
 
                 it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
 
@@ -173,14 +173,13 @@ internal abstract class TargetCompilation
 @Inject
 constructor(
     private val name: String,
-    override val target: MinecraftTargetInternal<*>,
+    override val target: MinecraftTargetInternal,
     val intermediaryMinecraftClasspath: FileCollection,
     namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: FileCollection,
     private val variant: PublicationSide,
     side: Side,
     isSingleTarget: Boolean,
-    val remapNamespace: Provider<String>,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
@@ -198,7 +197,7 @@ constructor(
     val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"), RemapJar::class.java) {
         it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
         it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-        it.targetNamespace.set(remapNamespace)
+        it.targetNamespace.set(target.modRemapNamespace)
         it.classpath.from(sourceSet.compileClasspath)
 
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
@@ -209,7 +208,7 @@ constructor(
 
         setupModTransformationPipeline(project, target, this)
 
-        val state = remapNamespace.map {
+        val state = target.modRemapNamespace.map {
             if (it.isEmpty()) {
                 ModTransformationStateAttribute.INITIAL
             } else {

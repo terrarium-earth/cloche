@@ -46,7 +46,7 @@ fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: Cached
 }
 
 context(Project)
-internal fun handleTarget(target: MinecraftTargetInternal<*>, singleTarget: Boolean) {
+internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
     fun add(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 

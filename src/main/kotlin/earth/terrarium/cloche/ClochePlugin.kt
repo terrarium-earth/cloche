@@ -38,10 +38,10 @@ fun Project.extend(
 internal fun addTarget(
     cloche: ClocheExtension,
     project: Project,
-    target: MinecraftTarget<*>,
+    target: MinecraftTarget,
     singleTarget: Boolean,
 ) {
-    target as MinecraftTargetInternal<*>
+    target as MinecraftTargetInternal
 
     target.minecraftVersion.convention(cloche.minecraftVersion)
 

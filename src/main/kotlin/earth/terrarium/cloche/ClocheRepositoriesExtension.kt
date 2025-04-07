@@ -80,6 +80,13 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
         configure.rehydrate(it, this, this).call()
     }
 
+    @JvmOverloads
+    fun mavenParchment(configure: Action<in MavenArtifactRepository>? = null) = apply("maven.parchmentmc.org", configure)
+
+    fun mavenParchment(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenParchment {
+        configure.rehydrate(it, this, this).call()
+    }
+
     companion object {
         fun register(repositoryHandler: RepositoryHandler) {
             (repositoryHandler as ExtensionAware).extensions.create(

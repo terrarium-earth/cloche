@@ -1,13 +1,14 @@
 package earth.terrarium.cloche.target.forge.lex
 
 import earth.terrarium.cloche.FORGE
-import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.jvm.tasks.Jar
 import javax.inject.Inject
@@ -22,6 +23,9 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         get() = "forge"
 
     override val loaderName get() = FORGE
+
+    override val minecraftRemapNamespace: Provider<String>
+        get() = providerFactory.provider { MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE }
 
     override val generateLegacyClasspath = project.tasks.register(
         lowerCamelCaseGradleName("generate", featureName, "legacyClasspath"),

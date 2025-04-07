@@ -1,6 +1,5 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.target.CommonTargetInternal
 import earth.terrarium.cloche.target.CommonTopLevelCompilation
 import earth.terrarium.cloche.target.CompilationInternal
@@ -13,89 +12,8 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
-import org.gradle.api.provider.MapProperty
-import org.gradle.api.provider.Provider
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.iterator
-import kotlin.collections.mapValues
 
 internal fun applyTargets(project: Project, cloche: ClocheExtension) {
-    fun getDependencies(target: ClocheTarget): Provider<List<CommonTargetInternal>> = project.provider {
-        target.dependsOn
-    }.flatMap {
-        val list = project.objects.listProperty(CommonTargetInternal::class.java)
-
-        for (target in it) {
-            list.add(target as CommonTargetInternal)
-            list.addAll(getDependencies(target))
-        }
-
-        list
-    }
-
-    val targetsProvider = project.provider {
-        cloche.targets.map { it as MinecraftTargetInternal }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    val targetDependencies = targetsProvider.flatMap { targets ->
-        val association = project.objects.mapProperty(
-            MinecraftTargetInternal::class.java,
-            List::class.java
-        ) as MapProperty<MinecraftTargetInternal<*>, List<CommonTargetInternal>>
-
-        for (target in targets) {
-            association.put(target, getDependencies(target))
-        }
-
-        association
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    val commonToTarget = targetDependencies.map {
-        val association = hashMapOf<CommonTargetInternal, MutableSet<MinecraftTargetInternal<*>>>()
-
-        for ((edgeTarget, dependencies) in it) {
-            for (dependency in dependencies) {
-                association.computeIfAbsent(dependency) { hashSetOf() }.add(edgeTarget as MinecraftTargetInternal)
-            }
-        }
-
-        association as Map<CommonTargetInternal, Set<MinecraftTargetInternal<*>>>
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    val commons = project.objects.mapProperty(CommonTargetInternal::class.java, CommonInfo::class.java)
-
-    commons.putAll(commonToTarget.map {
-        it.mapValues { (_, edges) ->
-            var commonType: String? = null
-            var minecraftVersion: String? = null
-
-            for (target in edges) {
-                if (minecraftVersion == null) {
-                    minecraftVersion = target.minecraftVersion.get()
-                } else if (minecraftVersion != target.minecraftVersion.get()) {
-                    minecraftVersion = null
-                }
-
-                if (commonType == null) {
-                    commonType = target.commonType
-                } else if (target.commonType != commonType) {
-                    commonType = null
-                    break
-                }
-            }
-
-            CommonInfo(
-                edges,
-                commonType,
-                minecraftVersion,
-            )
-        }
-    })
-
     cloche.targets.all { target ->
         target as MinecraftTargetInternal
 
@@ -267,13 +185,21 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
         }
 
         with(project) {
-            val commonInfo = commons.getting(commonTarget)
+            val objects = objects
 
-            val onlyCommonOfType = commons.zip(commonInfo, ::Pair).map { (commons, info) ->
-                commons.count { it.value.type == info.type } == 1
-            }
+            val onlyCommonOfType = commonTarget.commonType.flatMap { type ->
+                val types = objects.listProperty(String::class.java)
 
-            createCommonTarget(commonTarget, commonInfo, onlyCommonOfType)
+                for (target in cloche.commonTargets) {
+                    types.add((target as CommonTargetInternal).commonType)
+                }
+
+                types.map { it ->
+                    it.count { it == type } == 1
+                }
+            }.orElse(true)
+
+            createCommonTarget(commonTarget, onlyCommonOfType)
         }
     }
 
