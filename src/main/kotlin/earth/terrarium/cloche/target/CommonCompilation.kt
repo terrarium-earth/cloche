@@ -6,9 +6,7 @@ import earth.terrarium.cloche.TargetAttributes
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import net.msrandom.minecraftcodev.core.utils.extension
-import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import javax.inject.Inject

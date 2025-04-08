@@ -7,6 +7,7 @@ import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import earth.terrarium.cloche.target.getModFiles
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
@@ -27,12 +28,21 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
     final override val loaderName get() = NEOFORGE
 
-    override val remapNamespace: Provider<String>
-        get() = hasMappings.flatMap {
+    override val minecraftRemapNamespace: Provider<String>
+        get() = mappings.isDefault.map {
             if (it) {
-                super<ForgeLikeTargetImpl>.remapNamespace
+                ""
             } else {
-                providerFactory.provider { "" }
+                MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE
+            }
+        }
+
+    override val modRemapNamespace: Provider<String>
+        get() = mappings.isOfficialCompatible.map {
+            if (it) {
+                ""
+            } else {
+                MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE
             }
         }
 

@@ -19,8 +19,8 @@ import org.gradle.api.tasks.Internal
 
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
-interface MinecraftTarget<TMetadata : Any> : ClocheTarget, TargetSecondarySourceSets, Dependencies, PlatformDependencyModifiers {
-    val minecraftVersion: Property<String>
+interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencies, PlatformDependencyModifiers {
+    override val minecraftVersion: Property<String>
         @Input get
 
     val loaderVersion: Property<String>
@@ -42,14 +42,9 @@ interface MinecraftTarget<TMetadata : Any> : ClocheTarget, TargetSecondarySource
             it.dir("resources").dir(lowerCamelCaseGradleName(target.featureName, ClochePlugin.CLIENT_COMPILATION_NAME))
         }
 
-    val metadata: TMetadata
-
     val include: DependencyCollector
 
     fun mappings(action: Action<MappingsBuilder>)
-
-    fun metadata(action: Action<TMetadata>) =
-        action.execute(metadata)
 
     fun runs(action: Action<RunConfigurations>)
 

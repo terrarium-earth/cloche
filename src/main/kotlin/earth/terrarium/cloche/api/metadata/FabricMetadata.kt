@@ -18,6 +18,9 @@ interface FabricMetadata {
     val entrypoints: MapProperty<String, List<Entrypoint>>
         @Input get
 
+    val languageAdapters: MapProperty<String, String>
+        @Input get
+
     val dependencies: ListProperty<Dependency>
         @Nested
         get

@@ -1,7 +1,6 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
-import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -16,15 +15,8 @@ import org.gradle.api.tasks.compile.JavaCompile
 
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
-internal class CommonInfo(
-    val dependants: Set<MinecraftTargetInternal<*>>,
-    val type: String?,
-    val version: String?,
-)
-
 context(Project) internal fun createCommonTarget(
     commonTarget: CommonTargetInternal,
-    commonInfo: Provider<CommonInfo>,
     onlyCommonOfType: Provider<Boolean>,
 ) {
     fun intersection(
@@ -42,7 +34,6 @@ context(Project) internal fun createCommonTarget(
 
             it.apiFileName.set("$jarName-api-stub.jar")
 
-            val configurations = configurations
             val objects = objects
 
             it.classpaths.set(compilations.map {
@@ -114,14 +105,15 @@ context(Project) internal fun createCommonTarget(
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
             afterEvaluate { project ->
-                val commonInfo = commonInfo.get()
+                val commonType = commonTarget.commonType.getOrNull()
+                val minecraftVersion = commonTarget.minecraftVersion.getOrNull()
 
-                if (commonInfo.type != null) {
-                    it.attribute(CommonTargetAttributes.TYPE, commonInfo.type)
+                if (commonType != null) {
+                    it.attribute(CommonTargetAttributes.TYPE, commonType)
                 }
 
-                if (commonInfo.version != null) {
-                    it.attribute(TargetAttributes.MINECRAFT_VERSION, commonInfo.version)
+                if (minecraftVersion != null) {
+                    it.attribute(TargetAttributes.MINECRAFT_VERSION, minecraftVersion)
                 }
 
                 if (!onlyCommonOfType.get() && commonTarget.name != COMMON && !commonTarget.publish) {
@@ -184,8 +176,8 @@ context(Project) internal fun createCommonTarget(
 
     fun add(
         compilation: CommonTopLevelCompilation,
-        dataGetter: (MinecraftTargetInternal<*>) -> TargetCompilation,
-        testGetter: (MinecraftTargetInternal<*>) -> TargetCompilation,
+        dataGetter: (MinecraftTargetInternal) -> TargetCompilation,
+        testGetter: (MinecraftTargetInternal) -> TargetCompilation,
         variant: PublicationSide,
         intersection: FileCollection,
     ) {
@@ -201,8 +193,8 @@ context(Project) internal fun createCommonTarget(
                 variant,
                 intersection(
                     it,
-                    commonInfo.map {
-                        it.dependants.map(dataGetter)
+                    commonTarget.dependents.map {
+                        it.map { dataGetter(it as MinecraftTargetInternal) }
                     }
                 ),
             )
@@ -223,9 +215,9 @@ context(Project) internal fun createCommonTarget(
                 variant,
                 intersection(
                     it,
-                    commonInfo.map {
-                        it.dependants.map(testGetter)
-                    }
+                    commonTarget.dependents.map {
+                        it.map { testGetter(it as MinecraftTargetInternal) }
+                    },
                 ),
             )
 
@@ -247,7 +239,9 @@ context(Project) internal fun createCommonTarget(
         PublicationSide.Common,
         intersection(
             commonTarget.main,
-            commonInfo.map { it.dependants.map(MinecraftTargetInternal<*>::main) },
+            commonTarget.dependents.map {
+                it.map { (it as MinecraftTargetInternal).main }
+            },
         ),
     )
 
@@ -269,11 +263,14 @@ context(Project) internal fun createCommonTarget(
                     ?: it.main
             },
             PublicationSide.Client,
-            intersection(it, commonInfo.map {
-                it.dependants.map {
-                    (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation ?: it.main
-                }
-            }),
+            intersection(
+                it,
+                commonTarget.dependents.map {
+                    it.map {
+                        (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation ?: (it as MinecraftTargetInternal).main
+                    }
+                },
+            ),
         )
     }
 }

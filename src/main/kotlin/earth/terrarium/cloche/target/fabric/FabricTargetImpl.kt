@@ -4,13 +4,11 @@ import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.api.MappingDependencyProvider
-import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.target.*
-import earth.terrarium.cloche.tasks.GenerateModJsonJarsEntry
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
+import earth.terrarium.cloche.tasks.GenerateModJsonJarsEntry
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
@@ -26,10 +24,8 @@ import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
 import net.msrandom.minecraftcodev.fabric.task.ProcessIncludedJars
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
-import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
-import org.gradle.api.Action
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.file.DuplicatesStrategy
@@ -44,8 +40,9 @@ import org.gradle.jvm.tasks.Jar
 import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
+@Suppress("UnstableApiUsage")
 internal abstract class FabricTargetImpl @Inject constructor(name: String) :
-    MinecraftTargetInternal<FabricMetadata>(name),
+    MinecraftTargetInternal(name),
     FabricTarget {
     private val commonLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "commonMinecraftLibraries")) {
@@ -107,7 +104,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             it.inputFile.set(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
             it.sourceNamespace.set("obf")
-            it.targetNamespace.set(remapNamespace)
+            it.targetNamespace.set(minecraftRemapNamespace)
 
             it.classpath.from(commonLibrariesConfiguration)
 
@@ -128,7 +125,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             it.inputFile.set(resolveClientMinecraft.flatMap(ResolveMinecraftClient::output))
             it.sourceNamespace.set("obf")
-            it.targetNamespace.set(remapNamespace)
+            it.targetNamespace.set(minecraftRemapNamespace)
 
             it.classpath.from(commonLibrariesConfiguration)
             it.classpath.from(clientLibrariesConfiguration)
@@ -149,7 +146,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
-        it.sourceNamespace.set(remapNamespace)
+        it.sourceNamespace.set(minecraftRemapNamespace)
     }
 
     private val remapClient = project.tasks.register(
@@ -166,7 +163,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
-        it.sourceNamespace.set(remapNamespace)
+        it.sourceNamespace.set(minecraftRemapNamespace)
     }
 
     private val generateModJson = project.tasks.register(
@@ -229,7 +226,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 PublicationSide.Client,
                 MixinEnvironment.Side.CLIENT,
                 isSingleTarget,
-                remapNamespace,
             )
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
@@ -262,7 +258,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     protected abstract val providerFactory: ProviderFactory
         @Inject get
 
-    final override val remapNamespace: Provider<String>
+    final override val minecraftRemapNamespace: Provider<String>
         get() = providerFactory.provider { MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE }
 
     override val runs: FabricRunConfigurations = project.objects.newInstance(FabricRunConfigurations::class.java, this)
@@ -355,13 +351,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             PublicationSide.Common,
             MixinEnvironment.Side.SERVER,
             isSingleTarget,
-            remapNamespace,
         )
     }
 
     override fun initialize(isSingleTarget: Boolean) {
-        super.initialize(isSingleTarget)
-
         this.isSingleTarget = isSingleTarget
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
@@ -443,17 +436,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             dependencies.implementation.add(loaderVersion.map { version -> project.dependencies.create("net.fabricmc:fabric-loader:$version") })
 
-            project.dependencies.addProvider(
-                sourceSet.mappingsConfigurationName,
-                minecraftVersion.map { "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2" },
-            )
+            mappings.fabricIntermediary()
+
+            registerMappings()
 
             // afterEvaluate needed because of the component rules using providers
             project.afterEvaluate { project ->
                 project.dependencies.components { components ->
                     components.withModule(
                         ClochePlugin.STUB_MODULE,
-                        MinecraftComponentMetadataRule::class.java
+                        MinecraftComponentMetadataRule::class.java,
                     ) {
                         it.params(
                             getGlobalCacheDirectory(project),
@@ -465,18 +457,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                         )
                     }
                 }
-            }
-
-            project.configurations.named(sourceSet.mappingsConfigurationName) {
-                val mappingDependencyList = minecraftVersion.flatMap { minecraftVersion ->
-                    mappingProviders.map { providers ->
-                        providers.map { mapping ->
-                            mapping(minecraftVersion, featureName)
-                        }
-                    }
-                }
-
-                it.dependencies.addAllLater(mappingDependencyList)
             }
         }
     }
@@ -502,22 +482,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
             it.from(task.flatMap(MergeAccessWideners::output))
         }
-    }
-
-    override fun mappings(action: Action<MappingsBuilder>) {
-        hasMappings.set(true)
-
-        val mappings = mutableListOf<MappingDependencyProvider>()
-
-        action.execute(MappingsBuilder(project, mappings))
-
-        main.dependencies {
-            addMappings(mappings)
-        }
-    }
-
-    private fun addMappings(providers: List<MappingDependencyProvider>) {
-        mappingProviders.addAll(providers)
     }
 
     override fun includedClient() {
