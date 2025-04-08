@@ -61,20 +61,31 @@ fun applyToProject(target: Project) {
                 ModTransformationStateAttribute.ATTRIBUTE,
                 ModTransformationStateAttribute.INITIAL,
             )
-            jar.attributes.attribute(
-                FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-                FMLLoaderTransformationStateAttribute.INITIAL,
-            )
         }
     }
 
     target.extension<SourceSetContainer>().all {
         it.extension<SourceSetStaticLinkageInfo>().links.all { dependency ->
-            target.extend(modConfigurationName(it.implementationConfigurationName), modConfigurationName(dependency.implementationConfigurationName))
-            target.extend(modConfigurationName(it.apiConfigurationName), modConfigurationName(dependency.apiConfigurationName))
-            target.extend(modConfigurationName(it.runtimeOnlyConfigurationName), modConfigurationName(dependency.runtimeOnlyConfigurationName))
-            target.extend(modConfigurationName(it.compileOnlyConfigurationName), modConfigurationName(dependency.compileOnlyConfigurationName))
-            target.extend(modConfigurationName(it.compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
+            target.extend(
+                modConfigurationName(it.implementationConfigurationName),
+                modConfigurationName(dependency.implementationConfigurationName)
+            )
+            target.extend(
+                modConfigurationName(it.apiConfigurationName),
+                modConfigurationName(dependency.apiConfigurationName)
+            )
+            target.extend(
+                modConfigurationName(it.runtimeOnlyConfigurationName),
+                modConfigurationName(dependency.runtimeOnlyConfigurationName)
+            )
+            target.extend(
+                modConfigurationName(it.compileOnlyConfigurationName),
+                modConfigurationName(dependency.compileOnlyConfigurationName)
+            )
+            target.extend(
+                modConfigurationName(it.compileOnlyApiConfigurationName),
+                modConfigurationName(dependency.compileOnlyApiConfigurationName)
+            )
 
             target.extend(it.mixinsConfigurationName, dependency.mixinsConfigurationName)
         }
@@ -99,6 +110,13 @@ fun applyToProject(target: Project) {
     ) {
         it.params(
             getGlobalCacheDirectory(target),
+        )
+    }
+
+    target.dependencies.components.withModule("net.minecraftforge:fmlloader") {
+        it.attributes.attribute(
+            FMLLoaderTransformationStateAttribute.ATTRIBUTE,
+            FMLLoaderTransformationStateAttribute.INITIAL
         )
     }
 

@@ -156,25 +156,21 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
         var forgeConfigured = false
 
-        targets.withType(ForgeTargetImpl::class.java /* [ForgeTarget] can't expose internal class [TargetCompilation] */).whenObjectAdded { target ->
-            if (!forgeConfigured) {
-                forgeConfigured = true
+        targets.withType(ForgeTargetImpl::class.java /* [ForgeTarget] can't expose internal class [TargetCompilation] */)
+            .whenObjectAdded { target ->
+                if (!forgeConfigured) {
+                    forgeConfigured = true
 
-                project.afterEvaluate {
                     project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
                         it.from.attribute(
                             FMLLoaderTransformationStateAttribute.ATTRIBUTE,
                             FMLLoaderTransformationStateAttribute.INITIAL,
                         )
 
-                        it.to.attribute(
-                            FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-                            FMLLoaderTransformationStateAttribute.of(target, target.main, States.NO_NAME_MAPPING),
-                        )
+                        it.to.attribute(FMLLoaderTransformationStateAttribute.ATTRIBUTE, States.NO_NAME_MAPPING)
                     }
                 }
             }
-        }
 
         targets.all {
             it.dependsOn(common())

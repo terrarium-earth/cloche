@@ -67,7 +67,4 @@ internal object FMLLoaderTransformationStateAttribute {
     val ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.fmlLoaderState", String::class.java)
 
     const val INITIAL = "none"
-
-    fun of(target: MinecraftTarget, compilation: TargetCompilation, state: String) =
-        lowerCamelCaseName(target.featureName, compilation.featureName, state)
 }
