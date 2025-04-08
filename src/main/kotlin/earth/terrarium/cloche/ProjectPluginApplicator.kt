@@ -61,6 +61,10 @@ fun applyToProject(target: Project) {
                 ModTransformationStateAttribute.ATTRIBUTE,
                 ModTransformationStateAttribute.INITIAL,
             )
+            jar.attributes.attribute(
+                FMLLoaderTransformationStateAttribute.ATTRIBUTE,
+                FMLLoaderTransformationStateAttribute.INITIAL
+            )
         }
     }
 
@@ -110,13 +114,6 @@ fun applyToProject(target: Project) {
     ) {
         it.params(
             getGlobalCacheDirectory(target),
-        )
-    }
-
-    target.dependencies.components.withModule("net.minecraftforge:fmlloader") {
-        it.attributes.attribute(
-            FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-            FMLLoaderTransformationStateAttribute.INITIAL
         )
     }
 
