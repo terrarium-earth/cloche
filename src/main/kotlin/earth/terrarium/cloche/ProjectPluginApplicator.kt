@@ -61,6 +61,10 @@ fun applyToProject(target: Project) {
                 ModTransformationStateAttribute.ATTRIBUTE,
                 ModTransformationStateAttribute.INITIAL,
             )
+            jar.attributes.attribute(
+                FMLLoaderTransformationStateAttribute.ATTRIBUTE,
+                FMLLoaderTransformationStateAttribute.INITIAL,
+            )
         }
     }
 

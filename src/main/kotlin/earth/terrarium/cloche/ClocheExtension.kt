@@ -9,12 +9,14 @@ import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.NeoforgeTarget
 import earth.terrarium.cloche.target.CommonTargetInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.States
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
+import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.NamedDomainObjectContainer
@@ -147,6 +149,28 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                 project.dependencies.components {
                     it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
                         it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
+                    }
+                }
+            }
+        }
+
+        var forgeConfigured = false
+
+        targets.withType(ForgeTargetImpl::class.java /* [ForgeTarget] can't expose internal class [TargetCompilation] */).whenObjectAdded { target ->
+            if (!forgeConfigured) {
+                forgeConfigured = true
+
+                project.afterEvaluate {
+                    project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
+                        it.from.attribute(
+                            FMLLoaderTransformationStateAttribute.ATTRIBUTE,
+                            FMLLoaderTransformationStateAttribute.INITIAL,
+                        )
+
+                        it.to.attribute(
+                            FMLLoaderTransformationStateAttribute.ATTRIBUTE,
+                            FMLLoaderTransformationStateAttribute.of(target, target.main, States.NO_NAME_MAPPING),
+                        )
                     }
                 }
             }
