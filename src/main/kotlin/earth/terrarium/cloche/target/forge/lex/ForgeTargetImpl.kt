@@ -4,6 +4,7 @@ import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
+import earth.terrarium.cloche.target.forge.ForgeRunConfigurations
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
@@ -14,6 +15,8 @@ import org.gradle.jvm.tasks.Jar
 import javax.inject.Inject
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
+    override val runs: ForgeRunConfigurations = project.objects.newInstance(LexForgeRunConfigurations::class.java, this)
+
     override val group
         @Internal
         get() = "net.minecraftforge"
