@@ -73,6 +73,12 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         }
     }
 
+    override fun initialize(isSingleTarget: Boolean) {
+        super.initialize(isSingleTarget)
+
+        project.dependencies.add(main.sourceSet.runtimeOnlyConfigurationName, "net.msrandom:codev-forge-runtime:0.1.0")
+    }
+
     override fun version(minecraftVersion: String, loaderVersion: String) =
         "$minecraftVersion-$loaderVersion"
 

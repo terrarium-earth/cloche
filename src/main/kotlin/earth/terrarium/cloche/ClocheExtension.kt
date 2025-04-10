@@ -169,10 +169,6 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
                         it.to.attribute(FMLLoaderTransformationStateAttribute.ATTRIBUTE, States.NO_NAME_MAPPING)
                     }
-
-                    project.afterEvaluate {
-                        project.dependencies.add(target.main.sourceSet.runtimeOnlyConfigurationName, "net.msrandom:codev-forge-runtime:0.1.0")
-                    }
                 }
             }
 
