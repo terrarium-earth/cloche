@@ -30,12 +30,15 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
     fun create(vararg names: String, action: Action<ForgeRunsDefaultsContainer>): MinecraftRunConfiguration {
         val run = project.extension<RunsContainer>().create(listOf(target.name, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
+        applyDefault(run)
         run.defaults {
             action.execute(it.extension<ForgeRunsDefaultsContainer>())
         }
 
         return run
     }
+
+    protected open fun applyDefault(run: MinecraftRunConfiguration) {}
 
     private fun ForgeRunConfigurationData.mixins(sourceSet: SourceSet) {
         mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
