@@ -472,10 +472,9 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.input.from(accessWideners)
             it.accessWidenerName.set(project.extension<ClocheExtension>().metadata.modId)
 
-            val output = modId.zip(project.layout.buildDirectory.dir("generated"), ::Pair)
-                .map { (modId, directory) ->
-                    directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
-                }
+            val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
+                directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
+            }
 
             it.output.set(output)
         }

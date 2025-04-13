@@ -41,7 +41,7 @@ internal fun Project.getModFiles(configurationName: String, isTransitive: Boolea
 
     val modDependencies = project.configurations.named(modConfigurationName(configurationName))
 
-    return project.files(classpath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
+    return project.files(classpath.zip(modDependencies) { classpath, modDependencies ->
         val resolutionResult = modDependencies.incoming.resolutionResult
 
         val componentIdentifiers = if (isTransitive) {
@@ -176,7 +176,7 @@ constructor(
     override val target: MinecraftTargetInternal,
     val intermediaryMinecraftClasspath: FileCollection,
     namedMinecraftFile: Provider<RegularFile>,
-    val extraClasspathFiles: FileCollection,
+    val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
     side: Side,
     isSingleTarget: Boolean,
