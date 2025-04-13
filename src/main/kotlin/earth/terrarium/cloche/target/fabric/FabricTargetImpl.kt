@@ -37,7 +37,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
-import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -224,7 +223,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 remapClient.flatMap(RemapTask::outputFile),
                 main.finalMinecraftFile.map(::listOf),
                 PublicationSide.Client,
-                MixinEnvironment.Side.CLIENT,
                 isSingleTarget,
             )
 
@@ -350,7 +348,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             remappedFile,
             extraClasspath,
             PublicationSide.Common,
-            MixinEnvironment.Side.SERVER,
             isSingleTarget,
         )
     }

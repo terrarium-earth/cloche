@@ -27,7 +27,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
 internal object States {
@@ -178,7 +177,6 @@ constructor(
     namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
-    side: Side,
     isSingleTarget: Boolean,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
