@@ -390,11 +390,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "modJsonJarsEntry"),
             GenerateModJsonJarsEntry::class.java
         ) {
-            it.jar.set(hasIncludedClient.flatMap {
+            it.jar.set(client.isConfigured.flatMap {
                 val jarTask = if (it) {
-                    main.remapJarTask
-                } else {
                     mergeJarTask
+                } else {
+                    main.remapJarTask
                 }
 
                 jarTask.flatMap(Jar::getArchiveFile)
@@ -482,7 +482,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun includedClient() {
-        if (client.isConfigured) {
+        if (client.isConfiguredValue) {
             throw InvalidUserCodeException("Used 'includedClient' in target $name after already configuring client compilation")
         }
 
