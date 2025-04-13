@@ -63,7 +63,7 @@ internal fun registerCompilationTransformations(
     compilationName: String,
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
-    extraClasspathFiles: FileCollection,
+    extraClasspathFiles: Provider<List<RegularFile>>,
 ): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
     val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
@@ -233,7 +233,7 @@ constructor(
         }
 
         // Use detached configuration for idea compat
-        val minecraftFiles = project.files(finalMinecraftFile) + extraClasspathFiles
+        val minecraftFiles = project.files(finalMinecraftFile, extraClasspathFiles)
         val minecraftFileConfiguration =
             project.configurations.detachedConfiguration(project.dependencies.create(minecraftFiles))
 

@@ -20,7 +20,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
     target: MinecraftTargetInternal,
     intermediaryMinecraftClasspath: FileCollection,
     namedMinecraftFile: Provider<RegularFile>,
-    extraClasspathFiles: FileCollection,
+    extraClasspathFiles: Provider<List<RegularFile>>,
     variant: PublicationSide,
     side: Side,
     isSingleTarget: Boolean,

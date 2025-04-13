@@ -222,7 +222,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
                 ),
                 remapClient.flatMap(RemapTask::outputFile),
-                project.files(main.finalMinecraftFile),
+                main.finalMinecraftFile.map(::listOf),
                 PublicationSide.Client,
                 MixinEnvironment.Side.CLIENT,
                 isSingleTarget,
@@ -310,7 +310,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
             compilationSourceSet(this, name, isSingleTarget),
             remapCommon.flatMap(RemapTask::outputFile),
-            project.files(),
+            project.provider { emptyList() },
         ).first
 
         commonTask.configure {
@@ -330,15 +330,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             client = remapClient.flatMap(RemapTask::outputFile),
         )
 
-        val extraClasspath = project.files(
+        val extraClasspath = if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
             clientAlternative(
                 normal = project.provider { emptyList() },
                 client = commonClasspath,
             )
-        )
-
-        if (name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            extraClasspath.from(main.finalMinecraftFile)
+        } else {
+            clientAlternative(
+                normal = main.finalMinecraftFile.map(::listOf),
+                client = commonClasspath.zip(main.finalMinecraftFile, List<RegularFile>::plus),
+            )
         }
 
         return project.objects.newInstance(
