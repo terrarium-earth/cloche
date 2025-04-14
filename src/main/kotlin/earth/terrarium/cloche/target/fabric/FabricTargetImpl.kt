@@ -37,7 +37,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
-import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -222,9 +221,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
                 ),
                 remapClient.flatMap(RemapTask::outputFile),
-                project.files(main.finalMinecraftFile),
+                main.finalMinecraftFile.map(::listOf),
                 PublicationSide.Client,
-                MixinEnvironment.Side.CLIENT,
                 isSingleTarget,
             )
 
@@ -310,7 +308,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
             compilationSourceSet(this, name, isSingleTarget),
             remapCommon.flatMap(RemapTask::outputFile),
-            project.files(),
+            project.provider { emptyList() },
         ).first
 
         commonTask.configure {
@@ -330,15 +328,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             client = remapClient.flatMap(RemapTask::outputFile),
         )
 
-        val extraClasspath = project.files(
+        val extraClasspath = if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
             clientAlternative(
                 normal = project.provider { emptyList() },
                 client = commonClasspath,
             )
-        )
-
-        if (name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            extraClasspath.from(main.finalMinecraftFile)
+        } else {
+            clientAlternative(
+                normal = main.finalMinecraftFile.map(::listOf),
+                client = commonClasspath.zip(main.finalMinecraftFile, List<RegularFile>::plus),
+            )
         }
 
         return project.objects.newInstance(
@@ -349,7 +348,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             remappedFile,
             extraClasspath,
             PublicationSide.Common,
-            MixinEnvironment.Side.SERVER,
             isSingleTarget,
         )
     }
@@ -392,11 +390,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "modJsonJarsEntry"),
             GenerateModJsonJarsEntry::class.java
         ) {
-            it.jar.set(hasIncludedClient.flatMap {
+            it.jar.set(client.isConfigured.flatMap {
                 val jarTask = if (it) {
-                    main.remapJarTask
-                } else {
                     mergeJarTask
+                } else {
+                    main.remapJarTask
                 }
 
                 jarTask.flatMap(Jar::getArchiveFile)
@@ -471,10 +469,9 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.input.from(accessWideners)
             it.accessWidenerName.set(project.extension<ClocheExtension>().metadata.modId)
 
-            val output = modId.zip(project.layout.buildDirectory.dir("generated"), ::Pair)
-                .map { (modId, directory) ->
-                    directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
-                }
+            val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
+                directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
+            }
 
             it.output.set(output)
         }
@@ -485,7 +482,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun includedClient() {
-        if (client.isConfigured) {
+        if (client.isConfiguredValue) {
             throw InvalidUserCodeException("Used 'includedClient' in target $name after already configuring client compilation")
         }
 

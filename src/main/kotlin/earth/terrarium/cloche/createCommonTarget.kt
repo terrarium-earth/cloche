@@ -7,13 +7,53 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFile
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
 
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
+
+private fun convertClasspath(
+    compilation: TargetCompilation,
+    objects: ObjectFactory,
+    configurationContainer: ConfigurationContainer
+): Provider<List<GenerateStubApi.ResolvedArtifact>> {
+    val minecraftFiles =
+        compilation.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
+            .map {
+                it.map {
+                    val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
+
+                    artifact.file.set(it)
+
+                    artifact
+                }
+            }
+
+    val artifacts = getNonProjectArtifacts(
+        configurationContainer,
+        compilation.sourceSet.compileClasspathConfigurationName
+    ).flatMap {
+        it.artifacts.resolvedArtifacts.map { artifacts ->
+            artifacts.map {
+                val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
+
+                artifact.id.set(it.id.componentIdentifier)
+                artifact.file.set(it.file)
+
+                artifact
+            }
+        }
+    }
+
+    return minecraftFiles.zip(artifacts, List<GenerateStubApi.ResolvedArtifact>::plus)
+}
 
 context(Project) internal fun createCommonTarget(
     commonTarget: CommonTargetInternal,
@@ -35,19 +75,24 @@ context(Project) internal fun createCommonTarget(
             it.apiFileName.set("$jarName-api-stub.jar")
 
             val objects = objects
+            val configurations = configurations
 
-            it.classpaths.set(compilations.map {
-                it.map {
-                    val classpath = objects.newInstance(GenerateStubApi.Classpath::class.java)
+            val classpaths = compilations.flatMap {
+                @Suppress("UNCHECKED_CAST")
+                val classpath =
+                    objects.listProperty(List::class.java) as ListProperty<List<GenerateStubApi.ResolvedArtifact>>
 
-                    classpath.artifacts.set(getNonProjectArtifacts(it.sourceSet.compileClasspathConfigurationName).map { it.artifacts })
-
-                    classpath.extraFiles.from(it.finalMinecraftFile)
-                    classpath.extraFiles.from(it.extraClasspathFiles)
-
-                    classpath
+                for (compilation in it) {
+                    classpath.add(convertClasspath(compilation, objects, configurations))
                 }
-            })
+
+                classpath
+            }
+
+            it.classpaths.set(classpaths)
+
+            it.dependsOn(compilations.map { it.map { it.extraClasspathFiles } })
+            it.dependsOn(compilations.map { it.map { it.finalMinecraftFile } })
 
             it.dependsOn(files(compilations.map {
                 it.map {
@@ -267,7 +312,8 @@ context(Project) internal fun createCommonTarget(
                 it,
                 commonTarget.dependents.map {
                     it.map {
-                        (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation ?: (it as MinecraftTargetInternal).main
+                        (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation
+                            ?: (it as MinecraftTargetInternal).main
                     }
                 },
             ),

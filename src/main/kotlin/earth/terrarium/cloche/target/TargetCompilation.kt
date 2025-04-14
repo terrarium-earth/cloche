@@ -27,7 +27,6 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
 internal object States {
@@ -42,7 +41,7 @@ internal fun Project.getModFiles(configurationName: String, isTransitive: Boolea
 
     val modDependencies = project.configurations.named(modConfigurationName(configurationName))
 
-    return project.files(classpath.zip(modDependencies, ::Pair).map { (classpath, modDependencies) ->
+    return project.files(classpath.zip(modDependencies) { classpath, modDependencies ->
         val resolutionResult = modDependencies.incoming.resolutionResult
 
         val componentIdentifiers = if (isTransitive) {
@@ -64,7 +63,7 @@ internal fun registerCompilationTransformations(
     compilationName: String,
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
-    extraClasspathFiles: FileCollection,
+    extraClasspathFiles: Provider<List<RegularFile>>,
 ): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
     val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
@@ -177,9 +176,8 @@ constructor(
     override val target: MinecraftTargetInternal,
     val intermediaryMinecraftClasspath: FileCollection,
     namedMinecraftFile: Provider<RegularFile>,
-    val extraClasspathFiles: FileCollection,
+    val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
-    side: Side,
     isSingleTarget: Boolean,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
@@ -234,7 +232,7 @@ constructor(
         }
 
         // Use detached configuration for idea compat
-        val minecraftFiles = project.files(finalMinecraftFile) + extraClasspathFiles
+        val minecraftFiles = project.files(finalMinecraftFile, extraClasspathFiles)
         val minecraftFileConfiguration =
             project.configurations.detachedConfiguration(project.dependencies.create(minecraftFiles))
 

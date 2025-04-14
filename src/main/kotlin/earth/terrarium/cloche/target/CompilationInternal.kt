@@ -13,6 +13,7 @@ import org.gradle.api.Buildable
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
+import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
@@ -22,25 +23,21 @@ import org.gradle.jvm.tasks.Jar
 import org.gradle.plugins.ide.idea.model.IdeaModel
 import javax.inject.Inject
 
-fun modConfigurationName(name: String) =
+internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
 
-context(Project)
-fun getNonProjectArtifacts(configurationName: String): Provider<ArtifactView> {
-    return configurations.named(configurationName).map {
-        it.incoming.artifactView {
-            it.componentFilter {
-                // We do *not* want to build anything during sync.
-                it !is ProjectComponentIdentifier
-            }
+internal fun getNonProjectArtifacts(configurationContainer: ConfigurationContainer, configurationName: String): Provider<ArtifactView> = configurationContainer.named(configurationName).map {
+    it.incoming.artifactView {
+        it.componentFilter {
+            // We do *not* want to build anything during sync.
+            it !is ProjectComponentIdentifier
         }
     }
 }
 
 context(Project)
-fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> {
-    return getNonProjectArtifacts(configurationName).map { it.files }
-}
+internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
+    getNonProjectArtifacts(configurations, configurationName).map { it.files }
 
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility

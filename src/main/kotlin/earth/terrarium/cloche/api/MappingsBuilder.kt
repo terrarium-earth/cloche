@@ -78,7 +78,7 @@ class MappingsBuilder internal constructor(
 
         project.dependencies.addProvider(
             configurationName,
-            target.minecraftVersion.zip(version, ::Pair).map { (minecraftVersion, version) ->
+            target.minecraftVersion.zip(version) { minecraftVersion, version ->
                 parchmentDependency(minecraftVersion, version)
             },
         )
@@ -111,7 +111,7 @@ class MappingsBuilder internal constructor(
 
         project.dependencies.addProvider(
             configurationName,
-            minecraftVersion.orElse(target.minecraftVersion).zip(version, ::Pair).map { (minecraftVersion, version) ->
+            minecraftVersion.orElse(target.minecraftVersion).zip(version) { minecraftVersion, version ->
                 parchmentDependency(minecraftVersion, version)
             },
         )
@@ -142,7 +142,7 @@ class MappingsBuilder internal constructor(
 
         project.dependencies.addProvider(
             configurationName,
-            target.minecraftVersion.zip(version, ::Pair).map { (version, minecraftVersion) ->
+            target.minecraftVersion.zip(version) { version, minecraftVersion ->
                 yarnDependency(minecraftVersion, version)
             },
         )

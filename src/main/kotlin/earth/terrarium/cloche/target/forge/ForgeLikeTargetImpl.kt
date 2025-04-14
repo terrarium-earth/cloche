@@ -31,13 +31,13 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
+import org.gradle.api.file.RegularFile
 import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.spongepowered.asm.mixin.MixinEnvironment.Side
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -92,9 +92,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 this,
                 project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                 minecraftFile,
-                project.files(),
+                project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
-                Side.UNKNOWN,
                 isSingleTarget,
             )
         }
@@ -114,9 +113,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 this,
                 project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                 minecraftFile,
-                project.files(),
+                project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
-                Side.UNKNOWN,
                 isSingleTarget,
             )
         }
@@ -219,9 +217,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             this,
             project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
             minecraftFile,
-            project.files(),
+            project.provider { emptyList<RegularFile>() },
             PublicationSide.Joined,
-            Side.CLIENT,
             isSingleTarget,
         )
 
