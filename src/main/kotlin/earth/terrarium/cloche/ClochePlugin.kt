@@ -1,7 +1,7 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.IDEA_SYNC_TASK_NAME
-import earth.terrarium.cloche.util.isIDEDetected
+import earth.terrarium.cloche.util.isIdeDetected
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import org.gradle.api.Plugin
@@ -12,7 +12,7 @@ import org.gradle.api.plugins.PluginAware
 fun Project.ideaSyncHook() {
     tasks.register(IDEA_SYNC_TASK_NAME)
 
-    if (!isIDEDetected()) {
+    if (!isIdeDetected()) {
         return
     }
 
