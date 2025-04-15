@@ -67,26 +67,11 @@ fun applyToProject(target: Project) {
 
     target.extension<SourceSetContainer>().all {
         it.extension<SourceSetStaticLinkageInfo>().links.all { dependency ->
-            target.extend(
-                modConfigurationName(it.implementationConfigurationName),
-                modConfigurationName(dependency.implementationConfigurationName)
-            )
-            target.extend(
-                modConfigurationName(it.apiConfigurationName),
-                modConfigurationName(dependency.apiConfigurationName)
-            )
-            target.extend(
-                modConfigurationName(it.runtimeOnlyConfigurationName),
-                modConfigurationName(dependency.runtimeOnlyConfigurationName)
-            )
-            target.extend(
-                modConfigurationName(it.compileOnlyConfigurationName),
-                modConfigurationName(dependency.compileOnlyConfigurationName)
-            )
-            target.extend(
-                modConfigurationName(it.compileOnlyApiConfigurationName),
-                modConfigurationName(dependency.compileOnlyApiConfigurationName)
-            )
+            target.extend(modConfigurationName(it.implementationConfigurationName), modConfigurationName(dependency.implementationConfigurationName))
+            target.extend(modConfigurationName(it.apiConfigurationName), modConfigurationName(dependency.apiConfigurationName))
+            target.extend(modConfigurationName(it.runtimeOnlyConfigurationName), modConfigurationName(dependency.runtimeOnlyConfigurationName))
+            target.extend(modConfigurationName(it.compileOnlyConfigurationName), modConfigurationName(dependency.compileOnlyConfigurationName))
+            target.extend(modConfigurationName(it.compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
 
             target.extend(it.mixinsConfigurationName, dependency.mixinsConfigurationName)
         }
