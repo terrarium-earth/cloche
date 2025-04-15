@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target.forge.lex
 
 import earth.terrarium.cloche.FORGE
+import earth.terrarium.cloche.NO_NAME_MAPPING_ATTRIBUTE
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
@@ -77,6 +78,14 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         super.initialize(isSingleTarget)
 
         project.dependencies.add(main.sourceSet.runtimeOnlyConfigurationName, "net.msrandom:codev-forge-runtime:0.1.0")
+
+        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+        }
+
+        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+        }
     }
 
     override fun version(minecraftVersion: String, loaderVersion: String) =

@@ -9,7 +9,6 @@ import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.NeoforgeTarget
 import earth.terrarium.cloche.target.CommonTargetInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.States
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
@@ -37,9 +36,10 @@ interface TargetContainer {
     fun fabric(name: String): FabricTarget = fabric(name) {}
     fun fabric(@DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(FABRIC, configure)
     fun fabric(configure: Action<FabricTarget>): FabricTarget = fabric(FABRIC, configure)
-    fun fabric(name: String, @DelegatesTo(FabricTarget::class)  configure: Closure<*>): FabricTarget = fabric(name) {
+    fun fabric(name: String, @DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget
 
     fun forge(): ForgeTarget = forge(FORGE)
@@ -49,15 +49,20 @@ interface TargetContainer {
     fun forge(name: String, @DelegatesTo(ForgeTarget::class) configure: Closure<*>): ForgeTarget = forge(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun forge(name: String, configure: Action<ForgeTarget>): ForgeTarget
 
     fun neoforge(): NeoforgeTarget = neoforge(NEOFORGE)
     fun neoforge(name: String): NeoforgeTarget = neoforge(name) {}
-    fun neoforge(@DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(NEOFORGE, configure)
+    fun neoforge(@DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget =
+        neoforge(NEOFORGE, configure)
+
     fun neoforge(configure: Action<NeoforgeTarget>): NeoforgeTarget = neoforge(NEOFORGE, configure)
-    fun neoforge(name: String, @DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(name) {
-        configure.rehydrate(it, this, this).call()
-    }
+    fun neoforge(name: String, @DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget =
+        neoforge(name) {
+            configure.rehydrate(it, this, this).call()
+        }
+
     fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget
 }
 
@@ -74,8 +79,11 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
         return target(name, FabricTargetImpl::class.java, configure)
     }
 
-    override fun forge(name: String, configure: Action<ForgeTarget>) = target(name, ForgeTargetImpl::class.java, configure)
-    override fun neoforge(name: String, configure: Action<NeoforgeTarget>) = target(name, NeoForgeTargetImpl::class.java, configure)
+    override fun forge(name: String, configure: Action<ForgeTarget>) =
+        target(name, ForgeTargetImpl::class.java, configure)
+
+    override fun neoforge(name: String, configure: Action<NeoforgeTarget>) =
+        target(name, NeoForgeTargetImpl::class.java, configure)
 
     private fun <T : MinecraftTarget> target(name: String, type: Class<out T>, configure: Action<T>): T {
         extension.targets.all {
@@ -114,30 +122,33 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
 open class ClocheExtension @Inject constructor(private val project: Project, objects: ObjectFactory) : TargetContainer {
     val minecraftVersion: Property<String> = objects.property(String::class.java)
 
-    val commonTargets: NamedDomainObjectContainer<CommonTarget> = objects.domainObjectContainer(CommonTarget::class.java) {
-        objects.newInstance(CommonTargetInternal::class.java, it)
-    }
-
-    val targets: PolymorphicDomainObjectContainer<MinecraftTarget> = objects.polymorphicDomainObjectContainer(MinecraftTarget::class.java).apply {
-        registerFactory(FabricTarget::class.java) {
-            objects.newInstance(FabricTargetImpl::class.java, it)
+    val commonTargets: NamedDomainObjectContainer<CommonTarget> =
+        objects.domainObjectContainer(CommonTarget::class.java) {
+            objects.newInstance(CommonTargetInternal::class.java, it)
         }
 
-        registerFactory(ForgeTarget::class.java) {
-            objects.newInstance(ForgeTargetImpl::class.java, it)
-        }
+    val targets: PolymorphicDomainObjectContainer<MinecraftTarget> =
+        objects.polymorphicDomainObjectContainer(MinecraftTarget::class.java).apply {
+            registerFactory(FabricTarget::class.java) {
+                objects.newInstance(FabricTargetImpl::class.java, it)
+            }
 
-        registerFactory(NeoforgeTarget::class.java) {
-            objects.newInstance(NeoForgeTargetImpl::class.java, it)
+            registerFactory(ForgeTarget::class.java) {
+                objects.newInstance(ForgeTargetImpl::class.java, it)
+            }
+
+            registerFactory(NeoforgeTarget::class.java) {
+                objects.newInstance(NeoForgeTargetImpl::class.java, it)
+            }
         }
-    }
 
     val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
 
     internal val singleTargetConfigurator = SingleTargetConfigurator(project, this)
 
     @Suppress("UNCHECKED_CAST")
-    internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
+    internal val mappingActions =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
         var fabricConfigured = false
@@ -162,12 +173,9 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                     forgeConfigured = true
 
                     project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
-                        it.from.attribute(
-                            FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-                            FMLLoaderTransformationStateAttribute.INITIAL,
-                        )
+                        it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
 
-                        it.to.attribute(FMLLoaderTransformationStateAttribute.ATTRIBUTE, States.NO_NAME_MAPPING)
+                        it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
                     }
                 }
             }
@@ -192,7 +200,8 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     fun common(name: String, configure: Action<CommonTarget>): CommonTarget =
         commonTargets.maybeCreate(name).also(configure::execute)
 
-    fun <T : MinecraftTarget> singleTarget(configurator: SingleTargetConfigurator.() -> T) = singleTargetConfigurator.configurator()
+    fun <T : MinecraftTarget> singleTarget(configurator: SingleTargetConfigurator.() -> T) =
+        singleTargetConfigurator.configurator()
 
     override fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget = target(name, configure)
 

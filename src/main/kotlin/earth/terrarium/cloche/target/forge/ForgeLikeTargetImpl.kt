@@ -2,7 +2,6 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.FMLLoaderTransformationStateAttribute
 import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
@@ -11,7 +10,6 @@ import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.States
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
@@ -221,18 +219,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             PublicationSide.Joined,
             isSingleTarget,
         )
-
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attributeProvider(
-                FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-                project.provider { States.NO_NAME_MAPPING })
-        }
-
-        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attributeProvider(
-                FMLLoaderTransformationStateAttribute.ATTRIBUTE,
-                project.provider { States.NO_NAME_MAPPING })
-        }
 
         includeJarTask = project.tasks.register(
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarJar"),

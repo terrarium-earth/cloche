@@ -62,9 +62,5 @@ internal object ModTransformationStateAttribute {
         lowerCamelCaseName(target.featureName, compilation.featureName, state)
 }
 
-internal object FMLLoaderTransformationStateAttribute {
-    @JvmField
-    val ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.fmlLoaderState", String::class.java)
-
-    const val INITIAL = "none"
-}
+@JvmField
+val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.java)
