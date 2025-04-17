@@ -77,7 +77,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
     override fun initialize(isSingleTarget: Boolean) {
         super.initialize(isSingleTarget)
 
-        project.dependencies.add(main.sourceSet.runtimeOnlyConfigurationName, "net.msrandom:codev-forge-runtime:0.1.0")
+        project.dependencies.add(minecraftLibrariesConfiguration.name, "net.msrandom:codev-forge-runtime:0.1.0")
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
@@ -86,6 +86,8 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
         }
+
+        minecraftLibrariesConfiguration.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
     }
 
     override fun version(minecraftVersion: String, loaderVersion: String) =
