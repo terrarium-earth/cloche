@@ -15,6 +15,7 @@ import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
+import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.NamedDomainObjectContainer
@@ -35,9 +36,10 @@ interface TargetContainer {
     fun fabric(name: String): FabricTarget = fabric(name) {}
     fun fabric(@DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(FABRIC, configure)
     fun fabric(configure: Action<FabricTarget>): FabricTarget = fabric(FABRIC, configure)
-    fun fabric(name: String, @DelegatesTo(FabricTarget::class)  configure: Closure<*>): FabricTarget = fabric(name) {
+    fun fabric(name: String, @DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget
 
     fun forge(): ForgeTarget = forge(FORGE)
@@ -47,15 +49,18 @@ interface TargetContainer {
     fun forge(name: String, @DelegatesTo(ForgeTarget::class) configure: Closure<*>): ForgeTarget = forge(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun forge(name: String, configure: Action<ForgeTarget>): ForgeTarget
 
     fun neoforge(): NeoforgeTarget = neoforge(NEOFORGE)
     fun neoforge(name: String): NeoforgeTarget = neoforge(name) {}
     fun neoforge(@DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(NEOFORGE, configure)
+
     fun neoforge(configure: Action<NeoforgeTarget>): NeoforgeTarget = neoforge(NEOFORGE, configure)
     fun neoforge(name: String, @DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget
 }
 
@@ -73,6 +78,7 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
     }
 
     override fun forge(name: String, configure: Action<ForgeTarget>) = target(name, ForgeTargetImpl::class.java, configure)
+
     override fun neoforge(name: String, configure: Action<NeoforgeTarget>) = target(name, NeoForgeTargetImpl::class.java, configure)
 
     private fun <T : MinecraftTarget> target(name: String, type: Class<out T>, configure: Action<T>): T {
@@ -151,6 +157,21 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                 }
             }
         }
+
+        var forgeConfigured = false
+
+        targets.withType(ForgeTargetImpl::class.java /* [ForgeTarget] can't expose internal class [TargetCompilation] */)
+            .whenObjectAdded { target ->
+                if (!forgeConfigured) {
+                    forgeConfigured = true
+
+                    project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
+                        it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+
+                        it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+                    }
+                }
+            }
 
         targets.all {
             it.dependsOn(common())
