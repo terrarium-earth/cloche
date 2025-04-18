@@ -23,7 +23,9 @@ gradlePlugin {
 repositories {
     mavenLocal()
 
-    maven(url = "https://maven.msrandom.net/repository/root/")
+    maven(url = "https://maven.fabricmc.net/")
+    maven(url = "https://maven.neoforged.net/")
+    maven(url = "https://maven.msrandom.net/repository/cloche/")
 
     mavenCentral()
     gradlePluginPortal()
