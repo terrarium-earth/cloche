@@ -13,7 +13,9 @@ import org.gradle.api.Buildable
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationContainer
+import org.gradle.api.artifacts.ResolvableConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
@@ -26,7 +28,7 @@ import javax.inject.Inject
 internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
 
-internal fun getNonProjectArtifacts(configurationContainer: ConfigurationContainer, configurationName: String): Provider<ArtifactView> = configurationContainer.named(configurationName).map {
+internal fun getNonProjectArtifacts(configuration: Provider<out Configuration>): Provider<ArtifactView> = configuration.map {
     it.incoming.artifactView {
         it.componentFilter {
             // We do *not* want to build anything during sync.
@@ -37,7 +39,7 @@ internal fun getNonProjectArtifacts(configurationContainer: ConfigurationContain
 
 context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
-    getNonProjectArtifacts(configurations, configurationName).map { it.files }
+    getNonProjectArtifacts(configurations.named(configurationName)).map { it.files }
 
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility

@@ -73,10 +73,24 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
  * Include [dependency] to be compiled alongside the current source, allowing Java platform annotations and Kotlin Multiplatform to function
  */
 context(Project)
-internal fun CompilationInternal.addSourceDependency(dependency: CompilationInternal) {
+internal fun CompilationInternal.addSourceDependency(dependency: CommonCompilation) {
     println("(source dependency) $this -> $dependency")
 
     sourceSet.extension<SourceSetStaticLinkageInfo>().link(dependency.sourceSet)
+
+    project.extend(sourceSet.apiConfigurationName, dependency.sourceSet.commonBucketConfigurationName(dependency.sourceSet.apiConfigurationName))
+    project.extend(sourceSet.compileOnlyApiConfigurationName, dependency.sourceSet.commonBucketConfigurationName(dependency.sourceSet.compileOnlyApiConfigurationName))
+    project.extend(sourceSet.implementationConfigurationName, dependency.sourceSet.commonBucketConfigurationName(dependency.sourceSet.implementationConfigurationName))
+    project.extend(sourceSet.runtimeOnlyConfigurationName, dependency.sourceSet.commonBucketConfigurationName(dependency.sourceSet.runtimeOnlyConfigurationName))
+    project.extend(sourceSet.compileOnlyConfigurationName, dependency.sourceSet.commonBucketConfigurationName(dependency.sourceSet.compileOnlyConfigurationName))
+
+    project.extend(modConfigurationName(sourceSet.implementationConfigurationName), modConfigurationName(dependency.sourceSet.implementationConfigurationName))
+    project.extend(modConfigurationName(sourceSet.apiConfigurationName), modConfigurationName(dependency.sourceSet.apiConfigurationName))
+    project.extend(modConfigurationName(sourceSet.runtimeOnlyConfigurationName), modConfigurationName(dependency.sourceSet.runtimeOnlyConfigurationName))
+    project.extend(modConfigurationName(sourceSet.compileOnlyConfigurationName), modConfigurationName(dependency.sourceSet.compileOnlyConfigurationName))
+    project.extend(modConfigurationName(sourceSet.compileOnlyApiConfigurationName), modConfigurationName(dependency.sourceSet.compileOnlyApiConfigurationName))
+
+    project.extend(sourceSet.mixinsConfigurationName, dependency.sourceSet.mixinsConfigurationName)
 
     project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
     accessWideners.from(dependency.accessWideners)
