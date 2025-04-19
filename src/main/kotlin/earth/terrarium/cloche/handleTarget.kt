@@ -1,7 +1,10 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.configureSourceSet
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
@@ -61,8 +64,6 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
-
-            it.isTransitive = false
         }
 
         project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
@@ -71,8 +72,6 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
-
-            it.isTransitive = false
         }
 
         val copyMixins = tasks.register(lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"), Copy::class.java) {
