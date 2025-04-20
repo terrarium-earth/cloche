@@ -7,7 +7,11 @@ import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName

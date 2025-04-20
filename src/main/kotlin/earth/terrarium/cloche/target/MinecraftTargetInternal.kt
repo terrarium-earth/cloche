@@ -2,7 +2,8 @@
 
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.api.*
+import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget

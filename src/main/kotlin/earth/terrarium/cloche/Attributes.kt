@@ -3,7 +3,11 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
-import org.gradle.api.attributes.*
+import org.gradle.api.attributes.Attribute
+import org.gradle.api.attributes.AttributeCompatibilityRule
+import org.gradle.api.attributes.AttributeDisambiguationRule
+import org.gradle.api.attributes.CompatibilityCheckDetails
+import org.gradle.api.attributes.MultipleCandidatesDetails
 
 @JvmField
 val SIDE_ATTRIBUTE: Attribute<PublicationSide> = Attribute.of("earth.terrarium.cloche.side", PublicationSide::class.java)
@@ -57,3 +61,6 @@ internal object ModTransformationStateAttribute {
     fun of(target: MinecraftTarget, compilation: TargetCompilation, state: String) =
         lowerCamelCaseName(target.featureName, compilation.featureName, state)
 }
+
+@JvmField
+val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
