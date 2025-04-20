@@ -128,6 +128,14 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
             it.dependsOn(data)
         }
 
+        client.onConfigured {
+            it.dependsOn(data)
+        }
+
+        clientTest.onConfigured {
+            it.dependsOn(data)
+        }
+
         data
     }
 

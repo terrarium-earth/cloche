@@ -46,8 +46,8 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.5.29")
     implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.5.29")
 
-    implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.10")
-    implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.2.3")
+    implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.11")
+    implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.1")
     implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.4")
 
     implementation(group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version = "2.1.0-1.0.29")
