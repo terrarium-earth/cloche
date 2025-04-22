@@ -38,14 +38,15 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.5.30")
-    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.5.30")
-    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.5.30")
-    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.5.30")
-    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.5.30")
-    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.5.30")
-    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.5.30")
-    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.5.30")
+    val codevVersion = "0.5.31"
+    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = codevVersion)
+    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = codevVersion)
+    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = codevVersion)
+    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = codevVersion)
+    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = codevVersion)
+    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = codevVersion)
+    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = codevVersion)
+    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = codevVersion)
 
     implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.11")
     implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.1")
@@ -90,5 +91,5 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain(8)
+    jvmToolchain(11)
 }
