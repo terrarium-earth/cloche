@@ -311,20 +311,19 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
-        val commonTask = registerCompilationTransformations(
+        val (commonAccessWidenTask) = main.registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
             compilationSourceSet(this, name, isSingleTarget),
             remapCommon.flatMap(RemapTask::outputFile),
-            project.provider { emptyList() },
-            MixinEnvironment.Side.UNKNOWN
-        ).first
+            project.provider { emptyList() }
+        )
 
-        commonTask.configure {
+        commonAccessWidenTask.configure {
             it.accessWideners.from(accessWideners)
         }
 
-        val commonClasspath = list(commonTask.flatMap(AccessWiden::outputFile))
+        val commonClasspath = list(commonAccessWidenTask.flatMap(AccessWiden::outputFile))
 
         // TODO Once client splitting is done, we might not always need the client Jar
         val intermediateClasspath = project.files(
@@ -357,7 +356,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             remappedFile,
             extraClasspath,
             PublicationSide.Common,
-            MixinEnvironment.Side.SERVER,
             isSingleTarget,
         )
     }

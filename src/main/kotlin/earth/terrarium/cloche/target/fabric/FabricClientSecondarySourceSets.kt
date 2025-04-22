@@ -12,7 +12,6 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
-import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 internal abstract class FabricClientSecondarySourceSets @Inject constructor(
@@ -30,7 +29,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
     namedMinecraftFile,
     extraClasspathFiles,
     variant,
-    MixinEnvironment.Side.CLIENT,
     isSingleTarget,
 ), TargetSecondarySourceSets {
     override val data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
@@ -42,7 +40,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
             namedMinecraftFile,
             extraClasspathFiles,
             PublicationSide.Client,
-            MixinEnvironment.Side.CLIENT,
             isSingleTarget,
         )
     }
@@ -56,7 +53,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
             namedMinecraftFile,
             extraClasspathFiles,
             PublicationSide.Client,
-            MixinEnvironment.Side.CLIENT,
             isSingleTarget,
         )
     }

@@ -11,6 +11,7 @@ import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.getModFiles
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
@@ -22,6 +23,7 @@ import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.JarJar
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
+import net.msrandom.minecraftcodev.mixins.task.Mixin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
@@ -36,7 +38,6 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -77,6 +78,20 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.universal.from(universal)
     }
 
+    protected val mixinTask: TaskProvider<Mixin> = project.tasks.register(
+        lowerCamelCaseGradleName("mixin", featureName, "minecraft"),
+        Mixin::class.java,
+    ) {
+        it.group = "minecraft-transforms"
+
+        it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
+        it.classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName))
+
+        val modCompileClasspath = project.getModFiles(sourceSet.runtimeClasspathConfigurationName)
+
+        it.mixinFiles.from(modCompileClasspath)
+    }
+
     internal abstract val generateLegacyClasspath: TaskProvider<GenerateLegacyClasspath>
     internal abstract val generateLegacyDataClasspath: TaskProvider<GenerateLegacyClasspath>
     internal abstract val generateLegacyTestClasspath: TaskProvider<GenerateLegacyClasspath>
@@ -89,11 +104,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 TargetCompilation::class.java,
                 ClochePlugin.DATA_COMPILATION_NAME,
                 this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                project.files(mixinTask.flatMap(Mixin::outputFile)),
                 minecraftFile,
                 project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
-                MixinEnvironment.Side.UNKNOWN,
                 isSingleTarget,
             )
         }
@@ -111,11 +125,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 TargetCompilation::class.java,
                 SourceSet.TEST_SOURCE_SET_NAME,
                 this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                project.files(mixinTask.flatMap(Mixin::outputFile)),
                 minecraftFile,
                 project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
-                MixinEnvironment.Side.UNKNOWN,
                 isSingleTarget,
             )
         }
@@ -147,7 +160,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     ) {
         it.group = "minecraft-transforms"
 
-        it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
+        it.inputFile.set(mixinTask.flatMap(Mixin::outputFile))
 
         it.classpath.from(minecraftLibrariesConfiguration)
 
@@ -172,7 +185,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     private val minecraftFile = minecraftRemapNamespace.flatMap {
         if (it.isEmpty()) {
-            resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
+            mixinTask.flatMap(Mixin::outputFile)
         } else {
             remapTask.flatMap(RemapTask::outputFile)
         }
@@ -216,11 +229,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             TargetCompilation::class.java,
             SourceSet.MAIN_SOURCE_SET_NAME,
             this,
-            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+            project.files(mixinTask.flatMap(Mixin::outputFile)),
             minecraftFile,
             project.provider { emptyList<RegularFile>() },
             PublicationSide.Joined,
-            MixinEnvironment.Side.UNKNOWN,
             isSingleTarget,
         )
 
