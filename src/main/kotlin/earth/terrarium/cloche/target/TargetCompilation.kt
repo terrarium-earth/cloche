@@ -29,6 +29,7 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
+import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 internal fun Project.getModFiles(configurationName: String, isTransitive: Boolean = true, configure: Action<ArtifactView.ViewConfiguration>? = null): FileCollection {
@@ -59,6 +60,7 @@ internal fun registerCompilationTransformations(
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
+    side: MixinEnvironment.Side,
 ): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
     val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
@@ -95,6 +97,7 @@ internal fun registerCompilationTransformations(
         val modCompileClasspath = project.getModFiles(sourceSet.runtimeClasspathConfigurationName)
 
         it.mixinFiles.from(modCompileClasspath)
+        it.side.set(side)
     }
 
     val finalMinecraftFile = mixinTask.flatMap(Mixin::outputFile)
@@ -205,6 +208,7 @@ constructor(
     namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
+    side: MixinEnvironment.Side,
     isSingleTarget: Boolean,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
@@ -215,6 +219,7 @@ constructor(
         sourceSet,
         namedMinecraftFile,
         extraClasspathFiles,
+        side
     )
 
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)

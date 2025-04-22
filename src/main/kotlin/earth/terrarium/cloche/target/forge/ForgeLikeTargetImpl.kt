@@ -36,6 +36,7 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
+import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -92,6 +93,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 minecraftFile,
                 project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
+                MixinEnvironment.Side.UNKNOWN,
                 isSingleTarget,
             )
         }
@@ -113,6 +115,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 minecraftFile,
                 project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
+                MixinEnvironment.Side.UNKNOWN,
                 isSingleTarget,
             )
         }
@@ -217,6 +220,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             minecraftFile,
             project.provider { emptyList<RegularFile>() },
             PublicationSide.Joined,
+            MixinEnvironment.Side.UNKNOWN,
             isSingleTarget,
         )
 
