@@ -15,7 +15,6 @@ import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.tasks.GenerateModJsonJarsEntry
-import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -30,6 +29,7 @@ import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
 import net.msrandom.minecraftcodev.fabric.task.ProcessIncludedJars
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.mixins.task.Mixin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.InvalidUserCodeException
@@ -311,19 +311,20 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
-        val (commonAccessWidenTask) = main.registerCompilationTransformations(
+        val (commonAccessWidenTask, mixinTask) = main.registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
             compilationSourceSet(this, name, isSingleTarget),
             remapCommon.flatMap(RemapTask::outputFile),
-            project.provider { emptyList() }
+            project.provider { emptyList() },
+            MixinEnvironment.Side.UNKNOWN
         )
 
         commonAccessWidenTask.configure {
             it.accessWideners.from(accessWideners)
         }
 
-        val commonClasspath = list(commonAccessWidenTask.flatMap(AccessWiden::outputFile))
+        val commonClasspath = list(mixinTask.flatMap(Mixin::outputFile))
 
         // TODO Once client splitting is done, we might not always need the client Jar
         val intermediateClasspath = project.files(
@@ -356,6 +357,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             remappedFile,
             extraClasspath,
             PublicationSide.Common,
+            MixinEnvironment.Side.SERVER,
             isSingleTarget,
         )
     }
