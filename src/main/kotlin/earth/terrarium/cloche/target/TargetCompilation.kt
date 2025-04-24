@@ -202,6 +202,10 @@ private fun setupModTransformationPipeline(
                     ModTransformationStateAttribute.MIXINS_STRIPPED
                 ),
             )
+
+            it.parameters {
+                it.appliedMixins.from(compilation.setupFiles.second.flatMap(Mixin::appliedMixins))
+            }
         }
     }
 }
@@ -220,7 +224,7 @@ constructor(
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
-    private val setupFiles = registerCompilationTransformations(
+    internal val setupFiles = registerCompilationTransformations(
         target,
         name,
         sourceSet,
@@ -232,7 +236,10 @@ constructor(
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.second.flatMap(Mixin::outputFile)
     val sources = setupFiles.third
 
-    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"), RemapJar::class.java) {
+    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(
+        lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
+        RemapJar::class.java
+    ) {
         it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
         it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.targetNamespace.set(target.modRemapNamespace)
