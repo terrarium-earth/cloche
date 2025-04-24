@@ -62,6 +62,7 @@ fun applyToProject(target: Project) {
                 ModTransformationStateAttribute.INITIAL,
             )
             jar.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+            jar.attributes.attribute(INCLUDE_STATE_ATTRIBUTE, IncludeTransformationState.None)
         }
     }
 

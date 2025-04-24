@@ -64,3 +64,13 @@ internal object ModTransformationStateAttribute {
 
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
+
+enum class IncludeTransformationState {
+    None,
+    Stripped,
+    Extracted,
+}
+
+@JvmField
+val INCLUDE_STATE_ATTRIBUTE: Attribute<IncludeTransformationState> =
+    Attribute.of("earth.terrarium.cloche.includeState", IncludeTransformationState::class.java)
