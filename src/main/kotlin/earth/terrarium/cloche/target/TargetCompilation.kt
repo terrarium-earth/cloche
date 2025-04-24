@@ -8,6 +8,7 @@ import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.mixins.StripMixins
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
@@ -58,7 +59,7 @@ internal fun Project.getModFiles(
     })
 }
 
-internal fun TargetCompilation.registerCompilationTransformations(
+internal fun registerCompilationTransformations(
     target: MinecraftTargetInternal,
     compilationName: String,
     sourceSet: SourceSet,
@@ -83,7 +84,7 @@ internal fun TargetCompilation.registerCompilationTransformations(
             it.attributes {
                 it.attribute(
                     ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                    lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
                 )
             }
         })
@@ -105,7 +106,7 @@ internal fun TargetCompilation.registerCompilationTransformations(
             it.attributes {
                 it.attribute(
                     ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                    lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
                 )
             }
         }
@@ -113,7 +114,7 @@ internal fun TargetCompilation.registerCompilationTransformations(
             it.attributes {
                 it.attribute(
                     ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                    lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
                 )
             }
         }
@@ -126,7 +127,7 @@ internal fun TargetCompilation.registerCompilationTransformations(
                 it.attributes {
                     it.attribute(
                         ModTransformationStateAttribute.ATTRIBUTE,
-                        ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                        lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
                     )
                 }
             }.files
@@ -136,7 +137,7 @@ internal fun TargetCompilation.registerCompilationTransformations(
                 it.attributes {
                     it.attribute(
                         ModTransformationStateAttribute.ATTRIBUTE,
-                        ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                        lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
                     )
                 }
             }.files

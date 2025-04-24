@@ -311,7 +311,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
-        val (commonAccessWidenTask, mixinTask) = main.registerCompilationTransformations(
+        val (commonAccessWidenTask, mixinTask) = registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
             compilationSourceSet(this, name, isSingleTarget),
