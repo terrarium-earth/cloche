@@ -317,7 +317,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             compilationSourceSet(this, name, isSingleTarget),
             remapCommon.flatMap(RemapTask::outputFile),
             project.provider { emptyList() },
-            MixinEnvironment.Side.UNKNOWN
+            MixinEnvironment.Side.UNKNOWN,
+            name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME } ?: ""
         )
 
         commonAccessWidenTask.configure {

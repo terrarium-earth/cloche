@@ -66,8 +66,10 @@ internal fun registerCompilationTransformations(
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
     side: MixinEnvironment.Side,
+    attributeCompilationName: String = compilationName
 ): Triple<TaskProvider<AccessWiden>, TaskProvider<Mixin>, Provider<RegularFile>> {
     val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+    val collapsedAttributeName = attributeCompilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     val project = target.project
 
@@ -84,7 +86,7 @@ internal fun registerCompilationTransformations(
             it.attributes {
                 it.attribute(
                     ModTransformationStateAttribute.ATTRIBUTE,
-                    lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
+                    lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
                 )
             }
         })
@@ -106,7 +108,7 @@ internal fun registerCompilationTransformations(
             it.attributes {
                 it.attribute(
                     ModTransformationStateAttribute.ATTRIBUTE,
-                    lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
+                    lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
                 )
             }
         }
@@ -114,7 +116,7 @@ internal fun registerCompilationTransformations(
             it.attributes {
                 it.attribute(
                     ModTransformationStateAttribute.ATTRIBUTE,
-                    lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
+                    lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
                 )
             }
         }
@@ -127,7 +129,7 @@ internal fun registerCompilationTransformations(
                 it.attributes {
                     it.attribute(
                         ModTransformationStateAttribute.ATTRIBUTE,
-                        lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
+                        lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
                     )
                 }
             }.files
@@ -137,7 +139,7 @@ internal fun registerCompilationTransformations(
                 it.attributes {
                     it.attribute(
                         ModTransformationStateAttribute.ATTRIBUTE,
-                        lowerCamelCaseName(target.featureName, compilationName, ModTransformationStateAttribute.REMAPPED)
+                        lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
                     )
                 }
             }.files
