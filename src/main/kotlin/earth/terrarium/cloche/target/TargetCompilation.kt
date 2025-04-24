@@ -121,21 +121,25 @@ internal fun TargetCompilation.registerCompilationTransformations(
         it.mixinFiles.from(modCompileClasspath)
         it.mixinFiles.from(modRuntimeClasspath)
 
-        it.classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes {
-                it.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
-                )
-            }
+        it.classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName).map {
+            it.incoming.artifactView {
+                it.attributes {
+                    it.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                    )
+                }
+            }.files
         })
-        it.classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes {
-                it.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
-                )
-            }
+        it.classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName).map {
+            it.incoming.artifactView {
+                it.attributes {
+                    it.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                    )
+                }
+            }.files
         })
         it.classpath.from(extraClasspathFiles)
 
