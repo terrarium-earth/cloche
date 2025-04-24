@@ -32,7 +32,11 @@ import org.gradle.jvm.tasks.Jar
 import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
-internal fun Project.getModFiles(configurationName: String, isTransitive: Boolean = true, configure: Action<ArtifactView.ViewConfiguration>? = null): FileCollection {
+internal fun Project.getModFiles(
+    configurationName: String,
+    isTransitive: Boolean = true,
+    configure: Action<ArtifactView.ViewConfiguration>? = null
+): FileCollection {
     val classpath = project.configurations.named(configurationName)
 
     val modDependencies = project.configurations.named(modConfigurationName(configurationName))
@@ -67,12 +71,7 @@ internal fun TargetCompilation.registerCompilationTransformations(
     val project = target.project
 
     val accessWidenTask = project.tasks.register(
-        lowerCamelCaseGradleName(
-            "accessWiden",
-            target.featureName,
-            collapsedName,
-            "minecraft",
-        ),
+        lowerCamelCaseGradleName("accessWiden", target.featureName, collapsedName, "minecraft"),
         AccessWiden::class.java,
     ) {
         it.group = "minecraft-transforms"
@@ -80,7 +79,14 @@ internal fun TargetCompilation.registerCompilationTransformations(
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
+        it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                )
+            }
+        })
     }
 
     val mixinTask: TaskProvider<Mixin> = project.tasks.register(
@@ -95,14 +101,43 @@ internal fun TargetCompilation.registerCompilationTransformations(
         it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-        val modCompileClasspath = project.getModFiles(sourceSet.compileClasspathConfigurationName)
-        val modRuntimeClasspath = project.getModFiles(sourceSet.runtimeClasspathConfigurationName)
+        val modCompileClasspath = project.getModFiles(sourceSet.compileClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                )
+            }
+        }
+        val modRuntimeClasspath = project.getModFiles(sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                )
+            }
+        }
 
         it.mixinFiles.from(modCompileClasspath)
         it.mixinFiles.from(modRuntimeClasspath)
 
-        it.classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName))
-        it.classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
+        it.classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                )
+            }
+        })
+        it.classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.REMAPPED),
+                )
+            }
+        })
+        it.classpath.from(extraClasspathFiles)
 
         it.side.set(side)
     }
