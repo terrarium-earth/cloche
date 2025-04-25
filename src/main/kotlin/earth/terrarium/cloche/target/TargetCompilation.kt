@@ -8,8 +8,11 @@ import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
+import net.msrandom.minecraftcodev.mixins.StripMixins
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.mixins.task.Mixin
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -27,15 +30,14 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
+import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
-internal object States {
-    const val INCLUDES_EXTRACTED = "includesExtracted"
-    const val MIXINS_STRIPPED = "mixinsStripped"
-    const val REMAPPED = "remapped"
-}
-
-internal fun Project.getModFiles(configurationName: String, isTransitive: Boolean = true, configure: Action<ArtifactView.ViewConfiguration>? = null): FileCollection {
+internal fun Project.getModFiles(
+    configurationName: String,
+    isTransitive: Boolean = true,
+    configure: Action<ArtifactView.ViewConfiguration>? = null
+): FileCollection {
     val classpath = project.configurations.named(configurationName)
 
     val modDependencies = project.configurations.named(modConfigurationName(configurationName))
@@ -63,18 +65,16 @@ internal fun registerCompilationTransformations(
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
-): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
+    side: MixinEnvironment.Side,
+    attributeCompilationName: String = compilationName
+): Triple<TaskProvider<AccessWiden>, TaskProvider<Mixin>, Provider<RegularFile>> {
     val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+    val collapsedAttributeName = attributeCompilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
 
     val project = target.project
 
     val accessWidenTask = project.tasks.register(
-        lowerCamelCaseGradleName(
-            "accessWiden",
-            target.featureName,
-            collapsedName,
-            "minecraft",
-        ),
+        lowerCamelCaseGradleName("accessWiden", target.featureName, collapsedName, "minecraft"),
         AccessWiden::class.java,
     ) {
         it.group = "minecraft-transforms"
@@ -82,10 +82,74 @@ internal fun registerCompilationTransformations(
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
+        it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
+                )
+            }
+        })
     }
 
-    val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
+    val mixinTask: TaskProvider<Mixin> = project.tasks.register(
+        lowerCamelCaseGradleName("mixin", target.featureName, collapsedName, "minecraft"),
+        Mixin::class.java
+    ) {
+        it.group = "minecraft-transforms"
+
+        it.inputFile.set(accessWidenTask.flatMap(AccessWiden::outputFile))
+
+        it.sourceNamespace.set(target.modRemapNamespace)
+        it.targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+        it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+
+        val modCompileClasspath = project.getModFiles(sourceSet.compileClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
+                )
+            }
+        }
+        val modRuntimeClasspath = project.getModFiles(sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
+                )
+            }
+        }
+
+        it.mixinFiles.from(modCompileClasspath)
+        it.mixinFiles.from(modRuntimeClasspath)
+
+        it.classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName).map {
+            it.incoming.artifactView {
+                it.attributes {
+                    it.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
+                    )
+                }
+            }.files
+        })
+        it.classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName).map {
+            it.incoming.artifactView {
+                it.attributes {
+                    it.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        lowerCamelCaseName(target.featureName, collapsedAttributeName, ModTransformationStateAttribute.REMAPPED)
+                    )
+                }
+            }.files
+        })
+        it.classpath.from(extraClasspathFiles)
+
+        it.side.set(side)
+    }
+
+    val finalMinecraftFile = mixinTask.flatMap(Mixin::outputFile)
 
     val decompile = project.tasks.register(
         lowerCamelCaseGradleName("decompile", target.featureName, collapsedName, "minecraft"),
@@ -98,7 +162,7 @@ internal fun registerCompilationTransformations(
         it.classpath.from(extraClasspathFiles)
     }
 
-    return accessWidenTask to decompile.flatMap(Decompile::outputFile)
+    return Triple(accessWidenTask, mixinTask, decompile.flatMap(Decompile::outputFile))
 }
 
 internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String, isSingleTarget: Boolean): SourceSet {
@@ -131,7 +195,7 @@ private fun setupModTransformationPipeline(
 
             it.to.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
+                ModTransformationStateAttribute.of(target, compilation, ModTransformationStateAttribute.REMAPPED),
             )
 
             it.parameters {
@@ -165,6 +229,26 @@ private fun setupModTransformationPipeline(
                 it.modFiles.from(modRuntimeClasspath)
             }
         }
+
+        project.dependencies.registerTransform(StripMixins::class.java) {
+            it.from.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.of(target, compilation, ModTransformationStateAttribute.REMAPPED),
+            )
+
+            it.to.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.of(
+                    target,
+                    compilation,
+                    ModTransformationStateAttribute.MIXINS_STRIPPED
+                ),
+            )
+
+            it.parameters {
+                it.appliedMixins.from(compilation.setupFiles.second.flatMap(Mixin::appliedMixins))
+            }
+        }
     }
 }
 
@@ -177,22 +261,27 @@ constructor(
     namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
+    side: MixinEnvironment.Side,
     isSingleTarget: Boolean,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
-    private val setupFiles = registerCompilationTransformations(
+    internal val setupFiles = registerCompilationTransformations(
         target,
         name,
         sourceSet,
         namedMinecraftFile,
         extraClasspathFiles,
+        side
     )
 
-    val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)
-    val sources = setupFiles.second
+    val finalMinecraftFile: Provider<RegularFile> = setupFiles.second.flatMap(Mixin::outputFile)
+    val sources = setupFiles.third
 
-    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"), RemapJar::class.java) {
+    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(
+        lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
+        RemapJar::class.java
+    ) {
         it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
         it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.targetNamespace.set(target.modRemapNamespace)
@@ -210,7 +299,7 @@ constructor(
             if (it.isEmpty()) {
                 ModTransformationStateAttribute.INITIAL
             } else {
-                ModTransformationStateAttribute.of(target, this, States.REMAPPED)
+                ModTransformationStateAttribute.of(target, this, ModTransformationStateAttribute.MIXINS_STRIPPED)
             }
         }
 

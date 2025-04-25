@@ -6,10 +6,15 @@ import earth.terrarium.cloche.FABRIC
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.compilationSourceSet
+import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.tasks.GenerateModJsonJarsEntry
-import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -24,6 +29,7 @@ import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
 import net.msrandom.minecraftcodev.fabric.task.ProcessIncludedJars
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.mixins.task.Mixin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.InvalidUserCodeException
@@ -37,6 +43,7 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.jvm.tasks.Jar
+import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -223,6 +230,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 remapClient.flatMap(RemapTask::outputFile),
                 main.finalMinecraftFile.map(::listOf),
                 PublicationSide.Client,
+                MixinEnvironment.Side.CLIENT,
                 isSingleTarget,
             )
 
@@ -303,19 +311,21 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
-        val commonTask = registerCompilationTransformations(
+        val (commonAccessWidenTask, mixinTask) = registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
             compilationSourceSet(this, name, isSingleTarget),
             remapCommon.flatMap(RemapTask::outputFile),
             project.provider { emptyList() },
-        ).first
+            MixinEnvironment.Side.UNKNOWN,
+            name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME } ?: ""
+        )
 
-        commonTask.configure {
+        commonAccessWidenTask.configure {
             it.accessWideners.from(accessWideners)
         }
 
-        val commonClasspath = list(commonTask.flatMap(AccessWiden::outputFile))
+        val commonClasspath = list(mixinTask.flatMap(Mixin::outputFile))
 
         // TODO Once client splitting is done, we might not always need the client Jar
         val intermediateClasspath = project.files(
@@ -348,6 +358,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             remappedFile,
             extraClasspath,
             PublicationSide.Common,
+            MixinEnvironment.Side.SERVER,
             isSingleTarget,
         )
     }
