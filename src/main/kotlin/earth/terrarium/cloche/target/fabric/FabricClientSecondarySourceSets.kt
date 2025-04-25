@@ -22,6 +22,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
     variant: PublicationSide,
+    side: MixinEnvironment.Side,
     isSingleTarget: Boolean,
 ) : TargetCompilation(
     name,
@@ -30,7 +31,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
     namedMinecraftFile,
     extraClasspathFiles,
     variant,
-    MixinEnvironment.Side.CLIENT,
+    side,
     isSingleTarget,
 ), TargetSecondarySourceSets {
     override val data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
@@ -56,7 +57,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
             namedMinecraftFile,
             extraClasspathFiles,
             PublicationSide.Client,
-            MixinEnvironment.Side.CLIENT,
+            side,
             isSingleTarget,
         )
     }
