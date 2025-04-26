@@ -1,5 +1,6 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.target.CommonCompilation
 import earth.terrarium.cloche.target.CommonTargetInternal
 import earth.terrarium.cloche.target.CommonTopLevelCompilation
 import earth.terrarium.cloche.target.CompilationInternal
@@ -40,7 +41,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
                 return common.client()
             }
 
-            fun setDependenciesWithData(common: CommonTargetInternal): CompilationInternal {
+            fun setDependenciesWithData(common: CommonTargetInternal): CommonCompilation {
                 common.dependsOn.all {
                     setDependenciesWithData(it as CommonTargetInternal)
                 }
@@ -48,7 +49,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
                 return common.data()
             }
 
-            fun setDependenciesWithTest(common: CommonTargetInternal): CompilationInternal {
+            fun setDependenciesWithTest(common: CommonTargetInternal): CommonCompilation {
                 common.dependsOn.all {
                     setDependenciesWithTest(it as CommonTargetInternal)
                 }
@@ -146,7 +147,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
             dependency as CommonTargetInternal
 
             with(project) {
-                fun add(compilation: CompilationInternal, dependencyCompilation: CompilationInternal) {
+                fun add(compilation: CompilationInternal, dependencyCompilation: CommonCompilation) {
                     compilation.addSourceDependency(dependencyCompilation)
                 }
 

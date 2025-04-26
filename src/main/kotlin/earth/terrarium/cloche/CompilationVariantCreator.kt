@@ -48,6 +48,4 @@ internal fun Project.createCompilationVariants(
             }
         }
     }
-
-    compilation.addDependencies()
 }

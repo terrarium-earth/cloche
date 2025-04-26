@@ -2,6 +2,7 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.target.configureSourceSet
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.modConfigurationName
@@ -30,7 +31,10 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: CachedMinecraftParameters): Provider<RegularFile> {
+fun Project.javaExecutableFor(
+    version: Provider<String>,
+    cacheParameters: CachedMinecraftParameters,
+): Provider<RegularFile> {
     val javaVersion = version.flatMap { version ->
         cacheParameters.directory.flatMap { cacheDirectory ->
             cacheParameters.versionManifestUrl.flatMap { url ->
@@ -48,6 +52,85 @@ fun Project.javaExecutableFor(version: Provider<String>, cacheParameters: Cached
     }.map { it.executablePath }
 }
 
+@Suppress("UnstableApiUsage")
+private fun TargetCompilation.addDependencies() {
+    val modImplementation =
+        project.configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
+            it.addCollectedDependencies(dependencyHandler.modImplementation)
+        }
+
+    val modRuntimeOnly =
+        project.configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
+            it.addCollectedDependencies(dependencyHandler.modRuntimeOnly)
+        }
+
+    val modCompileOnly =
+        project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
+            it.addCollectedDependencies(dependencyHandler.modCompileOnly)
+        }
+
+    val modApi =
+        project.configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
+            it.addCollectedDependencies(dependencyHandler.modApi)
+        }
+
+    val modCompileOnlyApi =
+        project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
+            it.addCollectedDependencies(dependencyHandler.modCompileOnlyApi)
+        }
+
+    project.configurations.named(sourceSet.implementationConfigurationName) {
+        it.addCollectedDependencies(dependencyHandler.implementation)
+
+        it.extendsFrom(modImplementation.get())
+    }
+
+    project.configurations.named(sourceSet.compileOnlyConfigurationName) {
+        it.addCollectedDependencies(dependencyHandler.compileOnly)
+
+        it.extendsFrom(modCompileOnly.get())
+    }
+
+    project.configurations.named(sourceSet.runtimeOnlyConfigurationName) {
+        it.addCollectedDependencies(dependencyHandler.runtimeOnly)
+
+        it.extendsFrom(modRuntimeOnly.get())
+    }
+
+    project.configurations.named(sourceSet.apiConfigurationName) {
+        it.addCollectedDependencies(dependencyHandler.api)
+
+        it.extendsFrom(modApi.get())
+    }
+
+    project.configurations.named(sourceSet.compileOnlyApiConfigurationName) {
+        it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
+
+        it.extendsFrom(modCompileOnlyApi.get())
+    }
+
+    project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
+        it.addCollectedDependencies(dependencyHandler.annotationProcessor)
+    }
+
+    project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
+        it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
+
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+    }
+
+    project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
+        it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+    }
+}
+
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
     fun add(compilation: TargetCompilation) {
@@ -55,28 +138,17 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         createCompilationVariants(compilation, sourceSet, true)
 
+        compilation.addDependencies()
+
         configureSourceSet(sourceSet, target, compilation, singleTarget)
 
-        project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
-            it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
-
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
-        }
-
-        project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
-            it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
-
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
-        }
-
-        val copyMixins = tasks.register(lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"), Copy::class.java) {
+        val copyMixins = tasks.register(
+            lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"),
+            Copy::class.java
+        ) {
             it.from(configurations.named(compilation.sourceSet.mixinsConfigurationName))
-            it.destinationDir = project.layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
+            it.destinationDir =
+                project.layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
         }
 
         sourceSet.resources.srcDir(copyMixins.map(Copy::getDestinationDir))

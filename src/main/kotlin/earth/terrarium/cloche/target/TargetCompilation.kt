@@ -64,7 +64,7 @@ internal fun registerCompilationTransformations(
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
 ): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
-    val collapsedName = compilationName.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+    val collapsedName = compilationName.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals)
 
     val project = target.project
 

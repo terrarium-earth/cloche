@@ -21,8 +21,6 @@ gradlePlugin {
 }
 
 repositories {
-    mavenLocal()
-
     mavenCentral()
 
     maven(url = "https://maven.fabricmc.net/")

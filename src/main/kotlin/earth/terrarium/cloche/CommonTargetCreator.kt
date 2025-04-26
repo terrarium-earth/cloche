@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
@@ -7,11 +9,12 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ConfigurationContainer
+import org.gradle.api.artifacts.ResolvableConfiguration
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
@@ -22,7 +25,7 @@ private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 private fun convertClasspath(
     compilation: TargetCompilation,
     objects: ObjectFactory,
-    configurationContainer: ConfigurationContainer
+    configuration: Provider<ResolvableConfiguration>,
 ): Provider<List<GenerateStubApi.ResolvedArtifact>> {
     val minecraftFiles =
         compilation.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
@@ -36,10 +39,7 @@ private fun convertClasspath(
                 }
             }
 
-    val artifacts = getNonProjectArtifacts(
-        configurationContainer,
-        compilation.sourceSet.compileClasspathConfigurationName
-    ).flatMap {
+    val artifacts = getNonProjectArtifacts(configuration).flatMap {
         it.artifacts.resolvedArtifacts.map { artifacts ->
             artifacts.map {
                 val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
@@ -55,13 +55,18 @@ private fun convertClasspath(
     return minecraftFiles.zip(artifacts, List<GenerateStubApi.ResolvedArtifact>::plus)
 }
 
-context(Project) internal fun createCommonTarget(
+fun SourceSet.commonBucketConfigurationName(configurationName: String) =
+    lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common", configurationName)
+
+context(Project)
+internal fun createCommonTarget(
     commonTarget: CommonTargetInternal,
     onlyCommonOfType: Provider<Boolean>,
 ) {
     fun intersection(
         compilation: CommonCompilation,
         compilations: Provider<List<TargetCompilation>>,
+        configuration: Provider<ResolvableConfiguration>,
     ): FileCollection {
         val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "api-stub")
 
@@ -75,7 +80,6 @@ context(Project) internal fun createCommonTarget(
             it.apiFileName.set("$jarName-api-stub.jar")
 
             val objects = objects
-            val configurations = configurations
 
             val classpaths = compilations.flatMap {
                 @Suppress("UNCHECKED_CAST")
@@ -83,7 +87,7 @@ context(Project) internal fun createCommonTarget(
                     objects.listProperty(List::class.java) as ListProperty<List<GenerateStubApi.ResolvedArtifact>>
 
                 for (compilation in it) {
-                    classpath.add(convertClasspath(compilation, objects, configurations))
+                    classpath.add(convertClasspath(compilation, objects, configuration))
                 }
 
                 classpath
@@ -104,21 +108,10 @@ context(Project) internal fun createCommonTarget(
         return fileTree(generateStub.flatMap(GenerateStubApi::outputDirectory)).builtBy(generateStub)
     }
 
-    fun dependencyHolder(compilation: CommonCompilation) = configurations.maybeCreate(
-        lowerCamelCaseGradleName(
-            commonTarget.featureName,
-            compilation.featureName,
-            "intersectionDependencies",
-        )
-    ).apply {
-        isCanBeConsumed = false
-        isCanBeResolved = false
-    }
-
     fun addCompilation(
         compilation: CommonCompilation,
         variant: PublicationSide,
-        intersection: FileCollection,
+        targetCompilations: Provider<List<TargetCompilation>>,
     ) {
         val sourceSet = with(commonTarget) {
             compilation.sourceSet
@@ -141,9 +134,93 @@ context(Project) internal fun createCommonTarget(
             }
         }
 
-        val dependencyHolder = dependencyHolder(compilation)
+        val modImplementation =
+            configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modImplementation)
+            }
 
-        dependencies.add(dependencyHolder.name, intersection)
+        val modApi = configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
+            it.addCollectedDependencies(compilation.dependencyHandler.modApi)
+        }
+
+        val modCompileOnly =
+            configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modCompileOnly)
+            }
+
+        val modCompileOnlyApi =
+            configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modCompileOnlyApi)
+            }
+
+        val modRuntimeOnly =
+            configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modRuntimeOnly)
+            }
+
+        val commonImplementation =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.implementation)
+
+                it.extendsFrom(modImplementation.get())
+            }
+
+        val commonApi =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.api)
+
+                it.extendsFrom(modApi.get())
+            }
+
+        val commonCompileOnly =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.compileOnly)
+
+                it.extendsFrom(modCompileOnly.get())
+            }
+
+        val commonCompileOnlyApi =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.compileOnlyApi)
+
+                it.extendsFrom(modCompileOnlyApi.get())
+            }
+
+        configurations.named(sourceSet.runtimeOnlyConfigurationName) {
+            it.addCollectedDependencies(compilation.dependencyHandler.runtimeOnly)
+
+            it.extendsFrom(modRuntimeOnly.get())
+        }
+
+        configurations.named(sourceSet.annotationProcessorConfigurationName) {
+            it.addCollectedDependencies(compilation.dependencyHandler.annotationProcessor)
+        }
+
+        val intersectionDependencies = configurations.resolvable(
+            lowerCamelCaseGradleName(
+                commonTarget.featureName,
+                compilation.featureName,
+                "intersection",
+            )
+        ) {
+            it.extendsFrom(commonImplementation.get())
+            it.extendsFrom(commonApi.get())
+            it.extendsFrom(commonCompileOnly.get())
+            it.extendsFrom(commonCompileOnlyApi.get())
+        }
+
+        val intersectionResults = configurations.dependencyScope(
+            lowerCamelCaseGradleName(
+                commonTarget.featureName,
+                compilation.featureName,
+                "intersectionResults",
+            )
+        )
+
+        dependencies.add(
+            intersectionResults.name,
+            intersection(compilation, targetCompilations, intersectionDependencies),
+        )
 
         compilation.attributes {
             it.attribute(SIDE_ATTRIBUTE, variant)
@@ -168,7 +245,7 @@ context(Project) internal fun createCommonTarget(
         }
 
         configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.extendsFrom(dependencyHolder)
+            it.extendsFrom(intersectionResults.get())
 
             it.attributes(compilation::attributes)
         }
@@ -183,7 +260,7 @@ context(Project) internal fun createCommonTarget(
         }
 
         dependencies.add(
-            sourceSet.compileOnlyConfigurationName,
+            commonCompileOnly.name,
             "net.msrandom:java-expect-actual-annotations:1.0.0"
         )
 
@@ -213,7 +290,7 @@ context(Project) internal fun createCommonTarget(
 
         plugins.withId("org.jetbrains.kotlin.jvm") {
             project.dependencies.add(
-                sourceSet.compileOnlyConfigurationName,
+                commonCompileOnly.name,
                 "net.msrandom:kmp-stub-annotations:1.0.0",
             )
         }
@@ -224,9 +301,9 @@ context(Project) internal fun createCommonTarget(
         dataGetter: (MinecraftTargetInternal) -> TargetCompilation,
         testGetter: (MinecraftTargetInternal) -> TargetCompilation,
         variant: PublicationSide,
-        intersection: FileCollection,
+        targetCompilations: Provider<List<TargetCompilation>>,
     ) {
-        addCompilation(compilation, variant, intersection)
+        addCompilation(compilation, variant, targetCompilations)
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             compilation.addClasspathDependency(commonTarget.main)
@@ -236,12 +313,9 @@ context(Project) internal fun createCommonTarget(
             addCompilation(
                 it,
                 variant,
-                intersection(
-                    it,
-                    commonTarget.dependents.map {
-                        it.map { dataGetter(it as MinecraftTargetInternal) }
-                    }
-                ),
+                commonTarget.dependents.map {
+                    it.map { dataGetter(it as MinecraftTargetInternal) }
+                },
             )
 
             it.addClasspathDependency(compilation)
@@ -258,12 +332,9 @@ context(Project) internal fun createCommonTarget(
             addCompilation(
                 it,
                 variant,
-                intersection(
-                    it,
-                    commonTarget.dependents.map {
-                        it.map { testGetter(it as MinecraftTargetInternal) }
-                    },
-                ),
+                commonTarget.dependents.map {
+                    it.map { testGetter(it as MinecraftTargetInternal) }
+                },
             )
 
             it.addClasspathDependency(compilation)
@@ -282,12 +353,9 @@ context(Project) internal fun createCommonTarget(
         { it.data.internalValue ?: it.main },
         { it.test.internalValue ?: it.main },
         PublicationSide.Common,
-        intersection(
-            commonTarget.main,
-            commonTarget.dependents.map {
-                it.map { (it as MinecraftTargetInternal).main }
-            },
-        ),
+        commonTarget.dependents.map {
+            it.map { (it as MinecraftTargetInternal).main }
+        },
     )
 
     commonTarget.client.onConfigured {
@@ -308,15 +376,12 @@ context(Project) internal fun createCommonTarget(
                     ?: it.main
             },
             PublicationSide.Client,
-            intersection(
-                it,
-                commonTarget.dependents.map {
-                    it.map {
-                        (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation
-                            ?: (it as MinecraftTargetInternal).main
-                    }
-                },
-            ),
+            commonTarget.dependents.map {
+                it.map {
+                    (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation
+                        ?: (it as MinecraftTargetInternal).main
+                }
+            },
         )
     }
 }
