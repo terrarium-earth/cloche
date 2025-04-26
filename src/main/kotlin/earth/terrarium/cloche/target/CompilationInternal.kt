@@ -69,7 +69,7 @@ internal abstract class CompilationInternal : Compilation {
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '/')
 
     val collapsedName
-        get() = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+        get() = name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals)
 
     override fun withJavadocJar() {
         withJavadoc = true

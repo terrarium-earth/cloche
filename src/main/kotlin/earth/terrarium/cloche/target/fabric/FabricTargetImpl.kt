@@ -305,7 +305,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         val commonTask = registerCompilationTransformations(
             this,
-            lowerCamelCaseGradleName(name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }, "common"),
+            lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common"),
             compilationSourceSet(this, name, isSingleTarget),
             remapCommon.flatMap(RemapTask::outputFile),
             project.provider { emptyList() },

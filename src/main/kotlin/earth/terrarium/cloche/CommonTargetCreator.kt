@@ -56,7 +56,7 @@ private fun convertClasspath(
 }
 
 fun SourceSet.commonBucketConfigurationName(configurationName: String) =
-    lowerCamelCaseGradleName(name, "common", configurationName)
+    lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common", configurationName)
 
 context(Project)
 internal fun createCommonTarget(
