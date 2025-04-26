@@ -23,11 +23,19 @@ gradlePlugin {
 repositories {
     mavenLocal()
 
+<<<<<<< HEAD
     maven(url = "https://maven.fabricmc.net/")
     maven(url = "https://maven.neoforged.net/")
     maven(url = "https://maven.msrandom.net/repository/cloche/")
 
+=======
+>>>>>>> main
     mavenCentral()
+
+    maven(url = "https://maven.fabricmc.net/")
+    maven(url = "https://maven.neoforged.net/")
+    maven(url = "https://maven.msrandom.net/repository/cloche/")
+
     gradlePluginPortal()
 }
 
@@ -37,17 +45,17 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.5.28")
-    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.5.28")
-    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.5.28")
-    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.5.28")
-    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.5.28")
-    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.5.28")
-    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.5.28")
-    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.5.28")
+    implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.5.31")
+    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.5.31")
+    implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.5.31")
+    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.5.31")
+    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.5.31")
+    implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.5.31")
+    implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.5.31")
+    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.5.31")
 
-    implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.10")
-    implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.0")
+    implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.11")
+    implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.2")
     implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.4")
 
     implementation(group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version = "2.1.0-1.0.29")
@@ -89,5 +97,5 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain(8)
+    jvmToolchain(11)
 }
