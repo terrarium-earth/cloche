@@ -373,10 +373,12 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
 
             it.from(project.zipTree(main.remapJarTask.flatMap(Jar::getArchiveFile)))
-            it.from(project.zipTree(client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile)))
 
-            // Needed cause manifest will be duplicated
-            it.duplicatesStrategy = DuplicatesStrategy.INCLUDE
+            it.from(project.zipTree(client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile))) {
+                // Needed cause otherwise manifest will be duplicated
+                //  TODO Merge manifests
+                it.exclude("META-INF/MANIFEST.MF")
+            }
         }
 
         processIncludedJarsTask = project.tasks.register(
@@ -399,6 +401,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
                 jarTask.flatMap(Jar::getArchiveFile)
             })
+
             it.includedJars.from(processIncludedJarsTask.map { it.outputDirectory.asFileTree })
         }
 
@@ -406,8 +409,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarInJar"),
             JarInJar::class.java,
         ) {
-            it.dependsOn(generateJarsModJsonEntry)
-
             if (!isSingleTarget) {
                 it.archiveClassifier.set(classifierName)
             }
