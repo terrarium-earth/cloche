@@ -9,7 +9,6 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
-import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ResolvableConfiguration
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
@@ -135,12 +134,67 @@ internal fun createCommonTarget(
             }
         }
 
-        val commonImplementation = configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME))
-        val commonApi = configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME))
-        val commonCompileOnly = configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME))
-        val commonCompileOnlyApi = configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME))
+        val modImplementation =
+            configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modImplementation)
+            }
 
-        configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME))
+        val modApi = configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
+            it.addCollectedDependencies(compilation.dependencyHandler.modApi)
+        }
+
+        val modCompileOnly =
+            configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modCompileOnly)
+            }
+
+        val modCompileOnlyApi =
+            configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modCompileOnlyApi)
+            }
+
+        val modRuntimeOnly =
+            configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modRuntimeOnly)
+            }
+
+        val commonImplementation =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.implementation)
+
+                it.extendsFrom(modImplementation.get())
+            }
+
+        val commonApi =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.api)
+
+                it.extendsFrom(modApi.get())
+            }
+
+        val commonCompileOnly =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.compileOnly)
+
+                it.extendsFrom(modCompileOnly.get())
+            }
+
+        val commonCompileOnlyApi =
+            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.compileOnlyApi)
+
+                it.extendsFrom(modCompileOnlyApi.get())
+            }
+
+        configurations.named(sourceSet.runtimeOnlyConfigurationName) {
+            it.addCollectedDependencies(compilation.dependencyHandler.runtimeOnly)
+
+            it.extendsFrom(modRuntimeOnly.get())
+        }
+
+        configurations.named(sourceSet.annotationProcessorConfigurationName) {
+            it.addCollectedDependencies(compilation.dependencyHandler.annotationProcessor)
+        }
 
         val intersectionDependencies = configurations.resolvable(
             lowerCamelCaseGradleName(
@@ -163,7 +217,10 @@ internal fun createCommonTarget(
             )
         )
 
-        dependencies.add(intersectionResults.name, intersection(compilation, targetCompilations, intersectionDependencies))
+        dependencies.add(
+            intersectionResults.name,
+            intersection(compilation, targetCompilations, intersectionDependencies),
+        )
 
         compilation.attributes {
             it.attribute(SIDE_ATTRIBUTE, variant)
@@ -203,7 +260,7 @@ internal fun createCommonTarget(
         }
 
         dependencies.add(
-            sourceSet.compileOnlyConfigurationName,
+            commonCompileOnly.name,
             "net.msrandom:java-expect-actual-annotations:1.0.0"
         )
 
@@ -233,7 +290,7 @@ internal fun createCommonTarget(
 
         plugins.withId("org.jetbrains.kotlin.jvm") {
             project.dependencies.add(
-                sourceSet.compileOnlyConfigurationName,
+                commonCompileOnly.name,
                 "net.msrandom:kmp-stub-annotations:1.0.0",
             )
         }

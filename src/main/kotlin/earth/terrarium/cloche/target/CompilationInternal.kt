@@ -92,67 +92,6 @@ internal abstract class CompilationInternal : Compilation {
         }
     }
 
-    fun addDependencies() {
-        val modImplementation =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modImplementation)
-            }.get()
-
-        val modRuntimeOnly =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modRuntimeOnly)
-            }.get()
-
-        val modCompileOnly =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modCompileOnly)
-            }.get()
-
-        val modApi =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modApi)
-            }.get()
-
-        val modCompileOnlyApi =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modCompileOnlyApi)
-            }.get()
-
-        project.configurations.named(sourceSet.implementationConfigurationName) {
-            it.extendsFrom(modImplementation)
-
-            it.addCollectedDependencies(dependencyHandler.implementation)
-        }
-
-        project.configurations.named(sourceSet.compileOnlyConfigurationName) {
-            it.extendsFrom(modCompileOnly)
-
-            it.addCollectedDependencies(dependencyHandler.compileOnly)
-        }
-
-        project.configurations.named(sourceSet.runtimeOnlyConfigurationName) {
-            it.extendsFrom(modRuntimeOnly)
-
-            it.addCollectedDependencies(dependencyHandler.runtimeOnly)
-        }
-
-        project.configurations.named(sourceSet.apiConfigurationName) {
-            it.extendsFrom(modApi)
-
-            it.addCollectedDependencies(dependencyHandler.api)
-        }
-
-        project.configurations.named(sourceSet.compileOnlyApiConfigurationName) {
-            it.extendsFrom(modCompileOnlyApi)
-
-            it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
-        }
-
-        project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
-            it.addCollectedDependencies(dependencyHandler.annotationProcessor)
-        }
-    }
-
     override fun toString() = target.name + TARGET_NAME_PATH_SEPARATOR + name
 }
 
