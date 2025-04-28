@@ -80,7 +80,10 @@ enum class IncludeTransformationState {
     class CompatibilityRule : AttributeCompatibilityRule<IncludeTransformationState> {
         override fun execute(details: CompatibilityCheckDetails<IncludeTransformationState>) {
             when(details.consumerValue) {
-                Handled -> details.compatible()
+                Handled -> when(details.producerValue) {
+                    Stripped, Extracted -> details.compatible()
+                    else -> details.incompatible()
+                }
                 else -> details.incompatible()
             }
         }

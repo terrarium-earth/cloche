@@ -131,7 +131,6 @@ private fun setupModTransformationPipeline(
         }
 
         project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Handled)
             it.from.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
                 ModTransformationStateAttribute.INITIAL,
