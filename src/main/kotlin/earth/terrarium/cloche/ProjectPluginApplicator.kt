@@ -53,6 +53,11 @@ fun applyToProject(target: Project) {
             it.compatibilityRules.add(VariantCompatibilityRule::class.java)
             it.disambiguationRules.add(VariantDisambiguationRule::class.java)
         }
+
+        schema.attribute(IncludeTransformationState.ATTRIBUTE) {
+            it.compatibilityRules.add(IncludeTransformationState.CompatibilityRule::class.java)
+            it.disambiguationRules.add(IncludeTransformationState.DisambiguationRule::class.java)
+        }
     }
 
     target.dependencies.artifactTypes {
@@ -62,7 +67,7 @@ fun applyToProject(target: Project) {
                 ModTransformationStateAttribute.INITIAL,
             )
             jar.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-            jar.attributes.attribute(INCLUDE_STATE_ATTRIBUTE, IncludeTransformationState.None)
+            jar.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
         }
     }
 

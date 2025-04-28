@@ -34,7 +34,7 @@ object CommonTargetAttributes {
 
 class VariantCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
     override fun execute(details: CompatibilityCheckDetails<PublicationSide>) {
-        if (details.consumerValue == details.producerValue || details.producerValue == PublicationSide.Common || details.producerValue == PublicationSide.Joined) {
+        if (details.producerValue == PublicationSide.Common || details.producerValue == PublicationSide.Joined) {
             details.compatible()
         } else {
             details.incompatible()
@@ -69,8 +69,30 @@ enum class IncludeTransformationState {
     None,
     Stripped,
     Extracted,
-}
+    Handled;
 
-@JvmField
-val INCLUDE_STATE_ATTRIBUTE: Attribute<IncludeTransformationState> =
-    Attribute.of("earth.terrarium.cloche.includeState", IncludeTransformationState::class.java)
+    companion object {
+        @JvmField
+        val ATTRIBUTE: Attribute<IncludeTransformationState> =
+            Attribute.of("earth.terrarium.cloche.includeState", IncludeTransformationState::class.java)
+    }
+
+    class CompatibilityRule : AttributeCompatibilityRule<IncludeTransformationState> {
+        override fun execute(details: CompatibilityCheckDetails<IncludeTransformationState>) {
+            when(details.consumerValue) {
+                Handled -> details.compatible()
+                else -> details.incompatible()
+            }
+        }
+    }
+
+    class DisambiguationRule : AttributeDisambiguationRule<IncludeTransformationState> {
+        override fun execute(details: MultipleCandidatesDetails<IncludeTransformationState>) {
+            when {
+                Extracted in details.candidateValues -> details.closestMatch(Extracted)
+                Stripped in details.candidateValues -> details.closestMatch(Stripped)
+                None in details.candidateValues -> details.closestMatch(None)
+            }
+        }
+    }
+}

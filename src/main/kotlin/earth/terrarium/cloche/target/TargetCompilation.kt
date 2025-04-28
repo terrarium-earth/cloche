@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
@@ -9,6 +10,7 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
+import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
@@ -116,14 +118,20 @@ private fun setupModTransformationPipeline(
     target: MinecraftTargetInternal,
     compilation: TargetCompilation,
 ) {
+    project.dependencies.registerTransform(ExtractIncludes::class.java) {
+        it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+        it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+    }
+
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
-    //  this can potentially be changed to a no-op transform but that's far slower
+    //  this can potentially be changed to a no-op transform, but that's far slower
     project.afterEvaluate {
         if (target.modRemapNamespace.get().isEmpty()) {
             return@afterEvaluate
         }
 
         project.dependencies.registerTransform(RemapAction::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Handled)
             it.from.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
                 ModTransformationStateAttribute.INITIAL,
@@ -216,12 +224,14 @@ constructor(
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Handled)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Handled)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
