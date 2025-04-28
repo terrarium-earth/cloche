@@ -166,10 +166,6 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                     forgeConfigured = true
 
                     project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
-                        it.from.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
                         it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
 
                         it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
