@@ -11,6 +11,7 @@ import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.includes.StripIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
@@ -121,6 +122,11 @@ private fun setupModTransformationPipeline(
     project.dependencies.registerTransform(ExtractIncludes::class.java) {
         it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
         it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+    }
+
+    project.dependencies.registerTransform(StripIncludes::class.java) {
+        it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+        it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
     }
 
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
