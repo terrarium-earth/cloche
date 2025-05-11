@@ -55,7 +55,6 @@ fun applyToProject(target: Project) {
         }
 
         schema.attribute(IncludeTransformationState.ATTRIBUTE) {
-            it.compatibilityRules.add(IncludeTransformationState.CompatibilityRule::class.java)
             it.disambiguationRules.add(IncludeTransformationState.DisambiguationRule::class.java)
         }
     }

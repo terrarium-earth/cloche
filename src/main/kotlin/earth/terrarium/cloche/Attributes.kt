@@ -68,25 +68,12 @@ val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrariu
 enum class IncludeTransformationState {
     None,
     Stripped,
-    Extracted,
-    Handled;
+    Extracted;
 
     companion object {
         @JvmField
         val ATTRIBUTE: Attribute<IncludeTransformationState> =
             Attribute.of("earth.terrarium.cloche.includeState", IncludeTransformationState::class.java)
-    }
-
-    class CompatibilityRule : AttributeCompatibilityRule<IncludeTransformationState> {
-        override fun execute(details: CompatibilityCheckDetails<IncludeTransformationState>) {
-            when(details.consumerValue) {
-                Handled -> when(details.producerValue) {
-                    Stripped, Extracted -> details.compatible()
-                    else -> details.incompatible()
-                }
-                else -> details.incompatible()
-            }
-        }
     }
 
     class DisambiguationRule : AttributeDisambiguationRule<IncludeTransformationState> {
