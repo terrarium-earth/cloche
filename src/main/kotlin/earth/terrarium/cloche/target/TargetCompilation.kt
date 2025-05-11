@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
@@ -9,6 +10,8 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
+import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.includes.StripIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
@@ -116,55 +119,74 @@ private fun setupModTransformationPipeline(
     target: MinecraftTargetInternal,
     compilation: TargetCompilation,
 ) {
+    project.dependencies.registerTransform(ExtractIncludes::class.java) {
+        it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+        it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+    }
+
+    project.dependencies.registerTransform(StripIncludes::class.java) {
+        it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+        it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
+    }
+
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
-    //  this can potentially be changed to a no-op transform but that's far slower
+    //  this can potentially be changed to a no-op transform, but that's far slower
     project.afterEvaluate {
         if (target.modRemapNamespace.get().isEmpty()) {
             return@afterEvaluate
         }
 
-        project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.INITIAL,
-            )
+        fun registerRemapAction(includeState: IncludeTransformationState) {
+            project.dependencies.registerTransform(RemapAction::class.java) {
+                it.from.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
+                it.to.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
 
-            it.to.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
-            )
+                it.from.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.INITIAL,
+                )
 
-            it.parameters {
-                it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+                it.to.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
+                )
 
-                it.sourceNamespace.set(target.modRemapNamespace.get())
+                it.parameters {
+                    it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
+                    it.sourceNamespace.set(target.modRemapNamespace.get())
 
-                it.cacheDirectory.set(getGlobalCacheDirectory(project))
+                    it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
 
-                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
+                    it.cacheDirectory.set(getGlobalCacheDirectory(project))
+
+                    val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
+                        it.attributes {
+                            it.attribute(
+                                ModTransformationStateAttribute.ATTRIBUTE,
+                                ModTransformationStateAttribute.INITIAL,
+                            )
+                        }
                     }
-                }
 
-                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
+                    val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
+                        it.attributes {
+                            it.attribute(
+                                ModTransformationStateAttribute.ATTRIBUTE,
+                                ModTransformationStateAttribute.INITIAL,
+                            )
+                        }
                     }
-                }
 
-                it.modFiles.from(modCompileClasspath)
-                it.modFiles.from(modRuntimeClasspath)
+                    it.modFiles.from(modCompileClasspath)
+                    it.modFiles.from(modRuntimeClasspath)
+                }
             }
         }
+
+        registerRemapAction(IncludeTransformationState.Extracted)
+        registerRemapAction(IncludeTransformationState.Stripped)
+        registerRemapAction(IncludeTransformationState.None)
     }
 }
 
@@ -178,6 +200,7 @@ constructor(
     val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
     isSingleTarget: Boolean,
+    private val includeState: IncludeTransformationState = IncludeTransformationState.None
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
@@ -216,12 +239,14 @@ constructor(
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
