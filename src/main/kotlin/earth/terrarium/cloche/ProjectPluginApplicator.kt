@@ -25,30 +25,30 @@ import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.tasks.SourceSetContainer
 
-fun applyToProject(target: Project) {
-    val cloche = target.extensions.create("cloche", ClocheExtension::class.java)
+fun applyToProject(project: Project) {
+    val cloche = project.extensions.create("cloche", ClocheExtension::class.java)
 
-    target.plugins.apply(MinecraftCodevFabricPlugin::class.java)
-    target.plugins.apply(MinecraftCodevForgePlugin::class.java)
-    target.plugins.apply(MinecraftCodevRemapperPlugin::class.java)
-    target.plugins.apply(MinecraftCodevIncludesPlugin::class.java)
-    target.plugins.apply(MinecraftCodevDecompilerPlugin::class.java)
-    target.plugins.apply(MinecraftCodevAccessWidenerPlugin::class.java)
-    target.plugins.apply(MinecraftCodevMixinsPlugin::class.java)
-    target.plugins.apply(MinecraftCodevRunsPlugin::class.java)
+    project.plugins.apply(MinecraftCodevFabricPlugin::class.java)
+    project.plugins.apply(MinecraftCodevForgePlugin::class.java)
+    project.plugins.apply(MinecraftCodevRemapperPlugin::class.java)
+    project.plugins.apply(MinecraftCodevIncludesPlugin::class.java)
+    project.plugins.apply(MinecraftCodevDecompilerPlugin::class.java)
+    project.plugins.apply(MinecraftCodevAccessWidenerPlugin::class.java)
+    project.plugins.apply(MinecraftCodevMixinsPlugin::class.java)
+    project.plugins.apply(MinecraftCodevRunsPlugin::class.java)
 
-    target.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
-    target.plugins.apply(ClassExtensionsPlugin::class.java)
+    project.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
+    project.plugins.apply(ClassExtensionsPlugin::class.java)
 
-    target.plugins.apply(JavaLibraryPlugin::class.java)
+    project.plugins.apply(JavaLibraryPlugin::class.java)
 
-    target.plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
-        target.plugins.apply(KspGradleSubplugin::class.java)
+    project.plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
+        project.plugins.apply(KspGradleSubplugin::class.java)
     }
 
-    ClocheRepositoriesExtension.register(target.repositories)
+    ClocheRepositoriesExtension.register(project.repositories)
 
-    target.dependencies.attributesSchema { schema ->
+    project.dependencies.attributesSchema { schema ->
         schema.attribute(SIDE_ATTRIBUTE) {
             it.compatibilityRules.add(VariantCompatibilityRule::class.java)
             it.disambiguationRules.add(VariantDisambiguationRule::class.java)
@@ -59,7 +59,7 @@ fun applyToProject(target: Project) {
         }
     }
 
-    target.dependencies.artifactTypes {
+    project.dependencies.artifactTypes {
         it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
             jar.attributes.attribute(
                 ModTransformationStateAttribute.ATTRIBUTE,
@@ -70,39 +70,27 @@ fun applyToProject(target: Project) {
         }
     }
 
-    target.extension<SourceSetContainer>().all {
-        it.extension<SourceSetStaticLinkageInfo>().links.all { dependency ->
-            target.extend(modConfigurationName(it.implementationConfigurationName), modConfigurationName(dependency.implementationConfigurationName))
-            target.extend(modConfigurationName(it.apiConfigurationName), modConfigurationName(dependency.apiConfigurationName))
-            target.extend(modConfigurationName(it.runtimeOnlyConfigurationName), modConfigurationName(dependency.runtimeOnlyConfigurationName))
-            target.extend(modConfigurationName(it.compileOnlyConfigurationName), modConfigurationName(dependency.compileOnlyConfigurationName))
-            target.extend(modConfigurationName(it.compileOnlyApiConfigurationName), modConfigurationName(dependency.compileOnlyApiConfigurationName))
+    project.ideaSyncHook()
 
-            target.extend(it.mixinsConfigurationName, dependency.mixinsConfigurationName)
-        }
-    }
-
-    target.ideaSyncHook()
-
-    target.dependencies.components.withModule(
+    project.dependencies.components.withModule(
         "net.minecraftforge:forge",
         ForgeLexToNeoComponentMetadataRule::class.java
     ) {
         it.params(
-            getGlobalCacheDirectory(target),
+            getGlobalCacheDirectory(project),
             VERSION_MANIFEST_URL,
-            target.gradle.startParameter.isOffline,
+            project.gradle.startParameter.isOffline,
         )
     }
 
-    target.dependencies.components.withModule(
+    project.dependencies.components.withModule(
         "de.oceanlabs.mcp:mcp_config",
         McpConfigToNeoformComponentMetadataRule::class.java
     ) {
         it.params(
-            getGlobalCacheDirectory(target),
+            getGlobalCacheDirectory(project),
         )
     }
 
-    applyTargets(target, cloche)
+    applyTargets(project, cloche)
 }

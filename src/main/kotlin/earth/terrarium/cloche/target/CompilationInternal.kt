@@ -13,7 +13,9 @@ import org.gradle.api.Buildable
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationContainer
+import org.gradle.api.artifacts.ResolvableConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
@@ -26,7 +28,7 @@ import javax.inject.Inject
 internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
 
-internal fun getNonProjectArtifacts(configurationContainer: ConfigurationContainer, configurationName: String): Provider<ArtifactView> = configurationContainer.named(configurationName).map {
+internal fun getNonProjectArtifacts(configuration: Provider<out Configuration>): Provider<ArtifactView> = configuration.map {
     it.incoming.artifactView {
         it.componentFilter {
             // We do *not* want to build anything during sync.
@@ -37,7 +39,7 @@ internal fun getNonProjectArtifacts(configurationContainer: ConfigurationContain
 
 context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
-    getNonProjectArtifacts(configurations, configurationName).map { it.files }
+    getNonProjectArtifacts(configurations.named(configurationName)).map { it.files }
 
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
@@ -67,7 +69,7 @@ internal abstract class CompilationInternal : Compilation {
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '/')
 
     val collapsedName
-        get() = name.takeUnless { it == SourceSet.MAIN_SOURCE_SET_NAME }
+        get() = name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals)
 
     override fun withJavadocJar() {
         withJavadoc = true
@@ -87,67 +89,6 @@ internal abstract class CompilationInternal : Compilation {
     open fun attributes(attributes: AttributeContainer) {
         attributeActions.all {
             it.execute(attributes)
-        }
-    }
-
-    fun addDependencies() {
-        val modImplementation =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modImplementation)
-            }.get()
-
-        val modRuntimeOnly =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modRuntimeOnly)
-            }.get()
-
-        val modCompileOnly =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modCompileOnly)
-            }.get()
-
-        val modApi =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modApi)
-            }.get()
-
-        val modCompileOnlyApi =
-            project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
-                it.addCollectedDependencies(dependencyHandler.modCompileOnlyApi)
-            }.get()
-
-        project.configurations.named(sourceSet.implementationConfigurationName) {
-            it.extendsFrom(modImplementation)
-
-            it.addCollectedDependencies(dependencyHandler.implementation)
-        }
-
-        project.configurations.named(sourceSet.compileOnlyConfigurationName) {
-            it.extendsFrom(modCompileOnly)
-
-            it.addCollectedDependencies(dependencyHandler.compileOnly)
-        }
-
-        project.configurations.named(sourceSet.runtimeOnlyConfigurationName) {
-            it.extendsFrom(modRuntimeOnly)
-
-            it.addCollectedDependencies(dependencyHandler.runtimeOnly)
-        }
-
-        project.configurations.named(sourceSet.apiConfigurationName) {
-            it.extendsFrom(modApi)
-
-            it.addCollectedDependencies(dependencyHandler.api)
-        }
-
-        project.configurations.named(sourceSet.compileOnlyApiConfigurationName) {
-            it.extendsFrom(modCompileOnlyApi)
-
-            it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
-        }
-
-        project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
-            it.addCollectedDependencies(dependencyHandler.annotationProcessor)
         }
     }
 
