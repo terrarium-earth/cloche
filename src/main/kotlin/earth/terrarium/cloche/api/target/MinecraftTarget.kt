@@ -11,6 +11,7 @@ import org.gradle.api.Action
 import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.file.Directory
+import org.gradle.api.file.RegularFile
 import org.gradle.api.plugins.jvm.PlatformDependencyModifiers
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
@@ -41,6 +42,8 @@ interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencie
         get() = project.layout.buildDirectory.dir("generated").map {
             it.dir("resources").dir(lowerCamelCaseGradleName(target.featureName, ClochePlugin.CLIENT_COMPILATION_NAME))
         }
+
+    val finalJar: Provider<RegularFile>
 
     val include: DependencyCollector
 

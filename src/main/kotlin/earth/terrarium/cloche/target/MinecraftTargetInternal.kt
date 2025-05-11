@@ -17,6 +17,7 @@ import org.gradle.api.DomainObjectCollection
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
@@ -52,6 +53,9 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
     }
 
     abstract val includeJarTask: TaskProvider<out Jar>
+
+    override val finalJar: Provider<RegularFile>
+        get() = includeJarTask.flatMap(Jar::getArchiveFile)
 
     val includeConfiguration: Configuration = project.configurations.create(lowerCamelCaseGradleName(target.featureName, "include")) {
         it.addCollectedDependencies(include)
