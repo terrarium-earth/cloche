@@ -200,6 +200,7 @@ constructor(
     val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
     isSingleTarget: Boolean,
+    private val includeState: IncludeTransformationState = IncludeTransformationState.None
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
@@ -238,12 +239,14 @@ constructor(
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }

@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
@@ -30,6 +31,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
     extraClasspathFiles,
     variant,
     isSingleTarget,
+    IncludeTransformationState.Stripped,
 ), TargetSecondarySourceSets {
     override val data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
         project.objects.newInstance(
@@ -41,6 +43,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
             extraClasspathFiles,
             PublicationSide.Client,
             isSingleTarget,
+            IncludeTransformationState.Stripped,
         )
     }
 
@@ -54,6 +57,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(
             extraClasspathFiles,
             PublicationSide.Client,
             isSingleTarget,
+            IncludeTransformationState.Stripped,
         )
     }
 }

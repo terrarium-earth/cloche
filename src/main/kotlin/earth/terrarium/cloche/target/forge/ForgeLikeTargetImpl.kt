@@ -3,7 +3,6 @@ package earth.terrarium.cloche.target.forge
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FORGE
-import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
@@ -280,14 +279,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         project.dependencies.addProvider(sourceSet.mappingsConfigurationName, userdev)
 
         registerMappings()
-
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-        }
-
-        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-        }
     }
 
     protected abstract fun version(minecraftVersion: String, loaderVersion: String): String

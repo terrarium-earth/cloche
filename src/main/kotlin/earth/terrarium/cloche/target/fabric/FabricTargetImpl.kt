@@ -35,7 +35,6 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.ExternalModuleDependency
-import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.file.RegularFile
 import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
@@ -356,6 +355,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             extraClasspath,
             PublicationSide.Common,
             isSingleTarget,
+            IncludeTransformationState.Stripped,
         )
     }
 
@@ -363,14 +363,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         this.isSingleTarget = isSingleTarget
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
-
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
-        }
-
-        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
-        }
 
         project.dependencies.add(
             main.sourceSet.runtimeOnlyConfigurationName,
