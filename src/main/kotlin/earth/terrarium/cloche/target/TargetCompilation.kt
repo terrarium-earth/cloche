@@ -10,8 +10,6 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
-import net.msrandom.minecraftcodev.includes.ExtractIncludes
-import net.msrandom.minecraftcodev.includes.StripIncludes
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
@@ -119,16 +117,6 @@ private fun setupModTransformationPipeline(
     target: MinecraftTargetInternal,
     compilation: TargetCompilation,
 ) {
-    project.dependencies.registerTransform(ExtractIncludes::class.java) {
-        it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-        it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
-    }
-
-    project.dependencies.registerTransform(StripIncludes::class.java) {
-        it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-        it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
-    }
-
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform, but that's far slower
     project.afterEvaluate {
@@ -162,6 +150,7 @@ private fun setupModTransformationPipeline(
 
                     val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
                         it.attributes {
+                            it.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
                             it.attribute(
                                 ModTransformationStateAttribute.ATTRIBUTE,
                                 ModTransformationStateAttribute.INITIAL,
@@ -171,6 +160,7 @@ private fun setupModTransformationPipeline(
 
                     val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
                         it.attributes {
+                            it.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
                             it.attribute(
                                 ModTransformationStateAttribute.ATTRIBUTE,
                                 ModTransformationStateAttribute.INITIAL,
@@ -200,7 +190,7 @@ constructor(
     val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
     isSingleTarget: Boolean,
-    private val includeState: IncludeTransformationState = IncludeTransformationState.None
+    private val includeState: IncludeTransformationState
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 

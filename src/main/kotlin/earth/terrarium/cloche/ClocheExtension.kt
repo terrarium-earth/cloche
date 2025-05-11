@@ -16,6 +16,8 @@ import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
+import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.includes.StripIncludes
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.NamedDomainObjectContainer
@@ -144,6 +146,16 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
+        project.dependencies.registerTransform(ExtractIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+        }
+
+        project.dependencies.registerTransform(StripIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
+        }
+
         var fabricConfigured = false
 
         targets.withType(FabricTarget::class.java).whenObjectAdded {
