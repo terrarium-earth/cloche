@@ -23,7 +23,7 @@ internal class LazyConfigurableInternal<out T : Any>(
     var internalValue: @UnsafeVariance T? = null
         private set
 
-    val isConfigured: Property<Boolean> = objects.property(Boolean::class.java)
+    val isConfigured: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
     val isConfiguredValue get() = internalValue != null
 
     private val listeners = mutableListOf<Action<T>>()
