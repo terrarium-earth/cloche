@@ -9,7 +9,7 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ResolvableConfiguration
+import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -24,8 +24,8 @@ private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
 private fun convertClasspath(
     compilation: TargetCompilation,
+    configurations: ConfigurationContainer,
     objects: ObjectFactory,
-    configuration: Provider<ResolvableConfiguration>,
 ): Provider<List<GenerateStubApi.ResolvedArtifact>> {
     val minecraftFiles =
         compilation.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
@@ -39,7 +39,7 @@ private fun convertClasspath(
                 }
             }
 
-    val artifacts = getNonProjectArtifacts(configuration).flatMap {
+    val artifacts = getNonProjectArtifacts(configurations.named(compilation.sourceSet.compileClasspathConfigurationName)).flatMap {
         it.artifacts.resolvedArtifacts.map { artifacts ->
             artifacts.map {
                 val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
@@ -66,7 +66,6 @@ internal fun createCommonTarget(
     fun intersection(
         compilation: CommonCompilation,
         compilations: Provider<List<TargetCompilation>>,
-        configuration: Provider<ResolvableConfiguration>,
     ): FileCollection {
         val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "api-stub")
 
@@ -80,6 +79,7 @@ internal fun createCommonTarget(
             it.apiFileName.set("$jarName-api-stub.jar")
 
             val objects = objects
+            val configurations = configurations
 
             val classpaths = compilations.flatMap {
                 @Suppress("UNCHECKED_CAST")
@@ -87,7 +87,7 @@ internal fun createCommonTarget(
                     objects.listProperty(List::class.java) as ListProperty<List<GenerateStubApi.ResolvedArtifact>>
 
                 for (compilation in it) {
-                    classpath.add(convertClasspath(compilation, objects, configuration))
+                    classpath.add(convertClasspath(compilation, configurations, objects))
                 }
 
                 classpath
@@ -196,19 +196,6 @@ internal fun createCommonTarget(
             it.addCollectedDependencies(compilation.dependencyHandler.annotationProcessor)
         }
 
-        val intersectionDependencies = configurations.resolvable(
-            lowerCamelCaseGradleName(
-                commonTarget.featureName,
-                compilation.featureName,
-                "intersection",
-            )
-        ) {
-            it.extendsFrom(commonImplementation.get())
-            it.extendsFrom(commonApi.get())
-            it.extendsFrom(commonCompileOnly.get())
-            it.extendsFrom(commonCompileOnlyApi.get())
-        }
-
         val intersectionResults = configurations.dependencyScope(
             lowerCamelCaseGradleName(
                 commonTarget.featureName,
@@ -219,7 +206,7 @@ internal fun createCommonTarget(
 
         dependencies.add(
             intersectionResults.name,
-            intersection(compilation, targetCompilations, intersectionDependencies),
+            intersection(compilation, targetCompilations),
         )
 
         compilation.attributes {
