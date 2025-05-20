@@ -150,7 +150,7 @@ private fun setupModTransformationPipeline(
 
                     val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
                         it.attributes {
-                            it.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
+                            it.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
                             it.attribute(
                                 ModTransformationStateAttribute.ATTRIBUTE,
                                 ModTransformationStateAttribute.INITIAL,
@@ -160,7 +160,7 @@ private fun setupModTransformationPipeline(
 
                     val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
                         it.attributes {
-                            it.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
+                            it.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
                             it.attribute(
                                 ModTransformationStateAttribute.ATTRIBUTE,
                                 ModTransformationStateAttribute.INITIAL,
