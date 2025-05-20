@@ -3,10 +3,17 @@ package earth.terrarium.cloche.target.fabric
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.compilationSourceSet
+import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -344,6 +351,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             extraClasspath,
             PublicationSide.Common,
             isSingleTarget,
+            IncludeTransformationState.Stripped,
         )
     }
 
