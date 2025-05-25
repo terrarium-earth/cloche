@@ -10,10 +10,12 @@ import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.javaExecutableFor
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.includes.IncludesJar
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
+import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
@@ -52,12 +54,12 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
         it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
-    abstract val includeJarTask: TaskProvider<out Jar>
+    abstract val includeJarTask: TaskProvider<out IncludesJar>
 
     override val finalJar: Provider<RegularFile>
         get() = includeJarTask.flatMap(Jar::getArchiveFile)
 
-    val includeConfiguration: Configuration = project.configurations.create(lowerCamelCaseGradleName(target.featureName, "include")) {
+    val includeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
         it.addCollectedDependencies(include)
 
         it.isCanBeConsumed = false

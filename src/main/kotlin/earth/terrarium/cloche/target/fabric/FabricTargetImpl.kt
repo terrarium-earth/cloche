@@ -396,7 +396,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 jarTask.flatMap(Jar::getArchiveFile)
             })
 
-            it.includeConfiguration.set(includeConfiguration)
+            it.includeArtifacts.set(includeConfiguration.flatMap { it.incoming.artifacts.resolvedArtifacts })
+            it.includesRootComponent.set(includeConfiguration.flatMap { it.incoming.resolutionResult.rootComponent })
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
