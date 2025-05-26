@@ -26,7 +26,7 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
-internal abstract class ForgeRunConfigurations @Inject constructor(val target: ForgeLikeTargetImpl) : RunConfigurations {
+internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject constructor(val target: T) : RunConfigurations {
     fun create(vararg names: String, action: Action<ForgeRunsDefaultsContainer>): MinecraftRunConfiguration {
         val run = project.extension<RunsContainer>().create(listOf(target.name, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
@@ -40,13 +40,20 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
 
     protected open fun applyDefault(run: MinecraftRunConfiguration) {}
 
-    private fun ForgeRunConfigurationData.mixins(sourceSet: SourceSet) {
-        mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
-
+    protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: SourceSet) {
+        data.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
     }
 
-    private fun ForgeRunConfigurationData.mixins(sourceSet: Provider<SourceSet>) {
-        mixinConfigs.from(sourceSet.flatMap { project.configurations.named(it.mixinsConfigurationName) })
+    protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: Provider<SourceSet>) {
+        data.mixinConfigs.from(sourceSet.flatMap { project.configurations.named(it.mixinsConfigurationName) })
+    }
+
+    private fun ForgeRunConfigurationData.configure(sourceSet: SourceSet) {
+        configureData(this, sourceSet)
+    }
+
+    private fun ForgeRunConfigurationData.configure(sourceSet: Provider<SourceSet>) {
+        configureData(this, sourceSet)
     }
 
     override val server = project.lazyConfigurable {
@@ -57,7 +64,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.generateLegacyClasspathTask.set(target.generateLegacyClasspath)
 
-                it.mixins(target.sourceSet)
+                it.configure(target.sourceSet)
             }
         }
             .sourceSet(target.sourceSet)
@@ -73,7 +80,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
                 it.downloadAssetsTask.set(project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java))
                 it.generateLegacyClasspathTask.set(target.generateLegacyClasspath)
 
-                it.mixins(target.sourceSet)
+                it.configure(target.sourceSet)
             }
         }
             .sourceSet(target.sourceSet)
@@ -95,7 +102,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
                 )
                 it.generateLegacyClasspathTask.set(target.generateLegacyDataClasspath)
 
-                it.mixins(target.data.value.map { it.sourceSet })
+                it.configure(target.data.value.map { it.sourceSet })
             }
         }
             .sourceSet(target.data.value.map(Compilation::sourceSet))
@@ -161,7 +168,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
                 it.additionalIncludedSourceSets.add(target.sourceSet)
                 it.additionalIncludedSourceSets.add(target.data.value.map(Compilation::sourceSet))
 
-                it.mixins(target.data.value.map { it.sourceSet })
+                it.configure(target.data.value.map { it.sourceSet })
             }
         }
             .sourceSet(target.data.value.map(Compilation::sourceSet))
@@ -221,7 +228,7 @@ internal abstract class ForgeRunConfigurations @Inject constructor(val target: F
                 it.additionalIncludedSourceSets.add(target.sourceSet)
                 it.generateLegacyClasspathTask.set(target.generateLegacyTestClasspath)
 
-                it.mixins(target.test.value.map { it.sourceSet })
+                it.configure(target.test.value.map { it.sourceSet })
             }
         }
             .sourceSet(target.test.value.map(Compilation::sourceSet))

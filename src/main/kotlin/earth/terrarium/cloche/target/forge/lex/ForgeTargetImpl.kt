@@ -10,16 +10,19 @@ import earth.terrarium.cloche.target.getModFiles
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
+import net.msrandom.minecraftcodev.forge.task.GenerateMcpToSrg
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
 import javax.inject.Inject
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
-    override val runs: ForgeRunConfigurations = project.objects.newInstance(LexForgeRunConfigurations::class.java, this)
+    override val runs: LexForgeRunConfigurations = project.objects.newInstance(LexForgeRunConfigurations::class.java, this)
 
     override val group
         @Internal
@@ -33,6 +36,13 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
 
     override val minecraftRemapNamespace: Provider<String>
         get() = providerFactory.provider { MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE }
+
+    val generateMcpToSrg: TaskProvider<GenerateMcpToSrg> = project.tasks.register(
+        lowerCamelCaseGradleName("generate", featureName, "mcpToSrg"),
+        GenerateMcpToSrg::class.java,
+    ) {
+        it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
+    }
 
     override val generateLegacyClasspath = project.tasks.register(
         lowerCamelCaseGradleName("generate", featureName, "legacyClasspath"),

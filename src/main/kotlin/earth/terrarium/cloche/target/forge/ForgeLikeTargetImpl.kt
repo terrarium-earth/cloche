@@ -129,7 +129,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     protected abstract val providerFactory: ProviderFactory
         @Inject get
 
-    override val runs: ForgeRunConfigurations = project.objects.newInstance(ForgeRunConfigurations::class.java, this)
+    override val runs: ForgeRunConfigurations<out ForgeLikeTargetImpl> = project.objects.newInstance(ForgeRunConfigurations::class.java, this)
 
     abstract val group: String
     abstract val artifact: String
