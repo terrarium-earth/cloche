@@ -37,7 +37,7 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-core", version = "0.5.35")
+    implementation(group = "net.msrandom", name = "minecraft-codev-core", version = "0.5.36")
     implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.5.35")
     implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.5.37")
     implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.5.32")
