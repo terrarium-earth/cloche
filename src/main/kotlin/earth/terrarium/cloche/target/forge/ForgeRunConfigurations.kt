@@ -40,13 +40,9 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
     protected open fun applyDefault(run: MinecraftRunConfiguration) {}
 
-    protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: SourceSet) {
-        data.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
-    }
+    protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: SourceSet) {}
 
-    protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: Provider<SourceSet>) {
-        data.mixinConfigs.from(sourceSet.flatMap { project.configurations.named(it.mixinsConfigurationName) })
-    }
+    protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: Provider<SourceSet>) {}
 
     private fun ForgeRunConfigurationData.configure(sourceSet: SourceSet) {
         configureData(this, sourceSet)
