@@ -428,7 +428,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     ) {
                         it.params(
                             getGlobalCacheDirectory(project),
-                            listOf(minecraftVersion.get()),
+                            minecraftVersion.get(),
                             VERSION_MANIFEST_URL,
                             project.gradle.startParameter.isOffline,
                             featureName,
