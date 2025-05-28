@@ -78,3 +78,13 @@ internal object ModTransformationStateAttribute {
 
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
+
+object RemapNamespaceAttribute {
+    @JvmField
+    val ATTRIBUTE = Attribute.of("earth.terrarium.cloche.remapNamespace", String::class.java)
+
+    const val INITIAL = "none"
+    const val OBF = "obf"
+    const val SEARGE = "srg"
+    const val INTERMEDIARY = "intermediary"
+}

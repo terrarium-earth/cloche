@@ -57,6 +57,7 @@ fun applyToProject(project: Project) {
                 ModTransformationStateAttribute.INITIAL,
             )
             jar.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+            jar.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
         }
 
         it.create(JSON_ARTIFACT_TYPE)

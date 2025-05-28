@@ -1,8 +1,10 @@
 package earth.terrarium.cloche.target
 
+import com.google.common.collect.Sets
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.RemapNamespaceAttribute
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
 import earth.terrarium.cloche.TargetAttributes
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -22,6 +24,7 @@ import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
+import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -139,48 +142,71 @@ private fun setupModTransformationPipeline(
             return@afterEvaluate
         }
 
-        project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.INITIAL,
-            )
+        fun registerRemapAction() {
+            val cartesianProduct =
+                target.mappings.remapNamespaces
+                    .map { namespaces -> namespaces.mapTo(hashSetOf()) { RemapNamespaceAttribute.ATTRIBUTE as Attribute<Any> to it } }
+                    .map { namespaces ->
+                        Sets.cartesianProduct<Pair<Attribute<Any>, Any>>(namespaces).map { it.toMap(hashMapOf()) }
+                    }
+                    .get()
 
-            it.to.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
-            )
+            for (attributes in cartesianProduct) {
+                project.dependencies.registerTransform(RemapAction::class.java) {
+                    val remapNamespaceAttribute = attributes.remove(RemapNamespaceAttribute.ATTRIBUTE as Attribute<Any>) as String?
 
-            it.parameters {
-                it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+                    it.from.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
+                    it.to.attribute(RemapNamespaceAttribute.ATTRIBUTE, remapNamespaceAttribute)
 
-                it.sourceNamespace.set(target.modRemapNamespace.get())
+                    for ((attribute, value) in attributes) {
+                        it.from.attribute(attribute, value)
+                        it.to.attribute(attribute, value)
+                    }
 
-                it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
+                    it.from.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        ModTransformationStateAttribute.INITIAL,
+                    )
 
-                it.cacheDirectory.set(getGlobalCacheDirectory(project))
+                    it.to.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
+                    )
 
-                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
+                    it.parameters {
+                        it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+
+                        it.sourceNamespace.set(remapNamespaceAttribute ?: target.modRemapNamespace.get())
+
+                        it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
+
+                        it.cacheDirectory.set(getGlobalCacheDirectory(project))
+
+                        val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
+                            it.attributes {
+                                it.attribute(
+                                    ModTransformationStateAttribute.ATTRIBUTE,
+                                    ModTransformationStateAttribute.INITIAL,
+                                )
+                            }
+                        }
+
+                        val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
+                            it.attributes {
+                                it.attribute(
+                                    ModTransformationStateAttribute.ATTRIBUTE,
+                                    ModTransformationStateAttribute.INITIAL,
+                                )
+                            }
+                        }
+
+                        it.modFiles.from(modCompileClasspath)
+                        it.modFiles.from(modRuntimeClasspath)
                     }
                 }
-
-                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
-                    }
-                }
-
-                it.modFiles.from(modCompileClasspath)
-                it.modFiles.from(modRuntimeClasspath)
             }
         }
+        registerRemapAction()
     }
 }
 
@@ -264,12 +290,14 @@ constructor(
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
