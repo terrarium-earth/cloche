@@ -23,7 +23,6 @@ import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.JavaLibraryPlugin
-import org.gradle.api.tasks.SourceSetContainer
 
 fun applyToProject(project: Project) {
     val cloche = project.extensions.create("cloche", ClocheExtension::class.java)

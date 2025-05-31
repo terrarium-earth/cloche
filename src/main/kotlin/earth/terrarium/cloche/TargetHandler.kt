@@ -22,6 +22,7 @@ import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
+import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
@@ -53,61 +54,26 @@ fun Project.javaExecutableFor(
 }
 
 @Suppress("UnstableApiUsage")
-private fun TargetCompilation.addDependencies() {
+private fun TargetCompilation.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
     val modImplementation =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modImplementation)
+        project.configurations.dependencyScope(modConfigurationName(configurationName)) {
+            it.addCollectedDependencies(modCollector)
         }
 
-    val modRuntimeOnly =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modRuntimeOnly)
-        }
-
-    val modCompileOnly =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modCompileOnly)
-        }
-
-    val modApi =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modApi)
-        }
-
-    val modCompileOnlyApi =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modCompileOnlyApi)
-        }
-
-    project.configurations.named(sourceSet.implementationConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.implementation)
+    project.configurations.named(configurationName) {
+        it.addCollectedDependencies(collector)
 
         it.extendsFrom(modImplementation.get())
     }
+}
 
-    project.configurations.named(sourceSet.compileOnlyConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.compileOnly)
-
-        it.extendsFrom(modCompileOnly.get())
-    }
-
-    project.configurations.named(sourceSet.runtimeOnlyConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.runtimeOnly)
-
-        it.extendsFrom(modRuntimeOnly.get())
-    }
-
-    project.configurations.named(sourceSet.apiConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.api)
-
-        it.extendsFrom(modApi.get())
-    }
-
-    project.configurations.named(sourceSet.compileOnlyApiConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
-
-        it.extendsFrom(modCompileOnlyApi.get())
-    }
+@Suppress("UnstableApiUsage")
+private fun TargetCompilation.addDependencies() {
+    addModDependencies(sourceSet.implementationConfigurationName, dependencyHandler.implementation, dependencyHandler.modImplementation)
+    addModDependencies(sourceSet.runtimeOnlyConfigurationName, dependencyHandler.runtimeOnly, dependencyHandler.modRuntimeOnly)
+    addModDependencies(sourceSet.compileOnlyConfigurationName, dependencyHandler.compileOnly, dependencyHandler.modCompileOnly)
+    addModDependencies(sourceSet.apiConfigurationName, dependencyHandler.api, dependencyHandler.modApi)
+    addModDependencies(sourceSet.compileOnlyApiConfigurationName, dependencyHandler.compileOnlyApi, dependencyHandler.modCompileOnlyApi)
 
     project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
         it.addCollectedDependencies(dependencyHandler.annotationProcessor)

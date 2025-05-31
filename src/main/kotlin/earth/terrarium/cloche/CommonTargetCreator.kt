@@ -67,7 +67,7 @@ internal fun createCommonTarget(
         compilation: CommonCompilation,
         compilations: Provider<List<TargetCompilation>>,
     ): FileCollection {
-        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "api-stub")
+        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "apiStub")
 
         val generateStub = tasks.register(name, GenerateStubApi::class.java) {
             it.group = "minecraft-stubs"
