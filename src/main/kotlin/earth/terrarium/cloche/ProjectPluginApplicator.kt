@@ -2,11 +2,9 @@ package earth.terrarium.cloche
 
 import com.google.devtools.ksp.gradle.KspGradleSubplugin
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
-import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
-import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
@@ -15,11 +13,9 @@ import net.msrandom.minecraftcodev.forge.lexforge.ForgeLexToNeoComponentMetadata
 import net.msrandom.minecraftcodev.forge.lexforge.McpConfigToNeoformComponentMetadataRule
 import net.msrandom.minecraftcodev.includes.MinecraftCodevIncludesPlugin
 import net.msrandom.minecraftcodev.mixins.MinecraftCodevMixinsPlugin
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.runs.MinecraftCodevRunsPlugin
 import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
-import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.JavaLibraryPlugin

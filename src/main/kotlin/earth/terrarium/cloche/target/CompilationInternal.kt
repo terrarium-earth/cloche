@@ -170,8 +170,12 @@ internal fun Project.configureSourceSet(
     }
 
     if (compilation is TargetCompilation) {
-        // afterEvaluate required as isDownloadSources is not lazy
+        syncTask.configure { task ->
+            task.dependsOn(compilation.generateModOutputs)
+        }
+
         if (project == rootProject) {
+            // afterEvaluate required as isDownloadSources is not lazy
             afterEvaluate { project ->
                 syncTask.configure { task ->
                     if (project.extension<IdeaModel>().module.isDownloadSources) {
