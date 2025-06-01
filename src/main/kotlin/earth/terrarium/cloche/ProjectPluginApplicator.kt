@@ -62,6 +62,8 @@ fun applyToProject(project: Project) {
             )
             jar.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
         }
+
+        it.create(MOD_OUTPUTS_ARTIFACT_TYPE)
     }
 
     project.ideaSyncHook()

@@ -9,6 +9,7 @@ import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.modOutputs
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunConfigurationData
@@ -39,9 +40,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     }
 
     protected open fun applyDefault(run: MinecraftRunConfiguration) {}
-
     protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: SourceSet) {}
-
     protected open fun configureData(data: ForgeRunConfigurationData, sourceSet: Provider<SourceSet>) {}
 
     private fun ForgeRunConfigurationData.configure(sourceSet: SourceSet) {
@@ -55,7 +54,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
             it.server {
-                it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                it.modOutputs.from(project.modOutputs(target.main))
+
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.generateLegacyClasspathTask.set(target.generateLegacyClasspath)
@@ -69,7 +69,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     override val client = project.lazyConfigurable {
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {
-                it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                it.modOutputs.from(project.modOutputs(target.main))
+
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.extractNativesTask.set(project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java))
@@ -85,10 +86,12 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     override val data = project.lazyConfigurable {
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
+                it.modOutputs.from(project.modOutputs(target.data.value))
+
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.additionalIncludedSourceSets.add(target.sourceSet)
+                it.mainResources.set(target.sourceSet.output.resourcesDir)
                 it.outputDirectory.set(target.datagenDirectory)
                 it.downloadAssetsTask.set(
                     project.tasks.named(
@@ -148,6 +151,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     override val clientData: LazyConfigurable<MinecraftRunConfiguration> = project.lazyConfigurable {
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
+                it.modOutputs.from(project.modOutputs(target.data.value))
+
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
@@ -161,8 +166,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 )
                 it.generateLegacyClasspathTask.set(target.generateLegacyDataClasspath)
 
-                it.additionalIncludedSourceSets.add(target.sourceSet)
-                it.additionalIncludedSourceSets.add(target.data.value.map(Compilation::sourceSet))
+                it.mainResources.set(target.sourceSet.output.resourcesDir)
 
                 it.configure(target.data.value.map { it.sourceSet })
             }
@@ -218,10 +222,10 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     override val test = project.lazyConfigurable {
         create(SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestServer {
-                it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                it.modOutputs.from(project.modOutputs(target.test.value))
+
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.additionalIncludedSourceSets.add(target.sourceSet)
                 it.generateLegacyClasspathTask.set(target.generateLegacyTestClasspath)
 
                 it.configure(target.test.value.map { it.sourceSet })

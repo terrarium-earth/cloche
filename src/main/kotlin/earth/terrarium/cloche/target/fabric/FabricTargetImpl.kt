@@ -74,7 +74,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         ) {
             it.group = "minecraft-resolution"
 
-            it.version.set(minecraftVersion)
+            it.minecraftVersion.set(minecraftVersion)
 
             it.output.set(output("obf"))
         }
@@ -86,7 +86,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         ) {
             it.group = "minecraft-resolution"
 
-            it.version.set(minecraftVersion)
+            it.minecraftVersion.set(minecraftVersion)
 
             it.output.set(output("client-obf"))
         }

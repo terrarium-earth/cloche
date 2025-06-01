@@ -21,7 +21,7 @@ internal fun officialMappingsDependency(project: Project, target: MinecraftTarge
 
         it.server.set(false)
 
-        it.version.set(target.minecraftVersion)
+        it.minecraftVersion.set(target.minecraftVersion)
     }
 
     return project.files(task.flatMap(ResolveMinecraftMappings::output))

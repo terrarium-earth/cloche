@@ -14,15 +14,18 @@ import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.core.utils.named
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
+import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
@@ -31,6 +34,9 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+internal const val MOD_OUTPUTS_ARTIFACT_TYPE = "modOutputs"
+internal const val MOD_OUTPUTS_LIBRARY_ELEMENTS = "mod-outputs"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -99,7 +105,7 @@ private fun TargetCompilation.addDependencies() {
 
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
-    fun add(compilation: TargetCompilation) {
+    fun addCompilation(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 
         createCompilationVariants(compilation, sourceSet, true)
@@ -121,6 +127,17 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         target.registerAccessWidenerMergeTask(compilation)
         target.addJarInjects(compilation)
+
+        configurations.named(compilation.sourceSet.runtimeElementsConfigurationName) {
+            it.outgoing.variants.create("modOutputs") {
+                it.attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(MOD_OUTPUTS_LIBRARY_ELEMENTS))
+
+                it.artifact(compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
+                    it.type = MOD_OUTPUTS_ARTIFACT_TYPE
+                    it.extension = "json"
+                }
+            }
+        }
 
         val javaVersion = target.minecraftVersion.map {
             getVersionList(
@@ -180,25 +197,25 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
     }
 
-    add(target.main)
+    addCompilation(target.main)
 
     target.data.onConfigured {
-        add(it)
+        addCompilation(it)
         it.addClasspathDependency(target.main)
     }
 
     target.test.onConfigured {
-        add(it)
+        addCompilation(it)
         it.addClasspathDependency(target.main)
     }
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
-            add(client)
+            addCompilation(client)
             client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->
-                add(data)
+                addCompilation(data)
                 data.addClasspathDependency(client)
                 data.addClasspathDependency(target.main)
 
@@ -208,7 +225,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
 
             client.test.onConfigured { test ->
-                add(test)
+                addCompilation(test)
                 test.addClasspathDependency(client)
                 test.addClasspathDependency(target.main)
 
@@ -220,11 +237,11 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     }
 
     project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
-        it.version.set(target.minecraftVersion)
+        it.minecraftVersion.set(target.minecraftVersion)
     }
 
     project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
-        it.version.set(target.minecraftVersion)
+        it.minecraftVersion.set(target.minecraftVersion)
     }
 
     project.artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)

@@ -73,7 +73,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     ) {
         it.group = "minecraft-resolution"
 
-        it.version.set(minecraftVersion)
+        it.minecraftVersion.set(minecraftVersion)
         it.universal.from(universal)
 
         it.output.set(output(minecraftRemapNamespace.map {

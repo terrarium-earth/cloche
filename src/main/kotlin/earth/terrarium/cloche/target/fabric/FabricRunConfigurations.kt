@@ -7,7 +7,9 @@ import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.modOutputs
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
@@ -16,6 +18,7 @@ import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
+import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.Action
 import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
@@ -34,7 +37,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
-            it.server()
+            it.server {
+                it.modOutputs.from(project.modOutputs(target.main))
+            }
         }
             .sourceSet(target.sourceSet)
     }
@@ -42,6 +47,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val client = project.lazyConfigurable {
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {
+                it.modOutputs.from(project.modOutputs(target.client.value.map<TargetCompilation> { it }.orElse(target.main)))
+
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.extractNativesTask.set(
                     project.tasks.named(
@@ -63,6 +70,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val data = project.lazyConfigurable {
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
+                it.modOutputs.from(project.modOutputs(target.data.value))
+
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenDirectory)
@@ -113,6 +122,10 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val clientData: LazyConfigurable<MinecraftRunConfiguration> = project.lazyConfigurable {
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
+                val compilation = target.client.value.flatMap { it.data.value }.orElse(target.data.value)
+
+                it.modOutputs.from(project.modOutputs(compilation))
+
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenClientDirectory)
@@ -206,7 +219,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
     override val test = project.lazyConfigurable {
         create(SourceSet.TEST_SOURCE_SET_NAME) {
-            it.gameTestServer()
+            it.gameTestServer {
+                it.modOutputs.from(project.modOutputs(target.test.value))
+            }
         }
             .sourceSet(target.test.value.map(Compilation::sourceSet))
     }
@@ -214,6 +229,10 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val clientTest = project.lazyConfigurable {
         create(ClochePlugin.CLIENT_COMPILATION_NAME, SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestClient {
+                val compilation = target.client.value.flatMap { it.test.value }.orElse(target.test.value)
+
+                it.modOutputs.from(project.modOutputs(compilation))
+
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.extractNativesTask.set(
                     project.tasks.named(

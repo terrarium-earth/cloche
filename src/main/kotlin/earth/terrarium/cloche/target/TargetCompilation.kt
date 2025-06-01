@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
@@ -14,6 +15,7 @@ import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
+import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
@@ -198,6 +200,26 @@ constructor(
         namedMinecraftFile,
         extraClasspathFiles,
     )
+
+    val generateModOutputs: TaskProvider<GenerateModOutputs> = project.tasks.register(
+        lowerCamelCaseGradleName("generate", sourceSet.takeUnless(SourceSet::isMain)?.name, "modOutputs"),
+        GenerateModOutputs::class.java,
+    ) {
+        it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+
+        // TODO Make this logic a bit better;
+        //   The way it should go is as follows:
+        //     data - main + data
+        //     client - main + client
+        //     clientData - main + client + data + clientData
+        if (name != SourceSet.MAIN_SOURCE_SET_NAME) {
+            it.paths.from(target.sourceSet.output.classesDirs)
+            it.paths.from(target.sourceSet.output.resourcesDir)
+        }
+
+        it.paths.from(sourceSet.output.classesDirs)
+        it.paths.from(sourceSet.output.resourcesDir)
+    }
 
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)
     val sources = setupFiles.second
