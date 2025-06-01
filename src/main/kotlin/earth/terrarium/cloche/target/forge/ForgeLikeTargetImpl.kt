@@ -22,6 +22,7 @@ import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
 import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.JarJar
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
+import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
@@ -74,6 +75,14 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         it.version.set(minecraftVersion)
         it.universal.from(universal)
+
+        it.output.set(output(minecraftRemapNamespace.map {
+            if (it.isEmpty()) {
+                MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE
+            } else {
+                it
+            }
+        }))
     }
 
     internal abstract val generateLegacyClasspath: TaskProvider<GenerateLegacyClasspath>
@@ -151,6 +160,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(minecraftRemapNamespace)
+
+        it.outputFile.set(output(project.provider { MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE }))
     }
 
     protected val generateModsToml: TaskProvider<GenerateForgeModsToml> = project.tasks.register(
@@ -185,6 +196,12 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         })
 
         project.dependencies.add(universal.name, forgeDependency {})
+    }
+
+    private fun output(suffix: Provider<String>) = suffix.flatMap { suffix ->
+        outputDirectory.zip(minecraftVersion.zip(loaderVersion) { a, b -> "$a-$b" }) { dir, version ->
+            dir.file("$loaderName-$version-$suffix.jar")
+        }
     }
 
     protected fun loaderVersionRange(version: String): ModMetadata.VersionRange = objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {

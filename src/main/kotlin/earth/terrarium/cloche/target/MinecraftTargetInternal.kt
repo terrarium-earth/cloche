@@ -19,6 +19,7 @@ import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.Directory
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
@@ -74,6 +75,8 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
     override val sourceSet get() = main.sourceSet
 
     override val target get() = this
+
+    val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(name) }
 
     protected val mappings = MappingsBuilder(this, project)
 

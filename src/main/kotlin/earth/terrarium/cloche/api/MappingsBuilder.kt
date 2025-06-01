@@ -9,7 +9,6 @@ import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider

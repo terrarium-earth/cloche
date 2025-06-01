@@ -77,18 +77,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
                 }),
             )
         }
-
-        resolvePatchedMinecraft.configure {
-            it.output.set(
-                project.layout.file(
-                    minecraftVersion.flatMap { mc ->
-                        loaderVersion.map { forge ->
-                            it.temporaryDir.resolve("forge-$mc-$forge.jar")
-                        }
-                    }
-                )
-            )
-        }
     }
 
     private fun configureLegacyClasspath(task: GenerateLegacyClasspath, sourceSet: SourceSet) {

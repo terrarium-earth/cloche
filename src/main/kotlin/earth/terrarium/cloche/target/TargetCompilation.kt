@@ -64,6 +64,8 @@ internal fun registerCompilationTransformations(
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
 ): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
+    val outputDirectory = target.outputDirectory.map { it.dir(compilationName) }
+
     val collapsedName = compilationName.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals)
 
     val project = target.project
@@ -83,6 +85,10 @@ internal fun registerCompilationTransformations(
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
         it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
+
+        it.outputFile.set(outputDirectory.zip(namedMinecraftFile) { dir, file ->
+            dir.file(file.asFile.name)
+        })
     }
 
     val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
@@ -96,6 +102,10 @@ internal fun registerCompilationTransformations(
         it.inputFile.set(finalMinecraftFile)
         it.classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName))
         it.classpath.from(extraClasspathFiles)
+
+        it.outputFile.set(outputDirectory.zip(namedMinecraftFile) { dir, file ->
+            dir.file("${file.asFile.nameWithoutExtension}-sources.${file.asFile.extension}")
+        })
     }
 
     return accessWidenTask to decompile.flatMap(Decompile::outputFile)
