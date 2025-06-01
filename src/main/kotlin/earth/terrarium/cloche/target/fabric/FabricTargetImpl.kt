@@ -384,6 +384,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set("$classifierName-merged")
             }
 
+            it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+
             it.from(project.zipTree(main.remapJarTask.flatMap(Jar::getArchiveFile)))
 
             it.from(project.zipTree(client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile))) {
@@ -401,7 +403,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set(classifierName)
             }
 
-            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
+            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
             it.input.set(client.isConfigured.flatMap {
                 val jarTask = if (it) {

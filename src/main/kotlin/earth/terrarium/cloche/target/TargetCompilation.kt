@@ -225,6 +225,8 @@ constructor(
     val sources = setupFiles.second
 
     val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"), RemapJar::class.java) {
+        it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+
         it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
         it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.targetNamespace.set(target.modRemapNamespace)

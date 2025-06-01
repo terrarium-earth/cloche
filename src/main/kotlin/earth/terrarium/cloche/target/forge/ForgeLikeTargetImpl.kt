@@ -248,7 +248,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set(classifierName)
             }
 
-            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
+            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
             it.input.set(modRemapNamespace.flatMap {
                 val jarTask = if (it.isEmpty()) {

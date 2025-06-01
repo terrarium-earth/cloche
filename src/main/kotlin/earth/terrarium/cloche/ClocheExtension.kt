@@ -14,6 +14,7 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import org.gradle.api.Action
@@ -21,7 +22,9 @@ import org.gradle.api.DomainObjectCollection
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.PolymorphicDomainObjectContainer
 import org.gradle.api.Project
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Property
 import javax.inject.Inject
 
@@ -137,6 +140,9 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }
 
     val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
+
+    val intermediateOutputsDirectory: DirectoryProperty = objects.directoryProperty().convention(project.extension<BasePluginExtension>().libsDirectory.dir("intermediates"))
+    val finalOutputsDirectory: DirectoryProperty = objects.directoryProperty().convention(project.extension<BasePluginExtension>().libsDirectory)
 
     internal val singleTargetConfigurator = SingleTargetConfigurator(project, this)
 

@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
+import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
@@ -131,6 +132,8 @@ internal fun Project.configureSourceSet(
     val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
 
     tasks.named(sourceSet.jarTaskName, Jar::class.java) {
+        it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+
         if (target is MinecraftTargetInternal) {
             val archiveClassifier = target.modRemapNamespace.map {
                 if (it.isEmpty()) {
