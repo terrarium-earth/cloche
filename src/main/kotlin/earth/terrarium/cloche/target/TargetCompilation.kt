@@ -19,6 +19,7 @@ import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.attributes.AttributeContainer
@@ -30,6 +31,7 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
 import javax.inject.Inject
+import kotlin.io.relativeTo
 
 internal object States {
     const val INCLUDES_EXTRACTED = "includesExtracted"
@@ -51,8 +53,10 @@ internal fun Project.getModFiles(configurationName: String, isTransitive: Boolea
             resolutionResult.root.dependencies.filterIsInstance<ResolvedDependencyResult>().map { it.selected.id }
         }
 
+        val filteredIdentifiers = componentIdentifiers.filter { it !is ProjectComponentIdentifier }
+
         classpath.incoming.artifactView {
-            it.componentFilter(componentIdentifiers::contains)
+            it.componentFilter(filteredIdentifiers::contains)
 
             configure?.execute(it)
         }.files
@@ -180,6 +184,18 @@ private fun setupModTransformationPipeline(
     }
 }
 
+private fun GenerateModOutputs.addSourceSet(sourceSet: SourceSet) {
+    val rootDirectory = project.rootProject.layout.projectDirectory.asFile
+
+    paths.addAll(project.provider {
+        sourceSet.output.classesDirs.map {
+            it.relativeTo(rootDirectory).path
+        }
+    })
+
+    paths.add(sourceSet.output.resourcesDir!!.relativeTo(rootDirectory).path)
+}
+
 internal abstract class TargetCompilation
 @Inject
 constructor(
@@ -213,12 +229,10 @@ constructor(
         //     client - main + client
         //     clientData - main + client + data + clientData
         if (name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            it.paths.from(target.sourceSet.output.classesDirs)
-            it.paths.from(target.sourceSet.output.resourcesDir)
+            it.addSourceSet(target.main.sourceSet)
         }
 
-        it.paths.from(sourceSet.output.classesDirs)
-        it.paths.from(sourceSet.output.resourcesDir)
+        it.addSourceSet(sourceSet)
     }
 
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)

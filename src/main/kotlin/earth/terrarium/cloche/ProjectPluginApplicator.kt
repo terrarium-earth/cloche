@@ -45,8 +45,8 @@ fun applyToProject(project: Project) {
 
     project.dependencies.attributesSchema { schema ->
         schema.attribute(SIDE_ATTRIBUTE) {
-            it.compatibilityRules.add(VariantCompatibilityRule::class.java)
-            it.disambiguationRules.add(VariantDisambiguationRule::class.java)
+            it.compatibilityRules.add(SideCompatibilityRule::class.java)
+            it.disambiguationRules.add(SideDisambiguationRule::class.java)
         }
     }
 
@@ -59,7 +59,7 @@ fun applyToProject(project: Project) {
             jar.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
         }
 
-        it.create(MOD_OUTPUTS_ARTIFACT_TYPE)
+        it.create(JSON_ARTIFACT_TYPE)
     }
 
     project.ideaSyncHook()

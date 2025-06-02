@@ -14,7 +14,6 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunConfigurationData
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunsDefaultsContainer
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import net.msrandom.minecraftcodev.runs.RunsContainer
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
@@ -58,7 +57,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.generateLegacyClasspathTask.set(target.generateLegacyClasspath)
+                it.writeLegacyClasspathTask.set(target.writeLegacyClasspath)
 
                 it.configure(target.sourceSet)
             }
@@ -75,7 +74,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.extractNativesTask.set(project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java))
                 it.downloadAssetsTask.set(project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java))
-                it.generateLegacyClasspathTask.set(target.generateLegacyClasspath)
+                it.writeLegacyClasspathTask.set(target.writeLegacyClasspath)
 
                 it.configure(target.sourceSet)
             }
@@ -99,7 +98,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                         DownloadAssets::class.java
                     )
                 )
-                it.generateLegacyClasspathTask.set(target.generateLegacyDataClasspath)
+                it.writeLegacyClasspathTask.set(target.writeLegacyDataClasspath)
 
                 it.configure(target.data.value.map { it.sourceSet })
             }
@@ -164,7 +163,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                         DownloadAssets::class.java
                     )
                 )
-                it.generateLegacyClasspathTask.set(target.generateLegacyDataClasspath)
+                it.writeLegacyClasspathTask.set(target.writeLegacyDataClasspath)
 
                 it.mainResources.set(target.sourceSet.output.resourcesDir)
 
@@ -226,7 +225,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.generateLegacyClasspathTask.set(target.generateLegacyTestClasspath)
+                it.writeLegacyClasspathTask.set(target.writeLegacyTestClasspath)
 
                 it.configure(target.test.value.map { it.sourceSet })
             }

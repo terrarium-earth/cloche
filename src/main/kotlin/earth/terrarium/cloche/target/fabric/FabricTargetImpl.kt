@@ -25,10 +25,10 @@ import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
+import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.file.RegularFile
-import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
@@ -203,6 +203,15 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.from(loadMappingsTask.flatMap(LoadMappings::output)) {
             it.into("mappings")
         }
+    }
+
+    val writeRemapClasspathTask: TaskProvider<WriteClasspathFile> = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "remapClasspath"),
+        WriteClasspathFile::class.java,
+    ) {
+        it.classpath.from(commonLibrariesConfiguration)
+        it.classpath.from(clientLibrariesConfiguration)
+        it.classpath.from(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile))
     }
 
     lateinit var mergeJarTask: TaskProvider<Jar>

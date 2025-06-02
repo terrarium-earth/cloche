@@ -18,7 +18,6 @@ import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
-import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.Action
 import org.gradle.api.tasks.SourceSet
 import org.gradle.language.jvm.tasks.ProcessResources
@@ -39,6 +38,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
             it.server {
                 it.modOutputs.from(project.modOutputs(target.main))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
         }
             .sourceSet(target.sourceSet)
@@ -48,6 +48,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {
                 it.modOutputs.from(project.modOutputs(target.client.value.map<TargetCompilation> { it }.orElse(target.main)))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.extractNativesTask.set(
@@ -71,6 +72,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
                 it.modOutputs.from(project.modOutputs(target.data.value))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
@@ -125,6 +127,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 val compilation = target.client.value.flatMap { it.data.value }.orElse(target.data.value)
 
                 it.modOutputs.from(project.modOutputs(compilation))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
@@ -221,6 +224,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         create(SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestServer {
                 it.modOutputs.from(project.modOutputs(target.test.value))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
         }
             .sourceSet(target.test.value.map(Compilation::sourceSet))
@@ -232,6 +236,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 val compilation = target.client.value.flatMap { it.test.value }.orElse(target.test.value)
 
                 it.modOutputs.from(project.modOutputs(compilation))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.extractNativesTask.set(

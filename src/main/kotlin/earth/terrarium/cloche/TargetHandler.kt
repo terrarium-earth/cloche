@@ -25,7 +25,10 @@ import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
+import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.LibraryElements
+import org.gradle.api.attributes.Usage
+import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
@@ -35,8 +38,8 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-internal const val MOD_OUTPUTS_ARTIFACT_TYPE = "modOutputs"
-internal const val MOD_OUTPUTS_LIBRARY_ELEMENTS = "mod-outputs"
+internal const val JSON_ARTIFACT_TYPE = "json"
+internal const val MOD_OUTPUTS_CATEGORY = "mod-outputs"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -128,15 +131,36 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         target.registerAccessWidenerMergeTask(compilation)
         target.addJarInjects(compilation)
 
-        configurations.named(compilation.sourceSet.runtimeElementsConfigurationName) {
-            it.outgoing.variants.create("modOutputs") {
-                it.attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(MOD_OUTPUTS_LIBRARY_ELEMENTS))
+        val modOutputs = project.configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
+            val capabilitySuffix = compilation.capabilityName?.let { "-$it" }.orEmpty() + "-mod-outputs"
 
-                it.artifact(compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
-                    it.type = MOD_OUTPUTS_ARTIFACT_TYPE
-                    it.extension = "json"
+            modOutputs.outgoing.capability("${project.group}:${project.name}:${project.version}")
+
+            compilation.capabilityName?.let {
+                modOutputs.outgoing.capability("${project.group}:${project.name}-$it:${project.version}")
+            }
+
+            modOutputs.outgoing.capability("${project.group}:${project.name}$capabilitySuffix:${project.version}")
+
+            modOutputs.attributes
+                .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
+                .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+
+            compilation.attributes(modOutputs.attributes)
+
+            project.components.named("java") { java ->
+                java as AdhocComponentWithVariants
+
+                java.addVariantsFromConfiguration(modOutputs) {
+                    if (it.configurationVariant.name == "modOutputs") {
+                        it.skip()
+                    }
                 }
             }
+        }
+
+        project.artifacts.add(modOutputs.name, compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
+            it.type = JSON_ARTIFACT_TYPE
         }
 
         val javaVersion = target.minecraftVersion.map {
