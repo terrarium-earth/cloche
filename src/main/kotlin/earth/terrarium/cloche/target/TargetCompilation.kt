@@ -34,7 +34,6 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
 import javax.inject.Inject
-import kotlin.io.relativeTo
 
 internal object States {
     const val INCLUDES_EXTRACTED = "includesExtracted"
@@ -176,7 +175,7 @@ private fun setupModTransformationPipeline(
                     it.parameters {
                         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                        it.sourceNamespace.set(remapNamespaceAttribute ?: target.modRemapNamespace.get())
+                        it.sourceNamespace.set(remapNamespaceAttribute?.takeUnless { it === RemapNamespaceAttribute.INITIAL } ?: target.modRemapNamespace.get())
 
                         it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
 
