@@ -161,7 +161,7 @@ class MappingsBuilder internal constructor(
         project.dependencies.addProvider(
             configurationName,
             target.minecraftVersion.map {
-                "de.oceanlabs.mcp:mcp_config:$it@zip"
+                "de.oceanlabs.mcp:mcp_config:$it"
             }
         )
     }
@@ -171,7 +171,7 @@ class MappingsBuilder internal constructor(
         project.dependencies.addProvider(
             configurationName,
             target.minecraftVersion.map {
-                "de.oceanlabs.mcp:mcp:$it:srg@zip"
+                "de.oceanlabs.mcp:mcp:$it:srg"
             }
         )
     }
