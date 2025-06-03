@@ -29,12 +29,13 @@ import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
+import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.file.RegularFile
-import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
@@ -76,21 +77,25 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     private val resolveCommonMinecraft =
         project.tasks.register(
             lowerCamelCaseGradleName("resolve", name, "common"),
-            ResolveMinecraftCommon::class.java
+            ResolveMinecraftCommon::class.java,
         ) {
             it.group = "minecraft-resolution"
 
-            it.version.set(minecraftVersion)
+            it.minecraftVersion.set(minecraftVersion)
+
+            it.output.set(output("obf"))
         }
 
     private val resolveClientMinecraft =
         project.tasks.register(
             lowerCamelCaseGradleName("resolve", name, "client"),
-            ResolveMinecraftClient::class.java
+            ResolveMinecraftClient::class.java,
         ) {
             it.group = "minecraft-resolution"
 
-            it.version.set(minecraftVersion)
+            it.minecraftVersion.set(minecraftVersion)
+
+            it.output.set(output("client-obf"))
         }
 
     private val remapCommonMinecraftIntermediary =
@@ -112,6 +117,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.classpath.from(commonLibrariesConfiguration)
 
             it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
+
+            it.outputFile.set(output(MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE))
         }
 
     private val remapClientMinecraftIntermediary =
@@ -135,6 +142,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.classpath.from(resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output))
 
             it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
+
+            it.outputFile.set(output("client-${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}"))
         }
 
     private val remapCommon = project.tasks.register(
@@ -150,6 +159,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(minecraftRemapNamespace)
+
+        it.outputFile.set(output(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE))
     }
 
     private val remapClient = project.tasks.register(
@@ -167,6 +178,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(minecraftRemapNamespace)
+
+        it.outputFile.set(output("client-${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}"))
     }
 
     private val generateModJson = project.tasks.register(
@@ -197,6 +210,15 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.from(loadMappingsTask.flatMap(LoadMappings::output)) {
             it.into("mappings")
         }
+    }
+
+    val writeRemapClasspathTask: TaskProvider<WriteClasspathFile> = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "remapClasspath"),
+        WriteClasspathFile::class.java,
+    ) {
+        it.classpath.from(commonLibrariesConfiguration)
+        it.classpath.from(clientLibrariesConfiguration)
+        it.classpath.from(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile))
     }
 
     lateinit var mergeJarTask: TaskProvider<Jar>
@@ -289,6 +311,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         })
     }
 
+    private fun output(suffix: String) = outputDirectory.zip(minecraftVersion) { dir, version ->
+        dir.file("minecraft-$version-$suffix.jar")
+    }
+
     private fun registerCommonCompilation(name: String): TargetCompilation {
         fun <T> clientAlternative(normal: Provider<T>, client: Provider<T>) =
             hasIncludedClient.flatMap {
@@ -375,6 +401,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set("$classifierName-merged")
             }
 
+            it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+
             it.from(project.zipTree(main.remapJarTask.flatMap(Jar::getArchiveFile)))
 
             it.from(project.zipTree(client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile))) {
@@ -392,7 +420,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set(classifierName)
             }
 
-            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
+            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
             it.input.set(client.isConfigured.flatMap {
                 val jarTask = if (it) {
@@ -404,7 +432,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 jarTask.flatMap(Jar::getArchiveFile)
             })
 
-            it.includeConfiguration.set(includeConfiguration)
+            it.includeArtifacts.set(includeConfiguration.flatMap { it.incoming.artifacts.resolvedArtifacts })
+            it.includesRootComponent.set(includeConfiguration.flatMap { it.incoming.resolutionResult.rootComponent })
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
@@ -435,7 +464,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     ) {
                         it.params(
                             getGlobalCacheDirectory(project),
-                            listOf(minecraftVersion.get()),
+                            minecraftVersion.get(),
                             VERSION_MANIFEST_URL,
                             project.gradle.startParameter.isOffline,
                             featureName,

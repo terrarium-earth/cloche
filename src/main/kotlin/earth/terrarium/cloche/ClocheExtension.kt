@@ -14,6 +14,7 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
@@ -23,7 +24,10 @@ import org.gradle.api.DomainObjectCollection
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.PolymorphicDomainObjectContainer
 import org.gradle.api.Project
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.plugins.BasePlugin
+import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Property
 import javax.inject.Inject
 
@@ -95,7 +99,7 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
         target?.let {
             if (it.name != name) {
                 throw UnsupportedOperationException("Single target already set as ${it.name}. Can not set single target to $name")
-            } else if (it.javaClass != type) {
+            } else if (!type.isAssignableFrom(it.javaClass)) {
                 throw UnsupportedOperationException("Single target with name $name is set as type ${it.javaClass}, but was queried as $type")
             }
 
@@ -140,6 +144,9 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
 
+    val intermediateOutputsDirectory: DirectoryProperty = objects.directoryProperty()
+    val finalOutputsDirectory: DirectoryProperty = objects.directoryProperty()
+
     internal val singleTargetConfigurator = SingleTargetConfigurator(project, this)
 
     @Suppress("UNCHECKED_CAST")
@@ -158,6 +165,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
         var fabricConfigured = false
 
+        project.plugins.withType(BasePlugin::class.java) {
+            val libs = project.extension<BasePluginExtension>().libsDirectory
+
+            intermediateOutputsDirectory.convention(libs.dir("intermediates"))
+            finalOutputsDirectory.convention(libs)
+        }
+
         targets.withType(FabricTarget::class.java).whenObjectAdded {
             if (!fabricConfigured) {
                 fabricConfigured = true
@@ -172,7 +186,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
         var forgeConfigured = false
 
-        targets.withType(ForgeTargetImpl::class.java /* [ForgeTarget] can't expose internal class [TargetCompilation] */)
+        targets.withType(ForgeTarget::class.java)
             .whenObjectAdded { target ->
                 if (!forgeConfigured) {
                     forgeConfigured = true

@@ -14,14 +14,21 @@ import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.core.utils.named
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
+import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
+import org.gradle.api.artifacts.dsl.DependencyCollector
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.LibraryElements
+import org.gradle.api.attributes.Usage
+import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
@@ -30,6 +37,9 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+internal const val JSON_ARTIFACT_TYPE = "json"
+internal const val MOD_OUTPUTS_CATEGORY = "mod-outputs"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -53,61 +63,26 @@ fun Project.javaExecutableFor(
 }
 
 @Suppress("UnstableApiUsage")
-private fun TargetCompilation.addDependencies() {
+private fun TargetCompilation.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
     val modImplementation =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modImplementation)
+        project.configurations.dependencyScope(modConfigurationName(configurationName)) {
+            it.addCollectedDependencies(modCollector)
         }
 
-    val modRuntimeOnly =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modRuntimeOnly)
-        }
-
-    val modCompileOnly =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modCompileOnly)
-        }
-
-    val modApi =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modApi)
-        }
-
-    val modCompileOnlyApi =
-        project.configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
-            it.addCollectedDependencies(dependencyHandler.modCompileOnlyApi)
-        }
-
-    project.configurations.named(sourceSet.implementationConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.implementation)
+    project.configurations.named(configurationName) {
+        it.addCollectedDependencies(collector)
 
         it.extendsFrom(modImplementation.get())
     }
+}
 
-    project.configurations.named(sourceSet.compileOnlyConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.compileOnly)
-
-        it.extendsFrom(modCompileOnly.get())
-    }
-
-    project.configurations.named(sourceSet.runtimeOnlyConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.runtimeOnly)
-
-        it.extendsFrom(modRuntimeOnly.get())
-    }
-
-    project.configurations.named(sourceSet.apiConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.api)
-
-        it.extendsFrom(modApi.get())
-    }
-
-    project.configurations.named(sourceSet.compileOnlyApiConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.compileOnlyApi)
-
-        it.extendsFrom(modCompileOnlyApi.get())
-    }
+@Suppress("UnstableApiUsage")
+private fun TargetCompilation.addDependencies() {
+    addModDependencies(sourceSet.implementationConfigurationName, dependencyHandler.implementation, dependencyHandler.modImplementation)
+    addModDependencies(sourceSet.runtimeOnlyConfigurationName, dependencyHandler.runtimeOnly, dependencyHandler.modRuntimeOnly)
+    addModDependencies(sourceSet.compileOnlyConfigurationName, dependencyHandler.compileOnly, dependencyHandler.modCompileOnly)
+    addModDependencies(sourceSet.apiConfigurationName, dependencyHandler.api, dependencyHandler.modApi)
+    addModDependencies(sourceSet.compileOnlyApiConfigurationName, dependencyHandler.compileOnlyApi, dependencyHandler.modCompileOnlyApi)
 
     project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
         it.addCollectedDependencies(dependencyHandler.annotationProcessor)
@@ -133,7 +108,7 @@ private fun TargetCompilation.addDependencies() {
 
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
-    fun add(compilation: TargetCompilation) {
+    fun addCompilation(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 
         createCompilationVariants(compilation, sourceSet, true)
@@ -155,6 +130,38 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         target.registerAccessWidenerMergeTask(compilation)
         target.addJarInjects(compilation)
+
+        val modOutputs = project.configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
+            val capabilitySuffix = compilation.capabilityName?.let { "-$it" }.orEmpty() + "-mod-outputs"
+
+            modOutputs.outgoing.capability("${project.group}:${project.name}:${project.version}")
+
+            compilation.capabilityName?.let {
+                modOutputs.outgoing.capability("${project.group}:${project.name}-$it:${project.version}")
+            }
+
+            modOutputs.outgoing.capability("${project.group}:${project.name}$capabilitySuffix:${project.version}")
+
+            modOutputs.attributes
+                .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
+                .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+
+            compilation.attributes(modOutputs.attributes)
+
+            project.components.named("java") { java ->
+                java as AdhocComponentWithVariants
+
+                java.addVariantsFromConfiguration(modOutputs) {
+                    if (it.configurationVariant.name == "modOutputs") {
+                        it.skip()
+                    }
+                }
+            }
+        }
+
+        project.artifacts.add(modOutputs.name, compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
+            it.type = JSON_ARTIFACT_TYPE
+        }
 
         val javaVersion = target.minecraftVersion.map {
             getVersionList(
@@ -214,25 +221,25 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
     }
 
-    add(target.main)
+    addCompilation(target.main)
 
     target.data.onConfigured {
-        add(it)
+        addCompilation(it)
         it.addClasspathDependency(target.main)
     }
 
     target.test.onConfigured {
-        add(it)
+        addCompilation(it)
         it.addClasspathDependency(target.main)
     }
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
-            add(client)
+            addCompilation(client)
             client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->
-                add(data)
+                addCompilation(data)
                 data.addClasspathDependency(client)
                 data.addClasspathDependency(target.main)
 
@@ -242,7 +249,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
 
             client.test.onConfigured { test ->
-                add(test)
+                addCompilation(test)
                 test.addClasspathDependency(client)
                 test.addClasspathDependency(target.main)
 
@@ -254,11 +261,11 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     }
 
     project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
-        it.version.set(target.minecraftVersion)
+        it.minecraftVersion.set(target.minecraftVersion)
     }
 
     project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
-        it.version.set(target.minecraftVersion)
+        it.minecraftVersion.set(target.minecraftVersion)
     }
 
     project.artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)

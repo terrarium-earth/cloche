@@ -1,7 +1,8 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
-import earth.terrarium.cloche.ClochePlugin.Companion.IDEA_SYNC_TASK_NAME
+import earth.terrarium.cloche.ClocheExtension
+import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
@@ -14,8 +15,6 @@ import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.ConfigurationContainer
-import org.gradle.api.artifacts.ResolvableConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
@@ -39,9 +38,8 @@ internal fun getNonProjectArtifacts(configuration: Provider<out Configuration>):
 
 context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
-    getNonProjectArtifacts(configurations.named(configurationName)).map { it.files }
+    getNonProjectArtifacts(configurations.named(configurationName)).map(ArtifactView::getFiles)
 
-@Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation {
     abstract val project: Project
@@ -134,6 +132,8 @@ internal fun Project.configureSourceSet(
     val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
 
     tasks.named(sourceSet.jarTaskName, Jar::class.java) {
+        it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+
         if (target is MinecraftTargetInternal) {
             val archiveClassifier = target.modRemapNamespace.map {
                 if (it.isEmpty()) {
@@ -159,7 +159,7 @@ internal fun Project.configureSourceSet(
         }
     }
 
-    val syncTask = tasks.named(IDEA_SYNC_TASK_NAME) { task ->
+    val syncTask = tasks.named(IDE_SYNC_TASK_NAME) { task ->
         task.dependsOn(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
 
         if (compilation is TargetCompilation) {
@@ -170,8 +170,12 @@ internal fun Project.configureSourceSet(
     }
 
     if (compilation is TargetCompilation) {
-        // afterEvaluate required as isDownloadSources is not lazy
+        syncTask.configure { task ->
+            task.dependsOn(compilation.generateModOutputs)
+        }
+
         if (project == rootProject) {
+            // afterEvaluate required as isDownloadSources is not lazy
             afterEvaluate { project ->
                 syncTask.configure { task ->
                     if (project.extension<IdeaModel>().module.isDownloadSources) {

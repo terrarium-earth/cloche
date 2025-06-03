@@ -3,6 +3,7 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
+import org.gradle.api.artifacts.CacheableRule
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeDisambiguationRule
@@ -32,7 +33,7 @@ object CommonTargetAttributes {
     val NAME: Attribute<String> = Attribute.of("earth.terrarium.cloche.commonName", String::class.java)
 }
 
-class VariantCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
+class SideCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
     override fun execute(details: CompatibilityCheckDetails<PublicationSide>) {
         if (details.producerValue == PublicationSide.Common || details.producerValue == PublicationSide.Joined) {
             details.compatible()
@@ -42,12 +43,25 @@ class VariantCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
     }
 }
 
-class VariantDisambiguationRule : AttributeDisambiguationRule<PublicationSide> {
+class SideDisambiguationRule : AttributeDisambiguationRule<PublicationSide> {
     override fun execute(details: MultipleCandidatesDetails<PublicationSide>) {
-        if (PublicationSide.Common in details.candidateValues) {
-            details.closestMatch(PublicationSide.Common)
-        } else if (PublicationSide.Joined in details.candidateValues) {
-            details.closestMatch(PublicationSide.Joined)
+        if (details.consumerValue in details.candidateValues) {
+            // Pick the requested variant
+            details.closestMatch(details.consumerValue!!)
+        } else if (details.consumerValue == PublicationSide.Client) {
+            // Prefer joined if the consumer is client
+            if (PublicationSide.Joined in details.candidateValues) {
+                details.closestMatch(PublicationSide.Joined)
+            } else if (PublicationSide.Common in details.candidateValues) {
+                details.closestMatch(PublicationSide.Common)
+            }
+        } else {
+            // Prefer common otherwise
+            if (PublicationSide.Common in details.candidateValues) {
+                details.closestMatch(PublicationSide.Common)
+            } else if (PublicationSide.Joined in details.candidateValues) {
+                details.closestMatch(PublicationSide.Joined)
+            }
         }
     }
 }

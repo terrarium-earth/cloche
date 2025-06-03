@@ -5,21 +5,23 @@ import earth.terrarium.cloche.NO_NAME_MAPPING_ATTRIBUTE
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
-import earth.terrarium.cloche.target.forge.ForgeRunConfigurations
 import earth.terrarium.cloche.target.getModFiles
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
-import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
+import net.msrandom.minecraftcodev.forge.task.GenerateMcpToSrg
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
+import net.msrandom.minecraftcodev.remapper.task.LoadMappings
+import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
 import javax.inject.Inject
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
-    override val runs: ForgeRunConfigurations = project.objects.newInstance(LexForgeRunConfigurations::class.java, this)
+    override val runs: LexForgeRunConfigurations = project.objects.newInstance(LexForgeRunConfigurations::class.java, this)
 
     override val group
         @Internal
@@ -34,25 +36,32 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
     override val minecraftRemapNamespace: Provider<String>
         get() = providerFactory.provider { MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE }
 
-    override val generateLegacyClasspath = project.tasks.register(
-        lowerCamelCaseGradleName("generate", featureName, "legacyClasspath"),
-        GenerateLegacyClasspath::class.java,
+    val generateMcpToSrg: TaskProvider<GenerateMcpToSrg> = project.tasks.register(
+        lowerCamelCaseGradleName("generate", featureName, "mcpToSrg"),
+        GenerateMcpToSrg::class.java,
+    ) {
+        it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
+    }
+
+    override val writeLegacyClasspath = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "legacyClasspath"),
+        WriteClasspathFile::class.java,
     ) { task ->
         configureLegacyClasspath(task, sourceSet)
     }
 
-    override val generateLegacyDataClasspath = project.tasks.register(
-        lowerCamelCaseGradleName("generate", featureName, "dataLegacyClasspath"),
-        GenerateLegacyClasspath::class.java,
+    override val writeLegacyDataClasspath = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "dataLegacyClasspath"),
+        WriteClasspathFile::class.java,
     ) { task ->
         data.onConfigured { data ->
             configureLegacyClasspath(task, data.sourceSet)
         }
     }
 
-    override val generateLegacyTestClasspath = project.tasks.register(
-        lowerCamelCaseGradleName("generate", featureName, "testLegacyClasspath"),
-        GenerateLegacyClasspath::class.java,
+    override val writeLegacyTestClasspath = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "testLegacyClasspath"),
+        WriteClasspathFile::class.java,
     ) { task ->
         test.onConfigured { test ->
             configureLegacyClasspath(task, test.sourceSet)
@@ -67,21 +76,9 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
                 }),
             )
         }
-
-        resolvePatchedMinecraft.configure {
-            it.output.set(
-                project.layout.file(
-                    minecraftVersion.flatMap { mc ->
-                        loaderVersion.map { forge ->
-                            it.temporaryDir.resolve("forge-$mc-$forge.jar")
-                        }
-                    }
-                )
-            )
-        }
     }
 
-    private fun configureLegacyClasspath(task: GenerateLegacyClasspath, sourceSet: SourceSet) {
+    private fun configureLegacyClasspath(task: WriteClasspathFile, sourceSet: SourceSet) {
         val classpath = project.files()
 
         classpath.from(minecraftLibrariesConfiguration)

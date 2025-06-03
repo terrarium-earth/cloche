@@ -1,6 +1,6 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.ClochePlugin.Companion.IDEA_SYNC_TASK_NAME
+import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.util.isIdeDetected
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.MinecraftTargetInternal
@@ -10,13 +10,13 @@ import org.gradle.api.initialization.Settings
 import org.gradle.api.plugins.PluginAware
 
 fun Project.ideaSyncHook() {
-    tasks.register(IDEA_SYNC_TASK_NAME)
+    tasks.register(IDE_SYNC_TASK_NAME)
 
     if (!isIdeDetected()) {
         return
     }
 
-    val taskPath = ":$IDEA_SYNC_TASK_NAME"
+    val taskPath = ":$IDE_SYNC_TASK_NAME"
 
     val fullName = if (project == project.rootProject) {
         taskPath
@@ -71,7 +71,7 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
         const val CLIENT_COMPILATION_NAME = "client"
         const val DATA_COMPILATION_NAME = "data"
 
-        const val IDEA_SYNC_TASK_NAME = "clocheIdeaSync"
+        const val IDE_SYNC_TASK_NAME = "clocheIdeSync"
 
         const val STUB_GROUP = "net.msrandom"
         const val STUB_NAME = "stub"

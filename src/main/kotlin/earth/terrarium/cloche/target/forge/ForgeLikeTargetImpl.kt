@@ -20,18 +20,18 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.patchesConfigurationName
 import net.msrandom.minecraftcodev.forge.task.GenerateAccessTransformer
-import net.msrandom.minecraftcodev.forge.task.GenerateLegacyClasspath
 import net.msrandom.minecraftcodev.forge.task.JarJar
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
+import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
+import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
 import org.gradle.api.file.RegularFile
-import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
@@ -73,13 +73,21 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     ) {
         it.group = "minecraft-resolution"
 
-        it.version.set(minecraftVersion)
+        it.minecraftVersion.set(minecraftVersion)
         it.universal.from(universal)
+
+        it.output.set(output(minecraftRemapNamespace.map {
+            if (it.isEmpty()) {
+                MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE
+            } else {
+                it
+            }
+        }))
     }
 
-    internal abstract val generateLegacyClasspath: TaskProvider<GenerateLegacyClasspath>
-    internal abstract val generateLegacyDataClasspath: TaskProvider<GenerateLegacyClasspath>
-    internal abstract val generateLegacyTestClasspath: TaskProvider<GenerateLegacyClasspath>
+    internal abstract val writeLegacyClasspath: TaskProvider<WriteClasspathFile>
+    internal abstract val writeLegacyDataClasspath: TaskProvider<WriteClasspathFile>
+    internal abstract val writeLegacyTestClasspath: TaskProvider<WriteClasspathFile>
 
     final override lateinit var main: TargetCompilation
 
@@ -132,7 +140,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     protected abstract val providerFactory: ProviderFactory
         @Inject get
 
-    override val runs: ForgeRunConfigurations = project.objects.newInstance(ForgeRunConfigurations::class.java, this)
+    override val runs: ForgeRunConfigurations<out ForgeLikeTargetImpl> = project.objects.newInstance(ForgeRunConfigurations::class.java, this)
 
     abstract val group: String
     abstract val artifact: String
@@ -154,6 +162,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
         it.sourceNamespace.set(minecraftRemapNamespace)
+
+        it.outputFile.set(output(project.provider { MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE }))
     }
 
     protected val generateModsToml: TaskProvider<GenerateForgeModsToml> = project.tasks.register(
@@ -188,6 +198,12 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         })
 
         project.dependencies.add(universal.name, forgeDependency {})
+    }
+
+    private fun output(suffix: Provider<String>) = suffix.flatMap { suffix ->
+        outputDirectory.zip(minecraftVersion.zip(loaderVersion) { a, b -> "$a-$b" }) { dir, version ->
+            dir.file("$loaderName-$version-$suffix.jar")
+        }
     }
 
     protected fun loaderVersionRange(version: String): ModMetadata.VersionRange = objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
@@ -235,7 +251,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set(classifierName)
             }
 
-            it.destinationDirectory.set(project.extension<BasePluginExtension>().distsDirectory)
+            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
             it.input.set(modRemapNamespace.flatMap {
                 val jarTask = if (it.isEmpty()) {
@@ -247,7 +263,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 jarTask.flatMap(Jar::getArchiveFile)
             })
 
-            it.includesConfiguration.set(includeConfiguration)
+            it.includeArtifacts.set(includeConfiguration.flatMap { it.incoming.artifacts.resolvedArtifacts })
+            it.includesRootComponent.set(includeConfiguration.flatMap { it.incoming.resolutionResult.rootComponent })
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
