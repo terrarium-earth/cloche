@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target.forge
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FORGE
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
@@ -101,6 +102,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
                 isSingleTarget,
+                IncludeTransformationState.None,
             )
         }
 
@@ -122,6 +124,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 project.provider { emptyList<RegularFile>() },
                 PublicationSide.Joined,
                 isSingleTarget,
+                IncludeTransformationState.None,
             )
         }
 
@@ -234,6 +237,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             project.provider { emptyList<RegularFile>() },
             PublicationSide.Joined,
             isSingleTarget,
+            IncludeTransformationState.None,
         )
 
         includeJarTask = project.tasks.register(

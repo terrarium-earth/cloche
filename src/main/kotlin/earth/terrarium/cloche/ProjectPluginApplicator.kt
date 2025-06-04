@@ -57,6 +57,7 @@ fun applyToProject(project: Project) {
                 ModTransformationStateAttribute.INITIAL,
             )
             jar.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+            jar.attributes.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
         }
 
         it.create(JSON_ARTIFACT_TYPE)

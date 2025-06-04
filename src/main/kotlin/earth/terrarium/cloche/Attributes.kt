@@ -3,7 +3,6 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
-import org.gradle.api.artifacts.CacheableRule
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeDisambiguationRule
@@ -78,3 +77,15 @@ internal object ModTransformationStateAttribute {
 
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
+
+enum class IncludeTransformationState {
+    None,
+    Stripped,
+    Extracted;
+
+    companion object {
+        @JvmField
+        val ATTRIBUTE: Attribute<IncludeTransformationState> =
+            Attribute.of("earth.terrarium.cloche.includeState", IncludeTransformationState::class.java)
+    }
+}
