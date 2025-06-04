@@ -48,10 +48,6 @@ fun applyToProject(project: Project) {
             it.compatibilityRules.add(SideCompatibilityRule::class.java)
             it.disambiguationRules.add(SideDisambiguationRule::class.java)
         }
-
-        schema.attribute(IncludeTransformationState.ATTRIBUTE) {
-            it.disambiguationRules.add(IncludeTransformationState.DisambiguationRule::class.java)
-        }
     }
 
     project.dependencies.artifactTypes {

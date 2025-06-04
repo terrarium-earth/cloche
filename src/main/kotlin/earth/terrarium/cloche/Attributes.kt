@@ -3,7 +3,6 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
-import org.gradle.api.artifacts.CacheableRule
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeDisambiguationRule
@@ -88,15 +87,5 @@ enum class IncludeTransformationState {
         @JvmField
         val ATTRIBUTE: Attribute<IncludeTransformationState> =
             Attribute.of("earth.terrarium.cloche.includeState", IncludeTransformationState::class.java)
-    }
-
-    class DisambiguationRule : AttributeDisambiguationRule<IncludeTransformationState> {
-        override fun execute(details: MultipleCandidatesDetails<IncludeTransformationState>) {
-            when {
-                Extracted in details.candidateValues -> details.closestMatch(Extracted)
-                Stripped in details.candidateValues -> details.closestMatch(Stripped)
-                None in details.candidateValues -> details.closestMatch(None)
-            }
-        }
     }
 }
