@@ -107,6 +107,8 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
             return it
         }
 
+        extension.singleTargetSetCallback(type)
+
         val instance = project.objects.newInstance(type, name)
 
         (instance as MinecraftTargetInternal).initialize(true)
@@ -150,9 +152,27 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     @Suppress("UNCHECKED_CAST")
     internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
-    init {
-        var fabricConfigured = false
+    private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, () -> Unit>()
 
+    private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: () -> Unit) {
+        var configured = false
+
+        targets.withType(type).whenObjectAdded {
+            if (!configured) {
+                configured = true
+
+                action()
+            }
+        }
+
+        singleTargetCallbacks[type] = action
+    }
+
+    internal fun singleTargetSetCallback(type: Class<out MinecraftTarget>) = singleTargetCallbacks.entries.firstOrNull {
+        it.key.isAssignableFrom(type)
+    }?.value?.invoke()
+
+    init {
         project.plugins.withType(BasePlugin::class.java) {
             val libs = project.extension<BasePluginExtension>().libsDirectory
 
@@ -160,32 +180,21 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
             finalOutputsDirectory.convention(libs)
         }
 
-        targets.withType(FabricTarget::class.java).whenObjectAdded {
-            if (!fabricConfigured) {
-                fabricConfigured = true
-
-                project.dependencies.components {
-                    it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                        it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
-                    }
+        onTargetTypeConfigured(FabricTarget::class.java) {
+            project.dependencies.components {
+                it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
+                    it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
                 }
             }
         }
 
-        var forgeConfigured = false
+        onTargetTypeConfigured(ForgeTarget::class.java) {
+            project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
+                it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
 
-        targets.withType(ForgeTarget::class.java)
-            .whenObjectAdded { target ->
-                if (!forgeConfigured) {
-                    forgeConfigured = true
-
-                    project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
-                        it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-
-                        it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-                    }
-                }
+                it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
             }
+        }
 
         targets.all {
             it.dependsOn(common())
