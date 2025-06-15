@@ -259,8 +259,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 jarTask.flatMap(Jar::getArchiveFile)
             })
 
-            it.includeArtifacts.set(includeConfiguration.flatMap { it.incoming.artifacts.resolvedArtifacts })
-            it.includesRootComponent.set(includeConfiguration.flatMap { it.incoming.resolutionResult.rootComponent })
+            it.fromResolutionResults(includeConfiguration)
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
