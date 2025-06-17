@@ -140,59 +140,48 @@ private fun setupModTransformationPipeline(
             return@afterEvaluate
         }
 
-        fun registerRemapAction(includeState: IncludeTransformationState) {
-            project.dependencies.registerTransform(RemapAction::class.java) {
-                it.from.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
-                it.to.attribute(IncludeTransformationState.ATTRIBUTE, includeState)
+        project.dependencies.registerTransform(RemapAction::class.java) {
+            it.from.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.INITIAL,
+            )
 
-                it.from.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.INITIAL,
-                )
+            it.to.attribute(
+                ModTransformationStateAttribute.ATTRIBUTE,
+                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
+            )
 
-                it.to.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
-                )
+            it.parameters {
+                it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                it.parameters {
-                    it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+                it.sourceNamespace.set(target.modRemapNamespace.get())
 
-                    it.sourceNamespace.set(target.modRemapNamespace.get())
+                it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
 
-                    it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
+                it.cacheDirectory.set(getGlobalCacheDirectory(project))
 
-                    it.cacheDirectory.set(getGlobalCacheDirectory(project))
-
-                    val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
-                        it.attributes {
-                            it.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-                            it.attribute(
-                                ModTransformationStateAttribute.ATTRIBUTE,
-                                ModTransformationStateAttribute.INITIAL,
-                            )
-                        }
+                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
+                    it.attributes {
+                        it.attribute(
+                            ModTransformationStateAttribute.ATTRIBUTE,
+                            ModTransformationStateAttribute.INITIAL,
+                        )
                     }
-
-                    val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
-                        it.attributes {
-                            it.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-                            it.attribute(
-                                ModTransformationStateAttribute.ATTRIBUTE,
-                                ModTransformationStateAttribute.INITIAL,
-                            )
-                        }
-                    }
-
-                    it.modFiles.from(modCompileClasspath)
-                    it.modFiles.from(modRuntimeClasspath)
                 }
+
+                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
+                    it.attributes {
+                        it.attribute(
+                            ModTransformationStateAttribute.ATTRIBUTE,
+                            ModTransformationStateAttribute.INITIAL,
+                        )
+                    }
+                }
+
+                it.modFiles.from(modCompileClasspath)
+                it.modFiles.from(modRuntimeClasspath)
             }
         }
-
-        registerRemapAction(IncludeTransformationState.Extracted)
-        registerRemapAction(IncludeTransformationState.Stripped)
-        registerRemapAction(IncludeTransformationState.None)
     }
 }
 
@@ -218,7 +207,7 @@ constructor(
     val extraClasspathFiles: Provider<List<RegularFile>>,
     private val variant: PublicationSide,
     isSingleTarget: Boolean,
-    private val includeState: IncludeTransformationState
+    private val includeState: IncludeTransformationState,
 ) : CompilationInternal() {
     final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
 
