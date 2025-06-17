@@ -76,7 +76,7 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     override val target get() = this
 
-    val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(name) }
+    val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(classifierName) }
 
     protected val mappings = MappingsBuilder(this, project)
 
