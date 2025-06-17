@@ -175,6 +175,16 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }?.value?.invoke()
 
     init {
+        project.dependencies.registerTransform(ExtractIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+        }
+
+        project.dependencies.registerTransform(StripIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
+        }
+
         project.plugins.withType(BasePlugin::class.java) {
             val libs = project.extension<BasePluginExtension>().libsDirectory
 
