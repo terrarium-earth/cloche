@@ -268,7 +268,9 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
     configurations.named(target.sourceSet.runtimeElementsConfigurationName) { configuration ->
         val variant = configuration.outgoing.variants.create("transformed") {
-            it.attributes.attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+            it.attributes
+                .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
 
             it.artifact(target.finalJar)
         }
