@@ -12,6 +12,7 @@ import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
@@ -95,14 +96,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         val data = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
-                ClochePlugin.DATA_COMPILATION_NAME,
-                this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                minecraftFile,
-                project.provider { emptyList<RegularFile>() },
-                PublicationSide.Joined,
-                isSingleTarget,
-                IncludeTransformationState.None,
+                TargetCompilationInfo(
+                    ClochePlugin.DATA_COMPILATION_NAME,
+                    this,
+                    project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                    minecraftFile,
+                    project.provider { emptyList<RegularFile>() },
+                    PublicationSide.Joined,
+                    true,
+                    isSingleTarget,
+                    IncludeTransformationState.None,
+                ),
             )
         }
 
@@ -117,14 +121,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         val data = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
-                SourceSet.TEST_SOURCE_SET_NAME,
-                this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                minecraftFile,
-                project.provider { emptyList<RegularFile>() },
-                PublicationSide.Joined,
-                isSingleTarget,
-                IncludeTransformationState.None,
+                TargetCompilationInfo(
+                    SourceSet.TEST_SOURCE_SET_NAME,
+                    this,
+                    project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                    minecraftFile,
+                    project.provider { emptyList<RegularFile>() },
+                    PublicationSide.Joined,
+                    false,
+                    isSingleTarget,
+                    IncludeTransformationState.None,
+                ),
             )
         }
 
@@ -230,14 +237,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         main = project.objects.newInstance(
             TargetCompilation::class.java,
-            SourceSet.MAIN_SOURCE_SET_NAME,
-            this,
-            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-            minecraftFile,
-            project.provider { emptyList<RegularFile>() },
-            PublicationSide.Joined,
-            isSingleTarget,
-            IncludeTransformationState.None,
+            TargetCompilationInfo(
+                SourceSet.MAIN_SOURCE_SET_NAME,
+                this,
+                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                minecraftFile,
+                project.provider { emptyList<RegularFile>() },
+                PublicationSide.Joined,
+                false,
+                isSingleTarget,
+                IncludeTransformationState.None,
+            ),
         )
 
         includeJarTask = project.tasks.register(

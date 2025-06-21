@@ -15,6 +15,9 @@ val SIDE_ATTRIBUTE: Attribute<PublicationSide> = Attribute.of("earth.terrarium.c
 @JvmField
 val DATA_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.data", Boolean::class.javaObjectType)
 
+@JvmField
+val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
+
 // Edge target attributes
 object TargetAttributes {
     @JvmField
@@ -74,9 +77,6 @@ internal object ModTransformationStateAttribute {
     fun of(target: MinecraftTarget, compilation: TargetCompilation, state: String) =
         lowerCamelCaseName(target.featureName, compilation.featureName, state)
 }
-
-@JvmField
-val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 
 enum class IncludeTransformationState {
     None,

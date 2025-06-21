@@ -28,7 +28,7 @@ private fun convertClasspath(
     objects: ObjectFactory,
 ): Provider<List<GenerateStubApi.ResolvedArtifact>> {
     val minecraftFiles =
-        compilation.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
+        compilation.info.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
             .map {
                 it.map {
                     val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
@@ -95,7 +95,7 @@ internal fun createCommonTarget(
 
             it.classpaths.set(classpaths)
 
-            it.dependsOn(compilations.map { it.map { it.extraClasspathFiles } })
+            it.dependsOn(compilations.map { it.map { it.info.extraClasspathFiles } })
             it.dependsOn(compilations.map { it.map { it.finalMinecraftFile } })
 
             it.dependsOn(files(compilations.map {
@@ -111,6 +111,7 @@ internal fun createCommonTarget(
     fun addCompilation(
         compilation: CommonCompilation,
         variant: PublicationSide,
+        data: Boolean,
         targetCompilations: Provider<List<TargetCompilation>>,
     ) {
         val sourceSet = with(commonTarget) {
@@ -211,6 +212,7 @@ internal fun createCommonTarget(
 
         compilation.attributes {
             it.attribute(SIDE_ATTRIBUTE, variant)
+            it.attribute(DATA_ATTRIBUTE, data)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
             afterEvaluate { project ->
@@ -290,7 +292,7 @@ internal fun createCommonTarget(
         variant: PublicationSide,
         targetCompilations: Provider<List<TargetCompilation>>,
     ) {
-        addCompilation(compilation, variant, targetCompilations)
+        addCompilation(compilation, variant, false, targetCompilations)
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             compilation.addClasspathDependency(commonTarget.main)
@@ -300,6 +302,7 @@ internal fun createCommonTarget(
             addCompilation(
                 it,
                 variant,
+                true,
                 commonTarget.dependents.map {
                     it.map { dataGetter(it as MinecraftTargetInternal) }
                 },
@@ -319,6 +322,7 @@ internal fun createCommonTarget(
             addCompilation(
                 it,
                 variant,
+                false,
                 commonTarget.dependents.map {
                     it.map { testGetter(it as MinecraftTargetInternal) }
                 },
