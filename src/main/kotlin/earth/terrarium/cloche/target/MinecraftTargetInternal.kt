@@ -2,6 +2,8 @@
 
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.TargetAttributes
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
@@ -63,6 +65,10 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
     val includeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
         it.addCollectedDependencies(include)
 
+        attributes(it.attributes)
+
+        it.attributes.attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+
         it.isCanBeConsumed = false
         it.isTransitive = false
     }
@@ -95,6 +101,12 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     override fun mappings(action: Action<MappingsBuilder>) {
         mappingActions.add(action)
+    }
+
+    fun attributes(attributes: AttributeContainer) {
+        attributes
+            .attribute(TargetAttributes.MOD_LOADER, target.loaderName)
+            .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
     }
 
     protected fun registerMappings() {

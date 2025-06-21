@@ -16,6 +16,9 @@ val SIDE_ATTRIBUTE: Attribute<PublicationSide> = Attribute.of("earth.terrarium.c
 val DATA_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.data", Boolean::class.javaObjectType)
 
 @JvmField
+val TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.transformedOutput", Boolean::class.javaObjectType)
+
+@JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 
 // Edge target attributes

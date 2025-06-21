@@ -307,8 +307,9 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
 
-        attributes.attribute(TargetAttributes.MOD_LOADER, target.loaderName)
-            .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
+        target.attributes(attributes)
+
+        attributes
             .attribute(SIDE_ATTRIBUTE, info.variant)
             .attribute(DATA_ATTRIBUTE, info.data)
     }

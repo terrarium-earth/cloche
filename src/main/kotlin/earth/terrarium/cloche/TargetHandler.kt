@@ -152,9 +152,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
                 java as AdhocComponentWithVariants
 
                 java.addVariantsFromConfiguration(modOutputs) {
-                    if (it.configurationVariant.name == "modOutputs") {
-                        it.skip()
-                    }
+                    it.skip()
                 }
             }
         }
@@ -260,13 +258,31 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
     }
 
-    project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
+    tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
         it.minecraftVersion.set(target.minecraftVersion)
     }
 
-    project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
+    tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
         it.minecraftVersion.set(target.minecraftVersion)
     }
 
-    project.artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)
+    configurations.named(target.sourceSet.runtimeElementsConfigurationName) { configuration ->
+        val variant = configuration.outgoing.variants.create("transformed") {
+            it.attributes.attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+
+            it.artifact(target.finalJar)
+        }
+
+        components.named("java") {
+            it as AdhocComponentWithVariants
+
+            it.addVariantsFromConfiguration(configuration) {
+                if (it.configurationVariant.name == variant.name) {
+                    it.skip()
+                }
+            }
+        }
+    }
+
+    artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)
 }
