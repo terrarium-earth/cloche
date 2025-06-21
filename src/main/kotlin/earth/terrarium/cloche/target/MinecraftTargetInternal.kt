@@ -2,22 +2,30 @@
 
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.api.*
+import earth.terrarium.cloche.DATA_ATTRIBUTE
+import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.TargetAttributes
+import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.javaExecutableFor
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.includes.IncludesJar
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
+import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.provider.ListProperty
-import org.gradle.api.provider.Property
+import org.gradle.api.file.Directory
+import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
@@ -28,7 +36,7 @@ internal fun Configuration.addCollectedDependencies(collector: DependencyCollect
     dependencyConstraints.addAllLater(collector.dependencyConstraints)
 }
 
-internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val name: String) : MinecraftTarget<TMetadata> {
+internal abstract class MinecraftTargetInternal(private val name: String) : MinecraftTarget {
     abstract val main: TargetCompilation
     abstract override val data: LazyConfigurableInternal<TargetCompilation>
     abstract override val test: LazyConfigurableInternal<TargetCompilation>
@@ -38,12 +46,13 @@ internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val nam
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
 
-    abstract val remapNamespace: Provider<String>
+    open val modRemapNamespace: Provider<String>
+        @Internal get() = minecraftRemapNamespace
+
+    abstract val minecraftRemapNamespace: Provider<String>
         @Internal get
 
     abstract val runs: RunConfigurations
-
-    protected val hasMappings: Property<Boolean> = project.objects.property(Boolean::class.javaObjectType).convention(false)
 
     val loadMappingsTask: TaskProvider<LoadMappings> = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
         it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
@@ -51,10 +60,20 @@ internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val nam
         it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
     }
 
-    abstract val includeJarTask: TaskProvider<out Jar>
+    abstract val includeJarTask: TaskProvider<out IncludesJar>
 
-    val includeConfiguration: Configuration = project.configurations.create(lowerCamelCaseGradleName(target.featureName, "include")) {
+    override val finalJar: Provider<RegularFile>
+        get() = includeJarTask.flatMap(Jar::getArchiveFile)
+
+    val includeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
         it.addCollectedDependencies(include)
+
+        attributes(it.attributes)
+
+        it.attributes
+            .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+            .attribute(DATA_ATTRIBUTE, false)
 
         it.isCanBeConsumed = false
         it.isTransitive = false
@@ -69,8 +88,12 @@ internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val nam
 
     override val target get() = this
 
-    abstract val mappingProviders: ListProperty<MappingDependencyProvider>
-        @Internal get
+    val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(classifierName) }
+
+    protected val mappings = MappingsBuilder(this, project)
+
+    @Suppress("UNCHECKED_CAST")
+    private val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     override fun withJavadocJar() = main.withJavadocJar()
     override fun withSourcesJar() = main.withSourcesJar()
@@ -85,30 +108,34 @@ internal abstract class MinecraftTargetInternal<TMetadata : Any>(private val nam
     open fun addJarInjects(compilation: CompilationInternal) {}
 
     override fun mappings(action: Action<MappingsBuilder>) {
-        hasMappings.set(true)
-
-        val mappings = mutableListOf<MappingDependencyProvider>()
-
-        action.execute(MappingsBuilder(project, mappings))
-
-        addMappings(mappings)
+        mappingActions.add(action)
     }
 
-    private fun addMappings(providers: List<MappingDependencyProvider>) {
-        mappingProviders.addAll(providers)
+    fun attributes(attributes: AttributeContainer) {
+        attributes
+            .attribute(TargetAttributes.MOD_LOADER, target.loaderName)
+            .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
+    }
+
+    protected fun registerMappings() {
+        mappingActions.all { action ->
+            action.execute(mappings)
+        }
+
+        project.configurations.named(sourceSet.mappingsConfigurationName) {
+            it.dependencies.addAllLater(mappings.isConfigured.map {
+                if (it) {
+                    emptyList()
+                } else {
+                    listOf(project.dependencies.create(officialMappingsDependency(project, this)))
+                }
+            })
+        }
     }
 
     abstract fun onClientIncluded(action: () -> Unit)
 
-    open fun initialize(isSingleTarget: Boolean) {
-        mappingProviders.addAll(hasMappings.map {
-            if (it) {
-                emptyList()
-            } else {
-                buildList { MappingsBuilder(project, this).official() }
-            }
-        })
-    }
+    abstract fun initialize(isSingleTarget: Boolean)
 
     override fun runs(action: Action<RunConfigurations>) {
         action.execute(runs)

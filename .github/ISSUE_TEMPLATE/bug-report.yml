@@ -28,10 +28,10 @@ body:
       required: false
 
   - type: input
-    id: version
+    id: reproduction
     attributes:
-      label: Plugin Version
-      description: What version of the plugin are you using?
+      label: Reproduction Repository
+      description: Please link a repository which reproduces the issue at a specific revision
     validations:
       required: true
 

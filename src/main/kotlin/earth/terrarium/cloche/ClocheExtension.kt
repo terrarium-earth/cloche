@@ -14,12 +14,20 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
+import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
+import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.includes.StripIncludes
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
+import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.PolymorphicDomainObjectContainer
 import org.gradle.api.Project
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.plugins.BasePlugin
+import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Property
 import javax.inject.Inject
 
@@ -34,9 +42,10 @@ interface TargetContainer {
     fun fabric(name: String): FabricTarget = fabric(name) {}
     fun fabric(@DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(FABRIC, configure)
     fun fabric(configure: Action<FabricTarget>): FabricTarget = fabric(FABRIC, configure)
-    fun fabric(name: String, @DelegatesTo(FabricTarget::class)  configure: Closure<*>): FabricTarget = fabric(name) {
+    fun fabric(name: String, @DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget
 
     fun forge(): ForgeTarget = forge(FORGE)
@@ -46,20 +55,23 @@ interface TargetContainer {
     fun forge(name: String, @DelegatesTo(ForgeTarget::class) configure: Closure<*>): ForgeTarget = forge(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun forge(name: String, configure: Action<ForgeTarget>): ForgeTarget
 
     fun neoforge(): NeoforgeTarget = neoforge(NEOFORGE)
     fun neoforge(name: String): NeoforgeTarget = neoforge(name) {}
     fun neoforge(@DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(NEOFORGE, configure)
+
     fun neoforge(configure: Action<NeoforgeTarget>): NeoforgeTarget = neoforge(NEOFORGE, configure)
     fun neoforge(name: String, @DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(name) {
         configure.rehydrate(it, this, this).call()
     }
+
     fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget
 }
 
 class SingleTargetConfigurator(private val project: Project, private val extension: ClocheExtension) : TargetContainer {
-    internal var target: MinecraftTarget<*>? = null
+    internal var target: MinecraftTarget? = null
 
     override fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget {
         project.dependencies.components {
@@ -72,9 +84,10 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
     }
 
     override fun forge(name: String, configure: Action<ForgeTarget>) = target(name, ForgeTargetImpl::class.java, configure)
+
     override fun neoforge(name: String, configure: Action<NeoforgeTarget>) = target(name, NeoForgeTargetImpl::class.java, configure)
 
-    private fun <T : MinecraftTarget<*>> target(name: String, type: Class<out T>, configure: Action<T>): T {
+    private fun <T : MinecraftTarget> target(name: String, type: Class<out T>, configure: Action<T>): T {
         extension.targets.all {
             throw UnsupportedOperationException("Target ${it.name} has been configured. Can not set single target to $name")
         }
@@ -86,7 +99,7 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
         target?.let {
             if (it.name != name) {
                 throw UnsupportedOperationException("Single target already set as ${it.name}. Can not set single target to $name")
-            } else if (it.javaClass != type) {
+            } else if (!type.isAssignableFrom(it.javaClass)) {
                 throw UnsupportedOperationException("Single target with name $name is set as type ${it.javaClass}, but was queried as $type")
             }
 
@@ -96,9 +109,11 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
             return it
         }
 
+        extension.singleTargetSetCallback(type)
+
         val instance = project.objects.newInstance(type, name)
 
-        (instance as MinecraftTargetInternal<*>).initialize(true)
+        (instance as MinecraftTargetInternal).initialize(true)
 
         addTarget(extension, project, instance, true)
 
@@ -111,11 +126,11 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
 open class ClocheExtension @Inject constructor(private val project: Project, objects: ObjectFactory) : TargetContainer {
     val minecraftVersion: Property<String> = objects.property(String::class.java)
 
-    val commonTargets = objects.domainObjectContainer(CommonTarget::class.java) {
+    val commonTargets: NamedDomainObjectContainer<CommonTarget> = objects.domainObjectContainer(CommonTarget::class.java) {
         objects.newInstance(CommonTargetInternal::class.java, it)
     }
 
-    val targets: PolymorphicDomainObjectContainer<MinecraftTarget<*>> = objects.polymorphicDomainObjectContainer(MinecraftTarget::class.java).apply {
+    val targets: PolymorphicDomainObjectContainer<MinecraftTarget> = objects.polymorphicDomainObjectContainer(MinecraftTarget::class.java).apply {
         registerFactory(FabricTarget::class.java) {
             objects.newInstance(FabricTargetImpl::class.java, it)
         }
@@ -131,22 +146,65 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
 
+    val intermediateOutputsDirectory: DirectoryProperty = objects.directoryProperty()
+    val finalOutputsDirectory: DirectoryProperty = objects.directoryProperty()
+
     internal val singleTargetConfigurator = SingleTargetConfigurator(project, this)
 
+    @Suppress("UNCHECKED_CAST")
     internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
+    private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, () -> Unit>()
+
+    private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: () -> Unit) {
+        var configured = false
+
+        targets.withType(type).whenObjectAdded {
+            if (!configured) {
+                configured = true
+
+                action()
+            }
+        }
+
+        singleTargetCallbacks[type] = action
+    }
+
+    internal fun singleTargetSetCallback(type: Class<out MinecraftTarget>) = singleTargetCallbacks.entries.firstOrNull {
+        it.key.isAssignableFrom(type)
+    }?.value?.invoke()
+
     init {
-        var fabricConfigured = false
+        project.dependencies.registerTransform(ExtractIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+        }
 
-        targets.withType(FabricTarget::class.java).whenObjectAdded {
-            if (!fabricConfigured) {
-                fabricConfigured = true
+        project.dependencies.registerTransform(StripIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
+        }
 
-                project.dependencies.components {
-                    it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                        it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
-                    }
+        project.plugins.withType(BasePlugin::class.java) {
+            val libs = project.extension<BasePluginExtension>().libsDirectory
+
+            intermediateOutputsDirectory.convention(libs.dir("intermediates"))
+            finalOutputsDirectory.convention(libs)
+        }
+
+        onTargetTypeConfigured(FabricTarget::class.java) {
+            project.dependencies.components {
+                it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
+                    it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
                 }
+            }
+        }
+
+        onTargetTypeConfigured(ForgeTarget::class.java) {
+            project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
+                it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+
+                it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
             }
         }
 
@@ -154,11 +212,9 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
             it.dependsOn(common())
         }
 
-        commonTargets.all {
-            if (it.name != COMMON) {
-                it.dependsOn(common())
-            }
-        }
+        commonTargets
+            .named { it != COMMON }
+            .all { it.dependsOn(common()) }
     }
 
     fun common(): CommonTarget = common(COMMON)
@@ -172,7 +228,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     fun common(name: String, configure: Action<CommonTarget>): CommonTarget =
         commonTargets.maybeCreate(name).also(configure::execute)
 
-    fun <T : MinecraftTarget<*>> singleTarget(configurator: SingleTargetConfigurator.() -> T) = singleTargetConfigurator.configurator()
+    fun <T : MinecraftTarget> singleTarget(configurator: SingleTargetConfigurator.() -> T) = singleTargetConfigurator.configurator()
 
     override fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget = target(name, configure)
 
@@ -180,10 +236,10 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     override fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget = target(name, configure)
 
-    private fun <T : MinecraftTarget<*>> target(name: String, type: Class<T>, configure: Action<in T>) =
+    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, configure: Action<in T>) =
         targets.maybeCreate(name, type).also(configure::execute)
 
-    private inline fun <reified T : MinecraftTarget<*>> target(name: String, configure: Action<in T>) =
+    private inline fun <reified T : MinecraftTarget> target(name: String, configure: Action<in T>) =
         target(name, T::class.java, configure)
 
     fun mappings(action: Action<MappingsBuilder>) {

@@ -4,6 +4,7 @@ import earth.terrarium.cloche.api.LazyConfigurable
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 
 internal inline fun <reified T : Any> Project.lazyConfigurable(noinline construct: () -> T) =
@@ -22,7 +23,8 @@ internal class LazyConfigurableInternal<out T : Any>(
     var internalValue: @UnsafeVariance T? = null
         private set
 
-    val isConfigured get() = internalValue != null
+    val isConfigured: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+    val isConfiguredValue get() = internalValue != null
 
     private val listeners = mutableListOf<Action<T>>()
 
@@ -46,6 +48,7 @@ internal class LazyConfigurableInternal<out T : Any>(
         val value = construct()
 
         valueProperty.set(value)
+        isConfigured.set(true)
         internalValue = value
 
         for (listener in listeners) {

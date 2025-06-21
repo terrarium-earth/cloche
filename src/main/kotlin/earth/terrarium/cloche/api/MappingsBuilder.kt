@@ -1,46 +1,183 @@
 package earth.terrarium.cloche.api
 
+import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.maybeRegister
+import earth.terrarium.cloche.target.MinecraftTargetInternal
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftMappings
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
+import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
+import org.gradle.api.file.FileCollection
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 
-typealias MappingDependencyProvider = (minecraftVersion: String, targetFeatureName: String) -> Dependency
+internal fun officialMappingsDependency(project: Project, target: MinecraftTarget): FileCollection {
+    val taskName = lowerCamelCaseGradleName("resolve", target.featureName, "clientMappings")
 
-class MappingsBuilder(private val project: Project, private val dependencies: MutableList<MappingDependencyProvider>) {
-    fun official(minecraftVersion: String? = null) {
-        dependencies.add { resolvedMinecraftVersion, targetFeatureName ->
-            val version = minecraftVersion ?: resolvedMinecraftVersion
+    val task = project.tasks.maybeRegister<ResolveMinecraftMappings>(taskName) {
+        it.group = "minecraft-resolution"
 
-            // TODO Should always be registered, but just unused if mappings are configured
-            val taskName = lowerCamelCaseGradleName("resolve", targetFeatureName, "clientMappings")
+        it.server.set(false)
 
-            val task = if (taskName in project.tasks.names) {
-                project.tasks.named(taskName, ResolveMinecraftMappings::class.java)
-            } else {
-                project.tasks.register(taskName, ResolveMinecraftMappings::class.java) {
-                    it.group = "minecraft-resolution"
-
-                    it.server.set(false)
-                    it.version.set(version)
-                }
-            }
-
-            project.dependencies.create(project.files(task.flatMap(ResolveMinecraftMappings::output)))
-        }
+        it.minecraftVersion.set(target.minecraftVersion)
     }
 
-    fun parchment(version: String, minecraftVersion: String? = null) {
-        dependencies.add { resolvedMinecraftVersion, _ ->
-            project.dependencies.create("org.parchmentmc.data:parchment-${minecraftVersion ?: resolvedMinecraftVersion}:$version")
+    return project.files(task.flatMap(ResolveMinecraftMappings::output))
+}
+
+class MappingsBuilder internal constructor(
+    private val target: MinecraftTargetInternal,
+    private val project: Project,
+) {
+    private val _isOfficialCompatible: Property<Boolean> =
+        project.objects.property(Boolean::class.javaObjectType).apply {
+            convention(true)
         }
+
+    private val _isDefault: Property<Boolean> =
+        project.objects.property(Boolean::class.javaObjectType).apply {
+            convention(true)
+        }
+
+    private val _isConfigured: Property<Boolean> =
+        project.objects.property(Boolean::class.javaObjectType).apply {
+            convention(false)
+        }
+
+    internal val isOfficialCompatible: Provider<Boolean>
+        get() = _isOfficialCompatible
+
+    internal val isDefault: Provider<Boolean>
+        get() = _isDefault
+
+    internal val isConfigured: Provider<Boolean>
+        get() = _isConfigured
+
+    private val configurationName
+        get() = target.sourceSet.mappingsConfigurationName
+
+    fun official() {
+        configure()
+
+        project.dependencies.add(configurationName, officialMappingsDependency(project, target))
+    }
+
+    fun parchment(version: String) {
+        officialCompatible()
+
+        project.dependencies.addProvider(configurationName, target.minecraftVersion.map {
+            parchmentDependency(it, version)
+        })
+    }
+
+    fun parchment(version: Provider<String>) {
+        officialCompatible()
+
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.zip(version) { minecraftVersion, version ->
+                parchmentDependency(minecraftVersion, version)
+            },
+        )
+    }
+
+    fun parchment(version: String, minecraftVersion: String) {
+        officialCompatible()
+
+        project.dependencies.add(configurationName, parchmentDependency(minecraftVersion, version))
+    }
+
+    fun parchment(version: Provider<String>, minecraftVersion: String) {
+        officialCompatible()
+
+        project.dependencies.addProvider(configurationName, version.map {
+            parchmentDependency(minecraftVersion, it)
+        })
+    }
+
+    fun parchment(version: String, minecraftVersion: Provider<String>) {
+        officialCompatible()
+
+        project.dependencies.addProvider(configurationName, minecraftVersion.orElse(target.minecraftVersion).map {
+            parchmentDependency(it, version)
+        })
+    }
+
+    fun parchment(version: Provider<String>, minecraftVersion: Provider<String>) {
+        officialCompatible()
+
+        project.dependencies.addProvider(
+            configurationName,
+            minecraftVersion.orElse(target.minecraftVersion).zip(version) { minecraftVersion, version ->
+                parchmentDependency(minecraftVersion, version)
+            },
+        )
+    }
+
+    fun fabricIntermediary() {
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.map {
+                "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2"
+            }
+        )
+    }
+
+    fun yarn(version: String) {
+        officialIncompatible()
+
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.map { minecraftVersion ->
+                yarnDependency(minecraftVersion, version)
+            },
+        )
+    }
+
+    fun yarn(version: Provider<String>) {
+        officialIncompatible()
+
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.zip(version) { version, minecraftVersion ->
+                yarnDependency(minecraftVersion, version)
+            },
+        )
     }
 
     fun custom(dependency: Dependency) {
-        dependencies.add { _, _ -> dependency }
+        officialIncompatible()
+
+        project.dependencies.add(configurationName, dependency)
     }
 
-    fun custom(dependency: MappingDependencyProvider) {
-        dependencies.add(dependency)
+    fun custom(dependency: Provider<Dependency>) {
+        officialIncompatible()
+
+        project.dependencies.addProvider(configurationName, dependency)
     }
+
+    private fun officialIncompatible() {
+        officialCompatible()
+
+        _isOfficialCompatible.set(false)
+    }
+
+    private fun officialCompatible() {
+        configure()
+
+        _isDefault.set(false)
+    }
+
+    private fun configure() {
+        _isConfigured.set(true)
+    }
+
+    private fun parchmentDependency(minecraftVersion: String, version: String) =
+        project.dependencies.create("org.parchmentmc.data:parchment-$minecraftVersion:$version")
+
+    private fun yarnDependency(minecraftVersion: String, version: String) =
+        project.dependencies.create("net.fabricmc:yarn:$minecraftVersion+$version")
 }

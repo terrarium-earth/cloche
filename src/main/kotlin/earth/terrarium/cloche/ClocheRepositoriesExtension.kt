@@ -9,6 +9,7 @@ import org.gradle.api.plugins.ExtensionAware
 import javax.inject.Inject
 
 private const val NEOFORGE_RELEASES_CHANNEL = "releases"
+private const val NEOFORGE_MOJANG_META = "mojang-meta"
 
 open class ClocheRepositoriesExtension @Inject constructor(private val repositoryHandler: RepositoryHandler) {
     private fun apply(url: String, configure: Action<in MavenArtifactRepository>?): MavenArtifactRepository =
@@ -21,6 +22,7 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
     @JvmOverloads
     fun all(configure: Action<in MavenArtifactRepository>? = null) {
         librariesMinecraft(configure)
+        mavenNeoforgedMeta(configure)
 
         repositoryHandler.mavenCentral {
             configure?.execute(it)
@@ -77,6 +79,20 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
         channel: String = NEOFORGE_RELEASES_CHANNEL,
         @DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>
     ) = mavenNeoforged(channel) {
+        configure.rehydrate(it, this, this).call()
+    }
+
+    @JvmOverloads
+    fun mavenNeoforgedMeta(configure: Action<in MavenArtifactRepository>? = null) = mavenNeoforged(NEOFORGE_MOJANG_META)
+
+    fun mavenNeoforgedMeta(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenNeoforged(NEOFORGE_MOJANG_META) {
+        configure.rehydrate(it, this, this).call()
+    }
+
+    @JvmOverloads
+    fun mavenParchment(configure: Action<in MavenArtifactRepository>? = null) = apply("maven.parchmentmc.org", configure)
+
+    fun mavenParchment(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenParchment {
         configure.rehydrate(it, this, this).call()
     }
 

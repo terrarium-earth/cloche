@@ -8,7 +8,9 @@ import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.modOutputs
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.runs.FabricRunsDefaultsContainer
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
@@ -35,15 +37,24 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
-            it.server()
+            it.server {
+                it.modOutputs.from(project.modOutputs(target.main))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            }
         }
             .sourceSet(target.sourceSet)
             .addMixinJavaAgent()
+            .beforeRun(target.main.generateModOutputs)
     }
 
     override val client = project.lazyConfigurable {
+        val compilation = target.client.value.map<TargetCompilation> { it }.orElse(target.main)
+
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {
+                it.modOutputs.from(project.modOutputs(compilation))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.extractNativesTask.set(
                     project.tasks.named(
@@ -59,13 +70,19 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 )
             }
         }
-            .sourceSet(target.client.value.map(Compilation::sourceSet).orElse(target.sourceSet))
+            .sourceSet(compilation.map(Compilation::sourceSet))
             .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 
     override val data = project.lazyConfigurable {
+        val compilation = target.data.value
+
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
+                it.modOutputs.from(project.modOutputs(compilation))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenDirectory)
@@ -77,8 +94,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 )
             }
         }
-            .sourceSet(target.data.value.map(Compilation::sourceSet))
+            .sourceSet(compilation.map(Compilation::sourceSet))
             .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenDirectory)
@@ -115,8 +133,14 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     }
 
     override val clientData: LazyConfigurable<MinecraftRunConfiguration> = project.lazyConfigurable {
+        val compilation = target.client.value.flatMap { it.data.value }.orElse(target.data.value)
+
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
+
+                it.modOutputs.from(project.modOutputs(compilation))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenClientDirectory)
@@ -127,9 +151,10 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                     )
                 )
             }
-        }.sourceSet(
-            target.client.value.flatMap { it.data.value }.orElse(target.data.value).map(Compilation::sourceSet)
-        ).addMixinJavaAgent()
+        }
+            .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         target.client.onConfigured {
             project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -209,16 +234,26 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     }
 
     override val test = project.lazyConfigurable {
+        val compilation = target.test.value
+
         create(SourceSet.TEST_SOURCE_SET_NAME) {
-            it.gameTestServer()
+            it.gameTestServer {
+                it.modOutputs.from(project.modOutputs(compilation))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            }
         }
-            .sourceSet(target.test.value.map(Compilation::sourceSet))
+            .sourceSet(compilation.map(Compilation::sourceSet))
             .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 
     override val clientTest = project.lazyConfigurable {
+        val compilation = target.client.value.flatMap { it.test.value }.orElse(target.test.value)
         create(ClochePlugin.CLIENT_COMPILATION_NAME, SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestClient {
+                it.modOutputs.from(project.modOutputs(compilation))
+                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.extractNativesTask.set(
                     project.tasks.named(
@@ -234,9 +269,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 )
             }
         }
-            .sourceSet(
-                target.client.value.flatMap { it.test.value }.orElse(target.test.value).map(Compilation::sourceSet)
-            )
+            .sourceSet(compilation.map(Compilation::sourceSet))
             .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 }
