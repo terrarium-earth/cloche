@@ -164,7 +164,7 @@ internal fun Project.configureSourceSet(
 
         if (compilation is TargetCompilation) {
             task.dependsOn(compilation.finalMinecraftFile)
-            task.dependsOn(compilation.extraClasspathFiles)
+            task.dependsOn(compilation.info.extraClasspathFiles)
             task.dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
         }
     }

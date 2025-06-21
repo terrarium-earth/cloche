@@ -1,6 +1,8 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
+import earth.terrarium.cloche.DATA_ATTRIBUTE
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
@@ -39,7 +41,11 @@ internal object States {
     const val REMAPPED = "remapped"
 }
 
-internal fun Project.getModFiles(configurationName: String, isTransitive: Boolean = true, configure: Action<ArtifactView.ViewConfiguration>? = null): FileCollection {
+internal fun Project.getModFiles(
+    configurationName: String,
+    isTransitive: Boolean = true,
+    configure: Action<ArtifactView.ViewConfiguration>? = null,
+): FileCollection {
     val classpath = project.configurations.named(configurationName)
 
     val modDependencies = project.configurations.named(modConfigurationName(configurationName))
@@ -133,7 +139,7 @@ private fun setupModTransformationPipeline(
     compilation: TargetCompilation,
 ) {
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
-    //  this can potentially be changed to a no-op transform but that's far slower
+    //  this can potentially be changed to a no-op transform, but that's far slower
     project.afterEvaluate {
         if (target.modRemapNamespace.get().isEmpty()) {
             return@afterEvaluate
@@ -155,7 +161,7 @@ private fun setupModTransformationPipeline(
 
                 it.sourceNamespace.set(target.modRemapNamespace.get())
 
-                it.extraClasspath.from(compilation.intermediaryMinecraftClasspath)
+                it.extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
 
                 it.cacheDirectory.set(getGlobalCacheDirectory(project))
 
@@ -196,25 +202,29 @@ private fun GenerateModOutputs.addSourceSet(sourceSet: SourceSet) {
     paths.add(sourceSet.output.resourcesDir!!.relativeTo(rootDirectory).path)
 }
 
-internal abstract class TargetCompilation
-@Inject
-constructor(
-    private val name: String,
-    override val target: MinecraftTargetInternal,
+internal data class TargetCompilationInfo(
+    val name: String,
+    val target: MinecraftTargetInternal,
     val intermediaryMinecraftClasspath: FileCollection,
-    namedMinecraftFile: Provider<RegularFile>,
+    val namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
-    private val variant: PublicationSide,
-    isSingleTarget: Boolean,
-) : CompilationInternal() {
-    final override val sourceSet: SourceSet = compilationSourceSet(target, name, isSingleTarget)
+    val variant: PublicationSide,
+    val data: Boolean,
+    val isSingleTarget: Boolean,
+    val includeState: IncludeTransformationState,
+)
+
+internal abstract class TargetCompilation @Inject constructor(val info: TargetCompilationInfo) : CompilationInternal() {
+    override val target get() = info.target
+
+    final override val sourceSet: SourceSet = compilationSourceSet(target, info.name, info.isSingleTarget)
 
     private val setupFiles = registerCompilationTransformations(
         target,
-        name,
+        info.name,
         sourceSet,
-        namedMinecraftFile,
-        extraClasspathFiles,
+        info.namedMinecraftFile,
+        info.extraClasspathFiles,
     )
 
     val generateModOutputs: TaskProvider<GenerateModOutputs> = project.tasks.register(
@@ -238,7 +248,10 @@ constructor(
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)
     val sources = setupFiles.second
 
-    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"), RemapJar::class.java) {
+    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(
+        lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
+        RemapJar::class.java
+    ) {
         it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
 
         it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
@@ -264,12 +277,14 @@ constructor(
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, info.includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, info.includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
@@ -279,7 +294,7 @@ constructor(
         }
 
         // Use detached configuration for idea compat
-        val minecraftFiles = project.files(finalMinecraftFile, extraClasspathFiles)
+        val minecraftFiles = project.files(finalMinecraftFile, info.extraClasspathFiles)
         val minecraftFileConfiguration =
             project.configurations.detachedConfiguration(project.dependencies.create(minecraftFiles))
 
@@ -287,13 +302,14 @@ constructor(
         sourceSet.runtimeClasspath += minecraftFileConfiguration
     }
 
-    override fun getName() = name
+    override fun getName() = info.name
 
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
 
         attributes.attribute(TargetAttributes.MOD_LOADER, target.loaderName)
             .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
-            .attribute(SIDE_ATTRIBUTE, variant)
+            .attribute(SIDE_ATTRIBUTE, info.variant)
+            .attribute(DATA_ATTRIBUTE, info.data)
     }
 }

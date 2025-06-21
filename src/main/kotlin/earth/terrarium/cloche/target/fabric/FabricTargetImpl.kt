@@ -3,10 +3,18 @@ package earth.terrarium.cloche.target.fabric
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.TargetCompilationInfo
+import earth.terrarium.cloche.target.compilationSourceSet
+import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -231,16 +239,20 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         val client =
             project.objects.newInstance(
                 FabricClientSecondarySourceSets::class.java,
-                ClochePlugin.CLIENT_COMPILATION_NAME,
-                this,
-                project.files(
-                    remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
-                    remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
+                TargetCompilationInfo(
+                    ClochePlugin.CLIENT_COMPILATION_NAME,
+                    this,
+                    project.files(
+                        remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
+                        remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
+                    ),
+                    remapClient.flatMap(RemapTask::outputFile),
+                    main.finalMinecraftFile.map(::listOf),
+                    PublicationSide.Client,
+                    false,
+                    isSingleTarget,
+                    IncludeTransformationState.Stripped,
                 ),
-                remapClient.flatMap(RemapTask::outputFile),
-                main.finalMinecraftFile.map(::listOf),
-                PublicationSide.Client,
-                isSingleTarget,
             )
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
@@ -363,13 +375,17 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         return project.objects.newInstance(
             TargetCompilation::class.java,
-            name,
-            this,
-            intermediateClasspath,
-            remappedFile,
-            extraClasspath,
-            PublicationSide.Common,
-            isSingleTarget,
+            TargetCompilationInfo(
+                name,
+                this,
+                intermediateClasspath,
+                remappedFile,
+                extraClasspath,
+                PublicationSide.Common,
+                false,
+                isSingleTarget,
+                IncludeTransformationState.Stripped,
+            ),
         )
     }
 
