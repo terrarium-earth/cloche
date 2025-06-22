@@ -42,7 +42,9 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
+import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
+import org.gradle.process.CommandLineArgumentProvider
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -296,6 +298,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     private var isSingleTarget = false
 
+    private val fabricLoader = loaderVersion.map {
+        module("net.fabricmc", "fabric-loader", it)
+    }
+
     init {
         val commonStub =
             project.dependencies.enforcedPlatform(ClochePlugin.STUB_DEPENDENCY) as ExternalModuleDependency
@@ -456,7 +462,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
-            dependencies.implementation.add(loaderVersion.map { version -> project.dependencies.create("net.fabricmc:fabric-loader:$version") })
+            dependencies.implementation.add(fabricLoader)
 
             mappings.fabricIntermediary()
 
@@ -502,6 +508,27 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
             it.from(task.flatMap(MergeAccessWideners::output))
+        }
+    }
+
+    override fun addAnnotationProcessors(compilation: CompilationInternal) {
+        compilation.dependencyHandler.annotationProcessor.add(fabricLoader)
+        compilation.dependencyHandler.annotationProcessor.add(project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
+        compilation.dependencyHandler.annotationProcessor.add(module("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
+
+        project.tasks.named(compilation.sourceSet.compileJavaTaskName, JavaCompile::class.java) {
+            val inMapFile = lowerCamelCaseGradleName("inMapFile", MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE, MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE)
+
+            val inMapFileArgument = loadMappingsTask.flatMap(LoadMappings::output).map {
+                "-A$inMapFile=${it}"
+            }
+
+            it.options.compilerArgumentProviders.add(CommandLineArgumentProvider {
+                listOf(
+                    inMapFileArgument.get(),
+                    "-AdefaultObfuscationEnv=${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}",
+                )
+            })
         }
     }
 

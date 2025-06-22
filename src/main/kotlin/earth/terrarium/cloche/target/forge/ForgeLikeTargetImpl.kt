@@ -29,7 +29,6 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
 import org.gradle.api.file.RegularFile
@@ -217,12 +216,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         start.set(version)
     }
 
-    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<Dependency> =
+    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<ExternalModuleDependency> =
         minecraftVersion.flatMap { minecraftVersion ->
             loaderVersion.map { forgeVersion ->
-                project.dependencies.create("$group:$artifact").apply {
-                    this as ExternalModuleDependency
-
+                module(group, artifact, null).apply {
                     version { version ->
                         version.strictly(version(minecraftVersion, forgeVersion))
                     }
@@ -288,16 +285,16 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.extendsFrom(minecraftLibrariesConfiguration)
         }
 
+        project.dependencies.add(
+            sourceSet.runtimeOnlyConfigurationName,
+            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
+        )
+
         val userdev = forgeDependency {
             capabilities {
                 it.requireFeature("moddev-bundle")
             }
         }
-
-        project.dependencies.add(
-            sourceSet.runtimeOnlyConfigurationName,
-            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
-        )
 
         project.dependencies.addProvider(sourceSet.patchesConfigurationName, userdev)
 
@@ -333,6 +330,14 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 it.into("META-INF")
             }
         }
+    }
+
+    override fun addAnnotationProcessors(compilation: CompilationInternal) {
+        project.configurations.named(compilation.sourceSet.annotationProcessorConfigurationName) {
+            it.extendsFrom(minecraftLibrariesConfiguration)
+        }
+
+        // TODO Add forge mixin arguments
     }
 
     override fun addJarInjects(compilation: CompilationInternal) {}

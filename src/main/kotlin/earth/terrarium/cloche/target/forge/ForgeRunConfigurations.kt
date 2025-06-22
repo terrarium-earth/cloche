@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
@@ -64,6 +65,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
             .beforeRun(target.main.generateModOutputs)
     }
 
@@ -82,6 +84,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
             .beforeRun(target.main.generateModOutputs)
     }
 
@@ -109,6 +112,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -179,6 +183,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -242,6 +247,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 

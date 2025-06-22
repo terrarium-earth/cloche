@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
@@ -42,6 +43,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
             .beforeRun(target.main.generateModOutputs)
     }
 
@@ -69,6 +71,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 
@@ -92,6 +95,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -149,6 +153,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         target.client.onConfigured {
@@ -238,6 +243,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 
@@ -264,6 +270,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
             .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
             .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 }
