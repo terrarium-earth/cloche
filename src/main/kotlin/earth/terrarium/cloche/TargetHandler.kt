@@ -111,8 +111,6 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     fun addCompilation(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 
-        target.addAnnotationProcessors(compilation)
-
         createCompilationVariants(compilation, sourceSet, true)
 
         compilation.addDependencies()

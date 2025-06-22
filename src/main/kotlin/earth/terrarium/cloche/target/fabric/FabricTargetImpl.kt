@@ -42,7 +42,9 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
+import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
+import org.gradle.process.CommandLineArgumentProvider
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -511,6 +513,23 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     override fun addAnnotationProcessors(compilation: CompilationInternal) {
         compilation.dependencyHandler.annotationProcessor.add(fabricLoader)
+        compilation.dependencyHandler.annotationProcessor.add(project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
+        compilation.dependencyHandler.annotationProcessor.add(module("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
+
+        project.tasks.named(compilation.sourceSet.compileJavaTaskName, JavaCompile::class.java) {
+            val inMapFile = lowerCamelCaseGradleName("inMapFile", MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE, MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE)
+
+            val inMapFileArgument = loadMappingsTask.flatMap(LoadMappings::output).map {
+                "-A$inMapFile=${it}"
+            }
+
+            it.options.compilerArgumentProviders.add(CommandLineArgumentProvider {
+                listOf(
+                    inMapFileArgument.get(),
+                    "-AdefaultObfuscationEnv=${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}",
+                )
+            })
+        }
     }
 
     override fun includedClient() {

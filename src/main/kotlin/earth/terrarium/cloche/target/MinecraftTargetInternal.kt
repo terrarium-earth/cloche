@@ -103,6 +103,7 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     abstract fun registerAccessWidenerMergeTask(compilation: CompilationInternal)
 
+    // TODO This is temporarily unused
     abstract fun addAnnotationProcessors(compilation: CompilationInternal)
 
     open fun addJarInjects(compilation: CompilationInternal) {}

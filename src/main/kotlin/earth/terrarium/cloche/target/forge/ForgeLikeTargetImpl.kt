@@ -29,9 +29,7 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
-import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.Usage
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
@@ -338,6 +336,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         project.configurations.named(compilation.sourceSet.annotationProcessorConfigurationName) {
             it.extendsFrom(minecraftLibrariesConfiguration)
         }
+
+        // TODO Add forge mixin arguments
     }
 
     override fun addJarInjects(compilation: CompilationInternal) {}
