@@ -2,6 +2,11 @@
 
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.DATA_ATTRIBUTE
+import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.TargetAttributes
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
@@ -63,6 +68,13 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
     val includeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
         it.addCollectedDependencies(include)
 
+        attributes(it.attributes)
+
+        it.attributes
+            .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+            .attribute(DATA_ATTRIBUTE, false)
+
         it.isCanBeConsumed = false
         it.isTransitive = false
     }
@@ -76,7 +88,7 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     override val target get() = this
 
-    val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(name) }
+    val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(classifierName) }
 
     internal val mappings = MappingsBuilder(this, project)
 
@@ -91,10 +103,19 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     abstract fun registerAccessWidenerMergeTask(compilation: CompilationInternal)
 
+    // TODO This is temporarily unused
+    abstract fun addAnnotationProcessors(compilation: CompilationInternal)
+
     open fun addJarInjects(compilation: CompilationInternal) {}
 
     override fun mappings(action: Action<MappingsBuilder>) {
         mappingActions.add(action)
+    }
+
+    fun attributes(attributes: AttributeContainer) {
+        attributes
+            .attribute(TargetAttributes.MOD_LOADER, target.loaderName)
+            .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
     }
 
     protected fun registerMappings() {

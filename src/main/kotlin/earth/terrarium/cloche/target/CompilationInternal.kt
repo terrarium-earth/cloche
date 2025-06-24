@@ -58,7 +58,7 @@ internal abstract class CompilationInternal : Compilation {
     var withSources: Boolean = false
 
     val featureName
-        get() = lowerCamelCaseGradleName(collapsedName)
+        get() = collapsedName?.let { lowerCamelCaseGradleName(it) }
 
     val capabilityName
         get() = collapsedName?.replace(TARGET_NAME_PATH_SEPARATOR, '-')
@@ -164,7 +164,7 @@ internal fun Project.configureSourceSet(
 
         if (compilation is TargetCompilation) {
             task.dependsOn(compilation.finalMinecraftFile)
-            task.dependsOn(compilation.extraClasspathFiles)
+            task.dependsOn(compilation.info.extraClasspathFiles)
             task.dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
         }
     }

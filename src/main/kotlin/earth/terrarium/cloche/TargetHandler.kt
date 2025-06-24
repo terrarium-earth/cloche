@@ -26,7 +26,6 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.Category
-import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.attributes.Usage
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
@@ -152,9 +151,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
                 java as AdhocComponentWithVariants
 
                 java.addVariantsFromConfiguration(modOutputs) {
-                    if (it.configurationVariant.name == "modOutputs") {
-                        it.skip()
-                    }
+                    it.skip()
                 }
             }
         }
@@ -260,13 +257,33 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
     }
 
-    project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
+    tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
         it.minecraftVersion.set(target.minecraftVersion)
     }
 
-    project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
+    tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
         it.minecraftVersion.set(target.minecraftVersion)
     }
 
-    project.artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)
+    configurations.named(target.sourceSet.runtimeElementsConfigurationName) { configuration ->
+        val variant = configuration.outgoing.variants.create("transformed") {
+            it.attributes
+                .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+
+            it.artifact(target.finalJar)
+        }
+
+        components.named("java") {
+            it as AdhocComponentWithVariants
+
+            it.addVariantsFromConfiguration(configuration) {
+                if (it.configurationVariant.name == variant.name) {
+                    it.skip()
+                }
+            }
+        }
+    }
+
+    artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)
 }

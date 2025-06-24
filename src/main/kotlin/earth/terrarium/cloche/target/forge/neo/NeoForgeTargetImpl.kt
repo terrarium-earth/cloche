@@ -19,6 +19,7 @@ import javax.inject.Inject
 private val NEOFORGE_DISTRIBUTION_ATTRIBUTE = Attribute.of("net.neoforged.distribution", String::class.java)
 private val NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE = Attribute.of("net.neoforged.operatingsystem", String::class.java)
 
+@Suppress("UnstableApiUsage")
 internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), NeoforgeTarget {
     final override val group
         get() = "net.neoforged"
@@ -112,6 +113,15 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
+            it.attributes
+                .attribute(
+                    NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
+                    operatingSystemName(),
+                )
+        }
+
+        project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
             it.attributes.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
             it.attributes
                 .attribute(

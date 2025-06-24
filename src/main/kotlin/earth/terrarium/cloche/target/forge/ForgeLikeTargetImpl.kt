@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target.forge
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FORGE
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
@@ -11,6 +12,7 @@ import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
@@ -27,7 +29,6 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
 import org.gradle.api.file.RegularFile
@@ -94,13 +95,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         val data = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
-                ClochePlugin.DATA_COMPILATION_NAME,
-                this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                minecraftFile,
-                project.provider { emptyList<RegularFile>() },
-                PublicationSide.Joined,
-                isSingleTarget,
+                TargetCompilationInfo(
+                    ClochePlugin.DATA_COMPILATION_NAME,
+                    this,
+                    project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                    minecraftFile,
+                    project.provider { emptyList<RegularFile>() },
+                    PublicationSide.Joined,
+                    true,
+                    isSingleTarget,
+                    IncludeTransformationState.None,
+                ),
             )
         }
 
@@ -115,13 +120,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         val data = run {
             project.objects.newInstance(
                 TargetCompilation::class.java,
-                SourceSet.TEST_SOURCE_SET_NAME,
-                this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                minecraftFile,
-                project.provider { emptyList<RegularFile>() },
-                PublicationSide.Joined,
-                isSingleTarget,
+                TargetCompilationInfo(
+                    SourceSet.TEST_SOURCE_SET_NAME,
+                    this,
+                    project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                    minecraftFile,
+                    project.provider { emptyList<RegularFile>() },
+                    PublicationSide.Joined,
+                    false,
+                    isSingleTarget,
+                    IncludeTransformationState.None,
+                ),
             )
         }
 
@@ -207,12 +216,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         start.set(version)
     }
 
-    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<Dependency> =
+    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<ExternalModuleDependency> =
         minecraftVersion.flatMap { minecraftVersion ->
             loaderVersion.map { forgeVersion ->
-                project.dependencies.create("$group:$artifact").apply {
-                    this as ExternalModuleDependency
-
+                module(group, artifact, null).apply {
                     version { version ->
                         version.strictly(version(minecraftVersion, forgeVersion))
                     }
@@ -227,13 +234,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         main = project.objects.newInstance(
             TargetCompilation::class.java,
-            SourceSet.MAIN_SOURCE_SET_NAME,
-            this,
-            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-            minecraftFile,
-            project.provider { emptyList<RegularFile>() },
-            PublicationSide.Joined,
-            isSingleTarget,
+            TargetCompilationInfo(
+                SourceSet.MAIN_SOURCE_SET_NAME,
+                this,
+                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                minecraftFile,
+                project.provider { emptyList<RegularFile>() },
+                PublicationSide.Joined,
+                false,
+                isSingleTarget,
+                IncludeTransformationState.None,
+            ),
         )
 
         includeJarTask = project.tasks.register(
@@ -259,8 +270,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 jarTask.flatMap(Jar::getArchiveFile)
             })
 
-            it.includeArtifacts.set(includeConfiguration.flatMap { it.incoming.artifacts.resolvedArtifacts })
-            it.includesRootComponent.set(includeConfiguration.flatMap { it.incoming.resolutionResult.rootComponent })
+            it.fromResolutionResults(includeConfiguration)
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
@@ -275,16 +285,16 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.extendsFrom(minecraftLibrariesConfiguration)
         }
 
+        project.dependencies.add(
+            sourceSet.runtimeOnlyConfigurationName,
+            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
+        )
+
         val userdev = forgeDependency {
             capabilities {
                 it.requireFeature("moddev-bundle")
             }
         }
-
-        project.dependencies.add(
-            sourceSet.runtimeOnlyConfigurationName,
-            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)),
-        )
 
         project.dependencies.addProvider(sourceSet.patchesConfigurationName, userdev)
 
@@ -320,6 +330,14 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 it.into("META-INF")
             }
         }
+    }
+
+    override fun addAnnotationProcessors(compilation: CompilationInternal) {
+        project.configurations.named(compilation.sourceSet.annotationProcessorConfigurationName) {
+            it.extendsFrom(minecraftLibrariesConfiguration)
+        }
+
+        // TODO Add forge mixin arguments
     }
 
     override fun addJarInjects(compilation: CompilationInternal) {}

@@ -3,10 +3,18 @@ package earth.terrarium.cloche.target.fabric
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
+import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.TargetCompilationInfo
+import earth.terrarium.cloche.target.compilationSourceSet
+import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -34,7 +42,9 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Zip
+import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
+import org.gradle.process.CommandLineArgumentProvider
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -231,16 +241,20 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         val client =
             project.objects.newInstance(
                 FabricClientSecondarySourceSets::class.java,
-                ClochePlugin.CLIENT_COMPILATION_NAME,
-                this,
-                project.files(
-                    remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
-                    remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
+                TargetCompilationInfo(
+                    ClochePlugin.CLIENT_COMPILATION_NAME,
+                    this,
+                    project.files(
+                        remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
+                        remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
+                    ),
+                    remapClient.flatMap(RemapTask::outputFile),
+                    main.finalMinecraftFile.map(::listOf),
+                    PublicationSide.Client,
+                    false,
+                    isSingleTarget,
+                    IncludeTransformationState.Stripped,
                 ),
-                remapClient.flatMap(RemapTask::outputFile),
-                main.finalMinecraftFile.map(::listOf),
-                PublicationSide.Client,
-                isSingleTarget,
             )
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
@@ -283,6 +297,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     private val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
 
     private var isSingleTarget = false
+
+    private val fabricLoader = loaderVersion.map {
+        module("net.fabricmc", "fabric-loader", it)
+    }
 
     init {
         val commonStub =
@@ -363,13 +381,17 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         return project.objects.newInstance(
             TargetCompilation::class.java,
-            name,
-            this,
-            intermediateClasspath,
-            remappedFile,
-            extraClasspath,
-            PublicationSide.Common,
-            isSingleTarget,
+            TargetCompilationInfo(
+                name,
+                this,
+                intermediateClasspath,
+                remappedFile,
+                extraClasspath,
+                PublicationSide.Common,
+                false,
+                isSingleTarget,
+                IncludeTransformationState.Stripped,
+            ),
         )
     }
 
@@ -424,8 +446,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 jarTask.flatMap(Jar::getArchiveFile)
             })
 
-            it.includeArtifacts.set(includeConfiguration.flatMap { it.incoming.artifacts.resolvedArtifacts })
-            it.includesRootComponent.set(includeConfiguration.flatMap { it.incoming.resolutionResult.rootComponent })
+            it.fromResolutionResults(includeConfiguration)
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
@@ -441,7 +462,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
-            dependencies.implementation.add(loaderVersion.map { version -> project.dependencies.create("net.fabricmc:fabric-loader:$version") })
+            dependencies.implementation.add(fabricLoader)
 
             mappings.fabricIntermediary()
 
@@ -487,6 +508,27 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
             it.from(task.flatMap(MergeAccessWideners::output))
+        }
+    }
+
+    override fun addAnnotationProcessors(compilation: CompilationInternal) {
+        compilation.dependencyHandler.annotationProcessor.add(fabricLoader)
+        compilation.dependencyHandler.annotationProcessor.add(project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
+        compilation.dependencyHandler.annotationProcessor.add(module("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
+
+        project.tasks.named(compilation.sourceSet.compileJavaTaskName, JavaCompile::class.java) {
+            val inMapFile = lowerCamelCaseGradleName("inMapFile", MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE, MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE)
+
+            val inMapFileArgument = loadMappingsTask.flatMap(LoadMappings::output).map {
+                "-A$inMapFile=${it}"
+            }
+
+            it.options.compilerArgumentProviders.add(CommandLineArgumentProvider {
+                listOf(
+                    inMapFileArgument.get(),
+                    "-AdefaultObfuscationEnv=${MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE}:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}",
+                )
+            })
         }
     }
 

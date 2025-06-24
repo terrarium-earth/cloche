@@ -17,6 +17,8 @@ import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
+import net.msrandom.minecraftcodev.includes.ExtractIncludes
+import net.msrandom.minecraftcodev.includes.StripIncludes
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.NamedDomainObjectContainer
@@ -107,6 +109,8 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
             return it
         }
 
+        extension.singleTargetSetCallback(type)
+
         val instance = project.objects.newInstance(type, name)
 
         (instance as MinecraftTargetInternal).initialize(true)
@@ -150,8 +154,36 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     @Suppress("UNCHECKED_CAST")
     internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
+    private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, () -> Unit>()
+
+    private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: () -> Unit) {
+        var configured = false
+
+        targets.withType(type).whenObjectAdded {
+            if (!configured) {
+                configured = true
+
+                action()
+            }
+        }
+
+        singleTargetCallbacks[type] = action
+    }
+
+    internal fun singleTargetSetCallback(type: Class<out MinecraftTarget>) = singleTargetCallbacks.entries.firstOrNull {
+        it.key.isAssignableFrom(type)
+    }?.value?.invoke()
+
     init {
-        var fabricConfigured = false
+        project.dependencies.registerTransform(ExtractIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+        }
+
+        project.dependencies.registerTransform(StripIncludes::class.java) {
+            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
+        }
 
         project.plugins.withType(BasePlugin::class.java) {
             val libs = project.extension<BasePluginExtension>().libsDirectory
@@ -160,32 +192,21 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
             finalOutputsDirectory.convention(libs)
         }
 
-        targets.withType(FabricTarget::class.java).whenObjectAdded {
-            if (!fabricConfigured) {
-                fabricConfigured = true
-
-                project.dependencies.components {
-                    it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                        it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
-                    }
+        onTargetTypeConfigured(FabricTarget::class.java) {
+            project.dependencies.components {
+                it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
+                    it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
                 }
             }
         }
 
-        var forgeConfigured = false
+        onTargetTypeConfigured(ForgeTarget::class.java) {
+            project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
+                it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
 
-        targets.withType(ForgeTarget::class.java)
-            .whenObjectAdded { target ->
-                if (!forgeConfigured) {
-                    forgeConfigured = true
-
-                    project.dependencies.registerTransform(RemoveNameMappingService::class.java) {
-                        it.from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-
-                        it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-                    }
-                }
+                it.to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
             }
+        }
 
         targets.all {
             it.dependsOn(common())

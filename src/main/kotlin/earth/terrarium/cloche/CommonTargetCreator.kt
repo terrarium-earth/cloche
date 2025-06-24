@@ -3,8 +3,17 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CommonCompilation
+import earth.terrarium.cloche.target.CommonTargetInternal
+import earth.terrarium.cloche.target.CommonTopLevelCompilation
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.addCollectedDependencies
+import earth.terrarium.cloche.target.configureSourceSet
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.target.getNonProjectArtifacts
+import earth.terrarium.cloche.target.getRelevantSyncArtifacts
+import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
@@ -28,7 +37,7 @@ private fun convertClasspath(
     objects: ObjectFactory,
 ): Provider<List<GenerateStubApi.ResolvedArtifact>> {
     val minecraftFiles =
-        compilation.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
+        compilation.info.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
             .map {
                 it.map {
                     val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
@@ -95,7 +104,7 @@ internal fun createCommonTarget(
 
             it.classpaths.set(classpaths)
 
-            it.dependsOn(compilations.map { it.map { it.extraClasspathFiles } })
+            it.dependsOn(compilations.map { it.map { it.info.extraClasspathFiles } })
             it.dependsOn(compilations.map { it.map { it.finalMinecraftFile } })
 
             it.dependsOn(files(compilations.map {
@@ -111,6 +120,7 @@ internal fun createCommonTarget(
     fun addCompilation(
         compilation: CommonCompilation,
         variant: PublicationSide,
+        data: Boolean,
         targetCompilations: Provider<List<TargetCompilation>>,
     ) {
         val sourceSet = with(commonTarget) {
@@ -211,6 +221,7 @@ internal fun createCommonTarget(
 
         compilation.attributes {
             it.attribute(SIDE_ATTRIBUTE, variant)
+            it.attribute(DATA_ATTRIBUTE, data)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
             afterEvaluate { project ->
@@ -290,7 +301,7 @@ internal fun createCommonTarget(
         variant: PublicationSide,
         targetCompilations: Provider<List<TargetCompilation>>,
     ) {
-        addCompilation(compilation, variant, targetCompilations)
+        addCompilation(compilation, variant, false, targetCompilations)
 
         if (compilation.name != SourceSet.MAIN_SOURCE_SET_NAME) {
             compilation.addClasspathDependency(commonTarget.main)
@@ -300,6 +311,7 @@ internal fun createCommonTarget(
             addCompilation(
                 it,
                 variant,
+                true,
                 commonTarget.dependents.map {
                     it.map { dataGetter(it as MinecraftTargetInternal) }
                 },
@@ -319,6 +331,7 @@ internal fun createCommonTarget(
             addCompilation(
                 it,
                 variant,
+                false,
                 commonTarget.dependents.map {
                     it.map { testGetter(it as MinecraftTargetInternal) }
                 },

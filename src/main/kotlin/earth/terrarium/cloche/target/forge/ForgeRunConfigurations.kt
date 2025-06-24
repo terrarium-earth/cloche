@@ -2,12 +2,14 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.modOutputs
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -63,6 +65,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
+            .beforeRun(target.main.generateModOutputs)
     }
 
     override val client = project.lazyConfigurable {
@@ -80,12 +84,16 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
             .sourceSet(target.sourceSet)
+            .addMixinJavaAgent()
+            .beforeRun(target.main.generateModOutputs)
     }
 
     override val data = project.lazyConfigurable {
+        val compilation = target.data.value
+
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
-                it.modOutputs.from(project.modOutputs(target.data.value))
+                it.modOutputs.from(project.modOutputs(compilation))
 
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
@@ -100,10 +108,12 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 )
                 it.writeLegacyClasspathTask.set(target.writeLegacyDataClasspath)
 
-                it.configure(target.data.value.map { it.sourceSet })
+                it.configure(compilation.map(Compilation::sourceSet))
             }
         }
-            .sourceSet(target.data.value.map(Compilation::sourceSet))
+            .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenDirectory)
@@ -148,9 +158,11 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     }
 
     override val clientData: LazyConfigurable<MinecraftRunConfiguration> = project.lazyConfigurable {
+        val compilation = target.data.value
+
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
-                it.modOutputs.from(project.modOutputs(target.data.value))
+                it.modOutputs.from(project.modOutputs(compilation))
 
                 it.modId.set(project.extension<ClocheExtension>().metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
@@ -167,10 +179,12 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.mainResources.set(target.sourceSet.output.resourcesDir)
 
-                it.configure(target.data.value.map { it.sourceSet })
+                it.configure(compilation.map { it.sourceSet })
             }
         }
-            .sourceSet(target.data.value.map(Compilation::sourceSet))
+            .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenClientDirectory)
@@ -219,18 +233,22 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     }
 
     override val test = project.lazyConfigurable {
+        val compilation = target.test.value
+
         create(SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestServer {
-                it.modOutputs.from(project.modOutputs(target.test.value))
+                it.modOutputs.from(project.modOutputs(compilation))
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.writeLegacyClasspathTask.set(target.writeLegacyTestClasspath)
 
-                it.configure(target.test.value.map { it.sourceSet })
+                it.configure(compilation.map { it.sourceSet })
             }
         }
-            .sourceSet(target.test.value.map(Compilation::sourceSet))
+            .sourceSet(compilation.map(Compilation::sourceSet))
+            .addMixinJavaAgent()
+            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 
     override val clientTest: LazyConfigurableInternal<MinecraftRunConfiguration> = project.lazyConfigurable {

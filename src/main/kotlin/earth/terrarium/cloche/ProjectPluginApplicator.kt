@@ -33,7 +33,10 @@ fun applyToProject(project: Project) {
     project.plugins.apply(MinecraftCodevRunsPlugin::class.java)
 
     project.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
-    project.plugins.apply(ClassExtensionsPlugin::class.java)
+
+    if (project.findProperty("earth.terrarium.cloche.disable-class-extensions")?.toString()?.toBoolean() != true) {
+        project.plugins.apply(ClassExtensionsPlugin::class.java)
+    }
 
     project.plugins.apply(JavaLibraryPlugin::class.java)
 
@@ -52,12 +55,11 @@ fun applyToProject(project: Project) {
 
     project.dependencies.artifactTypes {
         it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
-            jar.attributes.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.INITIAL,
-            )
-            jar.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-            jar.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
+            jar.attributes
+                .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
+                .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+                .attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+                .attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
         }
 
         it.create(JSON_ARTIFACT_TYPE)
