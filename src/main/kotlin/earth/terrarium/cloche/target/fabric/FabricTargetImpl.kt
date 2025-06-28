@@ -251,9 +251,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     remapClient.flatMap(RemapTask::outputFile),
                     main.finalMinecraftFile.map(::listOf),
                     PublicationSide.Client,
-                    false,
-                    isSingleTarget,
-                    IncludeTransformationState.Stripped,
+                    data = false,
+                    test = false,
+                    isSingleTarget = isSingleTarget,
+                    includeState = IncludeTransformationState.Stripped,
                 ),
             )
 
@@ -388,7 +389,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 remappedFile,
                 extraClasspath,
                 PublicationSide.Common,
-                false,
+                name == ClochePlugin.DATA_COMPILATION_NAME,
+                name == SourceSet.TEST_SOURCE_SET_NAME,
                 isSingleTarget,
                 IncludeTransformationState.Stripped,
             ),
@@ -458,7 +460,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-            project.configurations.named(sourceSet.implementationConfigurationName) {
+            project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+                it.extendsFrom(commonLibrariesConfiguration)
+            }
+
+            project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 

@@ -3,6 +3,7 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.target.CommonCompilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
@@ -39,6 +40,7 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
     project.extend(compileOnlyConfigurationName, compileOnlyBucket)
 
     project.extend(runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
+    project.extend(localRuntimeConfigurationName, dependency.localRuntimeConfigurationName)
 
     project.extend(
         modConfigurationName(implementationConfigurationName),
@@ -65,6 +67,11 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
         modConfigurationName(dependency.runtimeOnlyConfigurationName),
     )
 
+    project.extend(
+        modConfigurationName(localRuntimeConfigurationName),
+        modConfigurationName(dependency.localRuntimeConfigurationName),
+    )
+
     project.extend(mixinsConfigurationName, dependency.mixinsConfigurationName)
 }
 
@@ -77,8 +84,10 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
 
     sourceSet.compileClasspath += dependency.sourceSet.output
 
-    artifacts {
-        it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+    if (!isTest && !dependency.isTest) {
+        artifacts {
+            it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+        }
     }
 
     sourceSet.extendConfigurations(dependency.sourceSet, true)
@@ -95,9 +104,12 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
     sourceSet.compileClasspath += dependency.sourceSet.output
     sourceSet.runtimeClasspath += dependency.sourceSet.output
 
-    artifacts {
-        it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
-        it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+    if (!isTest && !dependency.isTest) {
+        artifacts {
+            it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+
+            it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+        }
     }
 
     sourceSet.extendConfigurations(dependency.sourceSet, false)

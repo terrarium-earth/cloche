@@ -51,6 +51,11 @@ fun applyToProject(project: Project) {
             it.compatibilityRules.add(SideCompatibilityRule::class.java)
             it.disambiguationRules.add(SideDisambiguationRule::class.java)
         }
+
+        schema.attribute(DATA_ATTRIBUTE) {
+            it.compatibilityRules.add(DataCompatibilityRule::class.java)
+            it.disambiguationRules.add(DataDisambiguationRule::class.java)
+        }
     }
 
     project.dependencies.artifactTypes {

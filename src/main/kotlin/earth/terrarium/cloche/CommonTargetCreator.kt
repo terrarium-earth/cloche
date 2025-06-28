@@ -129,7 +129,7 @@ internal fun createCommonTarget(
         components.named("java") { java ->
             java as AdhocComponentWithVariants
 
-            java.addVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
+            java.withVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
                 // Common compilations are not runnable.
                 variant.skip()
             }
@@ -157,6 +157,11 @@ internal fun createCommonTarget(
         val modRuntimeOnly =
             configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
                 it.addCollectedDependencies(compilation.dependencyHandler.modRuntimeOnly)
+            }
+
+        val modLocalRuntime =
+            configurations.dependencyScope(modConfigurationName(sourceSet.localRuntimeConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modLocalRuntime)
             }
 
         val commonImplementation =
@@ -191,6 +196,12 @@ internal fun createCommonTarget(
             it.addCollectedDependencies(compilation.dependencyHandler.runtimeOnly)
 
             it.extendsFrom(modRuntimeOnly.get())
+        }
+
+        configurations.named(sourceSet.localRuntimeConfigurationName) {
+            it.addCollectedDependencies(compilation.dependencyHandler.localRuntime)
+
+            it.extendsFrom(modLocalRuntime.get())
         }
 
         configurations.named(sourceSet.annotationProcessorConfigurationName) {
