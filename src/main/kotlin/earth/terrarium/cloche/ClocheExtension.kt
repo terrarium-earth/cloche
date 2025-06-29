@@ -73,18 +73,8 @@ interface TargetContainer {
 class SingleTargetConfigurator(private val project: Project, private val extension: ClocheExtension) : TargetContainer {
     internal var target: MinecraftTarget? = null
 
-    override fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget {
-        project.dependencies.components {
-            it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
-            }
-        }
-
-        return target(name, FabricTargetImpl::class.java, configure)
-    }
-
+    override fun fabric(name: String, configure: Action<FabricTarget>) = target(name, FabricTargetImpl::class.java, configure)
     override fun forge(name: String, configure: Action<ForgeTarget>) = target(name, ForgeTargetImpl::class.java, configure)
-
     override fun neoforge(name: String, configure: Action<NeoforgeTarget>) = target(name, NeoForgeTargetImpl::class.java, configure)
 
     private fun <T : MinecraftTarget> target(name: String, type: Class<out T>, configure: Action<T>): T {
