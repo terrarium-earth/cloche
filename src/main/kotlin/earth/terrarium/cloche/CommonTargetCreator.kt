@@ -129,7 +129,7 @@ internal fun createCommonTarget(
         components.named("java") { java ->
             java as AdhocComponentWithVariants
 
-            java.withVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
+            java.addVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
                 // Common compilations are not runnable.
                 variant.skip()
             }
