@@ -116,11 +116,15 @@ private fun TargetCompilation.addDependencies() {
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
 
-        it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
 
         if (!isTest) {
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
         }
+    }
+
+    project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+        it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
     }
 }
 
