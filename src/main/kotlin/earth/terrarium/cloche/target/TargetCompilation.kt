@@ -131,7 +131,13 @@ internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String,
         sourceSetName(name, target)
     }
 
-    return target.project.extension<SourceSetContainer>().maybeCreate(name)
+    val sourceSet = target.project.extension<SourceSetContainer>().maybeCreate(name)
+
+    if (sourceSet.localRuntimeConfigurationName !in target.project.configurations.names) {
+        target.project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
+    }
+
+    return sourceSet
 }
 
 private fun setupModTransformationPipeline(

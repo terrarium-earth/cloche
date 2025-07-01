@@ -110,8 +110,6 @@ internal fun Project.configureSourceSet(
     compilation: CompilationInternal,
     singleTarget: Boolean
 ) {
-    project.configurations.create(sourceSet.localRuntimeConfigurationName)
-
     if (!singleTarget) {
         val compilationDirectory =
             project.layout.projectDirectory.dir("src").dir(target.namePath).dir(compilation.namePath)

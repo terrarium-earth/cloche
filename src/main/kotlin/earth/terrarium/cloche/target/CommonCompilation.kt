@@ -21,8 +21,15 @@ internal abstract class CommonCompilation @Inject constructor(
     override val target: CommonTargetInternal,
     override val isTest: Boolean,
 ) : CompilationInternal() {
-    override val sourceSet: SourceSet =
-        project.extension<SourceSetContainer>().maybeCreate(sourceSetName(name, target))
+    override val sourceSet: SourceSet = run {
+        val sourceSet = project.extension<SourceSetContainer>().maybeCreate(sourceSetName(name, target))
+
+        if (sourceSet.localRuntimeConfigurationName !in project.configurations.names) {
+            project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
+        }
+
+        sourceSet
+    }
 
     override fun getName() = name
 

@@ -14,6 +14,7 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -460,11 +461,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-            project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            project.configurations.named(sourceSet.compileOnlyConfigurationName) {
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
-            project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+            project.configurations.named(sourceSet.localRuntimeConfigurationName) {
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
@@ -547,11 +548,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+        project.configurations.named(sourceSet.compileOnlyConfigurationName) {
             it.extendsFrom(clientLibrariesConfiguration)
         }
 
-        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+        project.configurations.named(sourceSet.localRuntimeConfigurationName) {
             it.extendsFrom(clientLibrariesConfiguration)
         }
 
