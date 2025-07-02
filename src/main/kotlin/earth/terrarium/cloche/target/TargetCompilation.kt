@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target
 
-import com.google.common.collect.Sets
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.DATA_ATTRIBUTE
 import earth.terrarium.cloche.IncludeTransformationState
@@ -25,7 +24,6 @@ import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
-import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -146,71 +144,53 @@ private fun setupModTransformationPipeline(
             return@afterEvaluate
         }
 
-        fun registerRemapAction() {
-            val cartesianProduct =
-                target.mappings.remapNamespaces
-                    .map { namespaces -> namespaces.mapTo(hashSetOf()) { RemapNamespaceAttribute.ATTRIBUTE as Attribute<Any> to it } }
-                    .map { namespaces ->
-                        Sets.cartesianProduct<Pair<Attribute<Any>, Any>>(namespaces).map { it.toMap(hashMapOf()) }
-                    }
-                    .get()
+        for (remapNamespace in target.mappings.remapNamespaces.get()) {
+            project.dependencies.registerTransform(RemapAction::class.java) {
+                it.from.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
+                it.to.attribute(RemapNamespaceAttribute.ATTRIBUTE, remapNamespace)
 
-            for (attributes in cartesianProduct) {
-                project.dependencies.registerTransform(RemapAction::class.java) {
-                    val remapNamespaceAttribute = attributes.remove(RemapNamespaceAttribute.ATTRIBUTE as Attribute<Any>) as String?
+                it.from.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.INITIAL,
+                )
 
-                    it.from.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
-                    it.to.attribute(RemapNamespaceAttribute.ATTRIBUTE, remapNamespaceAttribute)
+                it.to.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
+                )
 
-                    for ((attribute, value) in attributes) {
-                        it.from.attribute(attribute, value)
-                        it.to.attribute(attribute, value)
-                    }
+                it.parameters {
+                    it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                    it.from.attribute(
-                        ModTransformationStateAttribute.ATTRIBUTE,
-                        ModTransformationStateAttribute.INITIAL,
-                    )
+                    it.sourceNamespace.set(remapNamespace?.takeUnless { it === RemapNamespaceAttribute.INITIAL } ?: target.modRemapNamespace.get())
 
-                    it.to.attribute(
-                        ModTransformationStateAttribute.ATTRIBUTE,
-                        ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
-                    )
+                    it.extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
 
-                    it.parameters {
-                        it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+                    it.cacheDirectory.set(getGlobalCacheDirectory(project))
 
-                        it.sourceNamespace.set(remapNamespaceAttribute?.takeUnless { it === RemapNamespaceAttribute.INITIAL } ?: target.modRemapNamespace.get())
-
-                        it.extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
-
-                        it.cacheDirectory.set(getGlobalCacheDirectory(project))
-
-                        val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
-                            it.attributes {
-                                it.attribute(
-                                    ModTransformationStateAttribute.ATTRIBUTE,
-                                    ModTransformationStateAttribute.INITIAL,
-                                )
-                            }
+                    val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
+                        it.attributes {
+                            it.attribute(
+                                ModTransformationStateAttribute.ATTRIBUTE,
+                                ModTransformationStateAttribute.INITIAL,
+                            )
                         }
-
-                        val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
-                            it.attributes {
-                                it.attribute(
-                                    ModTransformationStateAttribute.ATTRIBUTE,
-                                    ModTransformationStateAttribute.INITIAL,
-                                )
-                            }
-                        }
-
-                        it.modFiles.from(modCompileClasspath)
-                        it.modFiles.from(modRuntimeClasspath)
                     }
+
+                    val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
+                        it.attributes {
+                            it.attribute(
+                                ModTransformationStateAttribute.ATTRIBUTE,
+                                ModTransformationStateAttribute.INITIAL,
+                            )
+                        }
+                    }
+
+                    it.modFiles.from(modCompileClasspath)
+                    it.modFiles.from(modRuntimeClasspath)
                 }
             }
         }
-        registerRemapAction()
     }
 }
 
