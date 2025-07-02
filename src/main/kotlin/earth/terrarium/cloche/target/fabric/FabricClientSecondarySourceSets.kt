@@ -23,9 +23,10 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 info.namedMinecraftFile,
                 info.extraClasspathFiles,
                 PublicationSide.Client,
-                true,
-                info.isSingleTarget,
-                IncludeTransformationState.Stripped,
+                data = true,
+                test = false,
+                isSingleTarget = info.isSingleTarget,
+                includeState = IncludeTransformationState.Stripped,
             ),
         )
     }
@@ -40,9 +41,10 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 info.namedMinecraftFile,
                 info.extraClasspathFiles,
                 PublicationSide.Client,
-                false,
-                info.isSingleTarget,
-                IncludeTransformationState.Stripped,
+                data = false,
+                test = true,
+                isSingleTarget = info.isSingleTarget,
+                includeState = IncludeTransformationState.Stripped,
             ),
         )
     }

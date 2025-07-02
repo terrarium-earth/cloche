@@ -19,6 +19,7 @@ internal interface CommonSecondarySourceSetsInternal : CommonSecondarySourceSets
 internal abstract class CommonCompilation @Inject constructor(
     private val name: String,
     override val target: CommonTargetInternal,
+    override val isTest: Boolean,
 ) : CompilationInternal() {
     override val sourceSet: SourceSet =
         project.extension<SourceSetContainer>().maybeCreate(sourceSetName(name, target))
@@ -35,7 +36,7 @@ internal abstract class CommonCompilation @Inject constructor(
 internal abstract class CommonTopLevelCompilation @Inject constructor(
     name: String,
     target: CommonTargetInternal,
-) : CommonCompilation(name, target), CommonSecondarySourceSetsInternal {
+) : CommonCompilation(name, target, false), CommonSecondarySourceSetsInternal {
     private fun name(value: String) = if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
         value
     } else {
@@ -43,11 +44,11 @@ internal abstract class CommonTopLevelCompilation @Inject constructor(
     }
 
     override val data: LazyConfigurableInternal<CommonCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(CommonCompilation::class.java, name(ClochePlugin.DATA_COMPILATION_NAME), target)
+        project.objects.newInstance(CommonCompilation::class.java, name(ClochePlugin.DATA_COMPILATION_NAME), target, false)
     }
 
     override val test: LazyConfigurableInternal<CommonCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(CommonCompilation::class.java, name(SourceSet.TEST_SOURCE_SET_NAME), target)
+        project.objects.newInstance(CommonCompilation::class.java, name(SourceSet.TEST_SOURCE_SET_NAME), target, true)
     }
 
     override val sourceSet: SourceSet

@@ -10,12 +10,14 @@ import javax.inject.Inject
 abstract class ClocheDependencyHandler @Inject constructor(private val minecraftVersion: Provider<String>) : JvmComponentDependencies {
     abstract val api: DependencyCollector
     abstract val compileOnlyApi: DependencyCollector
+    abstract val localRuntime: DependencyCollector
 
     abstract val modApi: DependencyCollector
     abstract val modCompileOnlyApi: DependencyCollector
     abstract val modImplementation: DependencyCollector
     abstract val modRuntimeOnly: DependencyCollector
     abstract val modCompileOnly: DependencyCollector
+    abstract val modLocalRuntime: DependencyCollector
 
     fun fabricApi(apiVersion: String) {
         modImplementation.add(minecraftVersion.map {

@@ -71,6 +71,22 @@ class SideDisambiguationRule : AttributeDisambiguationRule<PublicationSide> {
     }
 }
 
+class DataCompatibilityRule : AttributeCompatibilityRule<Boolean> {
+    override fun execute(details: CompatibilityCheckDetails<Boolean>) {
+        details.compatible()
+    }
+}
+
+class DataDisambiguationRule : AttributeDisambiguationRule<Boolean> {
+    override fun execute(details: MultipleCandidatesDetails<Boolean>) {
+        if (details.consumerValue == true && true in details.candidateValues) {
+            details.closestMatch(false)
+        } else if (false in details.candidateValues) {
+            details.closestMatch(false)
+        }
+    }
+}
+
 internal object ModTransformationStateAttribute {
     @JvmField
     val ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.modState", String::class.java)

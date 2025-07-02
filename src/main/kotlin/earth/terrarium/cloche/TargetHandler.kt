@@ -5,6 +5,7 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.target.configureSourceSet
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -80,8 +81,16 @@ private fun TargetCompilation.addDependencies() {
     addModDependencies(sourceSet.implementationConfigurationName, dependencyHandler.implementation, dependencyHandler.modImplementation)
     addModDependencies(sourceSet.runtimeOnlyConfigurationName, dependencyHandler.runtimeOnly, dependencyHandler.modRuntimeOnly)
     addModDependencies(sourceSet.compileOnlyConfigurationName, dependencyHandler.compileOnly, dependencyHandler.modCompileOnly)
-    addModDependencies(sourceSet.apiConfigurationName, dependencyHandler.api, dependencyHandler.modApi)
-    addModDependencies(sourceSet.compileOnlyApiConfigurationName, dependencyHandler.compileOnlyApi, dependencyHandler.modCompileOnlyApi)
+    addModDependencies(sourceSet.localRuntimeConfigurationName, dependencyHandler.localRuntime, dependencyHandler.modLocalRuntime)
+
+    if (!isTest) {
+        addModDependencies(
+            sourceSet.compileOnlyApiConfigurationName,
+            dependencyHandler.compileOnlyApi,
+            dependencyHandler.modCompileOnlyApi
+        )
+        addModDependencies(sourceSet.apiConfigurationName, dependencyHandler.api, dependencyHandler.modApi)
+    }
 
     project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
         it.addCollectedDependencies(dependencyHandler.annotationProcessor)
@@ -91,17 +100,26 @@ private fun TargetCompilation.addDependencies() {
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+
+        if (!isTest) {
+            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
+            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+        }
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+
+        it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
+
+        if (!isTest) {
+            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+        }
     }
 }
 
@@ -110,11 +128,13 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     fun addCompilation(compilation: TargetCompilation) {
         val sourceSet = compilation.sourceSet
 
-        createCompilationVariants(compilation, sourceSet, true)
-
-        compilation.addDependencies()
+        if (!compilation.isTest) {
+            createCompilationVariants(compilation, sourceSet, true)
+        }
 
         configureSourceSet(sourceSet, target, compilation, singleTarget)
+
+        compilation.addDependencies()
 
         val copyMixins = tasks.register(
             lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"),
@@ -277,7 +297,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         components.named("java") {
             it as AdhocComponentWithVariants
 
-            it.addVariantsFromConfiguration(configuration) {
+            it.withVariantsFromConfiguration(configuration) {
                 if (it.configurationVariant.name == variant.name) {
                     it.skip()
                 }

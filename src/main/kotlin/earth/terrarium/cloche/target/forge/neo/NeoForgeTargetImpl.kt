@@ -6,6 +6,7 @@ import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import earth.terrarium.cloche.target.getModFiles
 import net.msrandom.minecraftcodev.core.operatingSystemName
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
@@ -14,6 +15,7 @@ import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.SourceSetContainer
 import javax.inject.Inject
 
 private val NEOFORGE_DISTRIBUTION_ATTRIBUTE = Attribute.of("net.neoforged.distribution", String::class.java)
@@ -128,6 +130,12 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
                     NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
                     operatingSystemName(),
                 )
+        }
+
+        if (SourceSet.isMain(sourceSet)) {
+            // Fix attributes for implicitly created test source set
+
+            addAttributes(project.extension<SourceSetContainer>().getByName(SourceSet.TEST_SOURCE_SET_NAME))
         }
     }
 

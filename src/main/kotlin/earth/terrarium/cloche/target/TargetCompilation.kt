@@ -234,12 +234,15 @@ internal data class TargetCompilationInfo(
     val extraClasspathFiles: Provider<List<RegularFile>>,
     val variant: PublicationSide,
     val data: Boolean,
+    val test: Boolean,
     val isSingleTarget: Boolean,
     val includeState: IncludeTransformationState,
 )
 
 internal abstract class TargetCompilation @Inject constructor(val info: TargetCompilationInfo) : CompilationInternal() {
     override val target get() = info.target
+
+    override val isTest get() = info.test
 
     final override val sourceSet: SourceSet = compilationSourceSet(target, info.name, info.isSingleTarget)
 

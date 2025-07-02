@@ -36,12 +36,17 @@ internal fun getNonProjectArtifacts(configuration: Provider<out Configuration>):
     }
 }
 
+val SourceSet.localRuntimeConfigurationName
+    get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "localRuntime")
+
 context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
     getNonProjectArtifacts(configurations.named(configurationName)).map(ArtifactView::getFiles)
 
 @JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation {
+    abstract val isTest: Boolean
+
     abstract val project: Project
         @Inject
         get
@@ -105,6 +110,8 @@ internal fun Project.configureSourceSet(
     compilation: CompilationInternal,
     singleTarget: Boolean
 ) {
+    project.configurations.create(sourceSet.localRuntimeConfigurationName)
+
     if (!singleTarget) {
         val compilationDirectory =
             project.layout.projectDirectory.dir("src").dir(target.namePath).dir(compilation.namePath)
@@ -119,6 +126,43 @@ internal fun Project.configureSourceSet(
         }
 
         // TODO Groovy + Scala?
+    }
+
+    val syncTask = tasks.named(IDE_SYNC_TASK_NAME) { task ->
+        task.dependsOn(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
+
+        if (compilation is TargetCompilation) {
+            task.dependsOn(compilation.finalMinecraftFile)
+            task.dependsOn(compilation.info.extraClasspathFiles)
+            task.dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
+        }
+    }
+
+    if (compilation is TargetCompilation) {
+        syncTask.configure { task ->
+            task.dependsOn(compilation.generateModOutputs)
+        }
+
+        if (project == rootProject) {
+            // afterEvaluate required as isDownloadSources is not lazy
+            afterEvaluate { project ->
+                syncTask.configure { task ->
+                    if (project.extension<IdeaModel>().module.isDownloadSources) {
+                        task.dependsOn(compilation.sources)
+                    }
+                }
+            }
+        } else {
+            syncTask.configure { task ->
+                if (rootProject.extension<IdeaModel>().module.isDownloadSources) {
+                    task.dependsOn(compilation.sources)
+                }
+            }
+        }
+    }
+
+    if (compilation.isTest) {
+        return
     }
 
     val prefix = if (singleTarget || target.name == COMMON) {
@@ -155,39 +199,6 @@ internal fun Project.configureSourceSet(
         compilation.remapJarTask.configure {
             if (classifier != null) {
                 it.archiveClassifier.set(classifier)
-            }
-        }
-    }
-
-    val syncTask = tasks.named(IDE_SYNC_TASK_NAME) { task ->
-        task.dependsOn(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
-
-        if (compilation is TargetCompilation) {
-            task.dependsOn(compilation.finalMinecraftFile)
-            task.dependsOn(compilation.info.extraClasspathFiles)
-            task.dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
-        }
-    }
-
-    if (compilation is TargetCompilation) {
-        syncTask.configure { task ->
-            task.dependsOn(compilation.generateModOutputs)
-        }
-
-        if (project == rootProject) {
-            // afterEvaluate required as isDownloadSources is not lazy
-            afterEvaluate { project ->
-                syncTask.configure { task ->
-                    if (project.extension<IdeaModel>().module.isDownloadSources) {
-                        task.dependsOn(compilation.sources)
-                    }
-                }
-            }
-        } else {
-            syncTask.configure { task ->
-                if (rootProject.extension<IdeaModel>().module.isDownloadSources) {
-                    task.dependsOn(compilation.sources)
-                }
             }
         }
     }

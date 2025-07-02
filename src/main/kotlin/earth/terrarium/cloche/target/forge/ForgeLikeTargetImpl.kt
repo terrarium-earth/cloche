@@ -102,9 +102,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     minecraftFile,
                     project.provider { emptyList<RegularFile>() },
                     PublicationSide.Joined,
-                    true,
-                    isSingleTarget,
-                    IncludeTransformationState.None,
+                    data = true,
+                    test = false,
+                    isSingleTarget = isSingleTarget,
+                    includeState = IncludeTransformationState.None,
                 ),
             )
         }
@@ -127,9 +128,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     minecraftFile,
                     project.provider { emptyList<RegularFile>() },
                     PublicationSide.Joined,
-                    false,
-                    isSingleTarget,
-                    IncludeTransformationState.None,
+                    data = false,
+                    test = true,
+                    isSingleTarget = isSingleTarget,
+                    includeState = IncludeTransformationState.None,
                 ),
             )
         }
@@ -239,11 +241,12 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 this,
                 project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                 minecraftFile,
-                project.provider { emptyList<RegularFile>() },
+                project.provider { emptyList() },
                 PublicationSide.Joined,
-                false,
-                isSingleTarget,
-                IncludeTransformationState.None,
+                data = false,
+                test = false,
+                isSingleTarget = isSingleTarget,
+                includeState = IncludeTransformationState.None,
             ),
         )
 
@@ -281,7 +284,11 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-        project.configurations.named(sourceSet.implementationConfigurationName) {
+        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            it.extendsFrom(minecraftLibrariesConfiguration)
+        }
+
+        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.extendsFrom(minecraftLibrariesConfiguration)
         }
 
@@ -311,6 +318,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     protected abstract fun version(minecraftVersion: String, loaderVersion: String): String
 
     override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {
+        if (compilation.isTest) {
+            return
+        }
+
         val task = project.tasks.register(
             lowerCamelCaseGradleName("generate", name, compilation.featureName, "accessTransformer"),
             GenerateAccessTransformer::class.java
