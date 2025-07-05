@@ -15,7 +15,7 @@ import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
 
 internal fun applyTargets(project: Project, cloche: ClocheExtension) {
-    cloche.targets.configureEach { target ->
+    cloche.targets.all { target ->
         target as MinecraftTargetInternal
 
         target.initialize(false)
@@ -140,7 +140,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
         }
     }
 
-    cloche.commonTargets.configureEach { commonTarget ->
+    cloche.commonTargets.all { commonTarget ->
         commonTarget as CommonTargetInternal
 
         commonTarget.dependsOn.all { dependency ->
