@@ -228,14 +228,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     lateinit var mergeJarTask: TaskProvider<Jar>
     override lateinit var includeJarTask: TaskProvider<JarInJar>
 
-    private var hasIncludedClientValue = false
-    private val hasIncludedClient = project.provider { hasIncludedClientValue }
+    var hasIncludedClient = false
+        private set
+
+    private val hasIncludedClientProvider = project.provider { hasIncludedClient }
     private val includedClientActions = mutableListOf<() -> Unit>()
 
     final override lateinit var main: TargetCompilation
 
     final override val client: LazyConfigurableInternal<FabricClientSecondarySourceSets> = project.lazyConfigurable {
-        if (hasIncludedClientValue) {
+        if (hasIncludedClient) {
             throw InvalidUserCodeException("Used `client()` in $name after previously using `includedClient()`")
         }
 
@@ -330,7 +332,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     private fun registerCommonCompilation(name: String): TargetCompilation {
         fun <T> clientAlternative(normal: Provider<T>, client: Provider<T>) =
-            hasIncludedClient.flatMap {
+            hasIncludedClientProvider.flatMap {
                 if (it) {
                     client
                 } else {
@@ -544,7 +546,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             throw InvalidUserCodeException("Used 'includedClient' in target $name after already configuring client compilation")
         }
 
-        hasIncludedClientValue = true
+        hasIncludedClient = true
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
@@ -564,7 +566,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun onClientIncluded(action: () -> Unit) {
-        if (hasIncludedClientValue) {
+        if (hasIncludedClient) {
             action()
         } else {
             includedClientActions.add(action)

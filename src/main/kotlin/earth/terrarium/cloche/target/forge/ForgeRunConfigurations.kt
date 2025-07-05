@@ -2,14 +2,15 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
+import earth.terrarium.cloche.api.run.quotedDescription
+import earth.terrarium.cloche.api.run.withCompilation
+import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.target.LazyConfigurableInternal
-import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.modOutputs
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -63,10 +64,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.configure(target.sourceSet)
             }
-        }
-            .sourceSet(target.sourceSet)
-            .addMixinJavaAgent()
-            .beforeRun(target.main.generateModOutputs)
+        }.withCompilation(target.main)
     }
 
     override val client = project.lazyConfigurable {
@@ -82,10 +80,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.configure(target.sourceSet)
             }
-        }
-            .sourceSet(target.sourceSet)
-            .addMixinJavaAgent()
-            .beforeRun(target.main.generateModOutputs)
+        }.withCompilation(target.main)
     }
 
     override val data = project.lazyConfigurable {
@@ -110,10 +105,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.configure(compilation.map(Compilation::sourceSet))
             }
-        }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
+        }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenDirectory)
@@ -181,10 +173,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.configure(compilation.map { it.sourceSet })
             }
-        }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
+        }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenClientDirectory)
@@ -245,10 +234,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.configure(compilation.map { it.sourceSet })
             }
-        }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
+        }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::test.name) }
     }
 
     override val clientTest: LazyConfigurableInternal<MinecraftRunConfiguration> = project.lazyConfigurable {

@@ -78,11 +78,11 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
     override fun neoforge(name: String, configure: Action<NeoforgeTarget>) = target(name, NeoForgeTargetImpl::class.java, configure)
 
     private fun <T : MinecraftTarget> target(name: String, type: Class<out T>, configure: Action<T>): T {
-        extension.targets.all {
+        extension.targets.configureEach {
             throw UnsupportedOperationException("Target ${it.name} has been configured. Can not set single target to $name")
         }
 
-        extension.commonTargets.all {
+        extension.commonTargets.configureEach {
             throw UnsupportedOperationException("Common target ${it.name} has been configured. Can not use single target mode with target $name")
         }
 
@@ -198,13 +198,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
             }
         }
 
-        targets.all {
+        targets.configureEach {
             it.dependsOn(common())
         }
 
         commonTargets
             .named { it != COMMON }
-            .all { it.dependsOn(common()) }
+            .configureEach { it.dependsOn(common()) }
     }
 
     fun common(): CommonTarget = common(COMMON)
