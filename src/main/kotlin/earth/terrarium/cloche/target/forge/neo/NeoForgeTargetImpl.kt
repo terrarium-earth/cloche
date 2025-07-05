@@ -92,6 +92,10 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
             it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
         }
+
+        resolvePatchedMinecraft.configure {
+            it.neoforge.set(true)
+        }
     }
 
     private fun configureLegacyClasspath(task: WriteClasspathFile, sourceSet: SourceSet) {
