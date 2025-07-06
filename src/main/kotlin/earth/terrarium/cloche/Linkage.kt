@@ -12,7 +12,9 @@ import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSet
 
-const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
+const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.9"
+const val JAVA_CLASS_EXTENSIONS_ANNOTATIONS = "net.msrandom:class-extension-annotations:1.0.0"
+const val JAVA_CLASS_EXTENSIONS_PROCESSOR = "net.msrandom:java-class-extensions-processor:1.0.0"
 const val KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR = "net.msrandom:kmp-actual-stubs-processor:1.0.3"
 
 context(Project)
@@ -127,6 +129,8 @@ internal fun CompilationInternal.addSourceDependency(dependency: CommonCompilati
 
     sourceSet.extendConfigurations(dependency.sourceSet, true)
 
+    project.dependencies.add(sourceSet.compileOnlyConfigurationName, JAVA_CLASS_EXTENSIONS_ANNOTATIONS)
+    project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_CLASS_EXTENSIONS_PROCESSOR)
     project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
     accessWideners.from(dependency.accessWideners)
 }
