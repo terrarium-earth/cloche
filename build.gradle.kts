@@ -49,7 +49,7 @@ dependencies {
 
     implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.11")
     implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.3")
-    implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.6")
+    implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.7")
 
     implementation(group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version = "2.1.0-1.0.29")
 
