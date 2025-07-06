@@ -200,13 +200,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
             }
         }
 
-        targets.configureEach {
+        targets.all {
             it.dependsOn(common())
         }
 
         commonTargets
             .named { it != COMMON }
-            .configureEach { it.dependsOn(common()) }
+            .all { it.dependsOn(common()) }
     }
 
     fun common(): CommonTarget = common(COMMON)
