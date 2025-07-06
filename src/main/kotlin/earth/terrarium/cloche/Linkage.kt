@@ -6,7 +6,6 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPlugin
@@ -73,8 +72,6 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
         modConfigurationName(localRuntimeConfigurationName),
         modConfigurationName(dependency.localRuntimeConfigurationName),
     )
-
-    project.extend(mixinsConfigurationName, dependency.mixinsConfigurationName)
 }
 
 /**
@@ -93,7 +90,9 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
     }
 
     sourceSet.extendConfigurations(dependency.sourceSet, true)
+
     accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
 }
 
 /**
@@ -115,7 +114,9 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
     }
 
     sourceSet.extendConfigurations(dependency.sourceSet, false)
+
     accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
 }
 
 /**
@@ -132,5 +133,7 @@ internal fun CompilationInternal.addSourceDependency(dependency: CommonCompilati
     project.dependencies.add(sourceSet.compileOnlyConfigurationName, JAVA_CLASS_EXTENSIONS_ANNOTATIONS)
     project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_CLASS_EXTENSIONS_PROCESSOR)
     project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
+
     accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
 }

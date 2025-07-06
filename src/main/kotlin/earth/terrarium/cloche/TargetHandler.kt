@@ -16,7 +16,6 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.named
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
@@ -27,7 +26,6 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.Category
-import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.attributes.Usage
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
@@ -145,9 +143,9 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"),
             Copy::class.java
         ) {
-            it.from(configurations.named(compilation.sourceSet.mixinsConfigurationName))
-            it.destinationDir =
-                layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
+            it.from(compilation.mixins)
+
+            it.destinationDir = layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
         }
 
         sourceSet.resources.srcDir(copyMixins.map(Copy::getDestinationDir))

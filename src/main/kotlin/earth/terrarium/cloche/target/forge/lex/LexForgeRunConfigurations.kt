@@ -1,26 +1,25 @@
 package earth.terrarium.cloche.target.forge.lex
 
+import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.forge.ForgeRunConfigurations
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunConfigurationData
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
 
 internal abstract class LexForgeRunConfigurations @Inject constructor(target: ForgeTargetImpl) : ForgeRunConfigurations<ForgeTargetImpl>(target) {
-    override fun configureData(data: ForgeRunConfigurationData, sourceSet: Provider<SourceSet>) {
-        super.configureData(data, sourceSet)
+    override fun configureData(data: ForgeRunConfigurationData, compilation: Provider<TargetCompilation>) {
+        super.configureData(data, compilation)
 
         data.generateMcpToSrg.set(target.generateMcpToSrg)
-        data.mixinConfigs.from(sourceSet.flatMap { project.configurations.named(it.mixinsConfigurationName) })
+        data.mixinConfigs.from(compilation.map(TargetCompilation::mixins))
     }
 
-    override fun configureData(data: ForgeRunConfigurationData, sourceSet: SourceSet) {
-        super.configureData(data, sourceSet)
+    override fun configureData(data: ForgeRunConfigurationData, compilation: TargetCompilation) {
+        super.configureData(data, compilation)
 
         data.generateMcpToSrg.set(target.generateMcpToSrg)
-        data.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
+        data.mixinConfigs.from(compilation.mixins)
     }
 
     override fun applyDefault(run: MinecraftRunConfiguration) {

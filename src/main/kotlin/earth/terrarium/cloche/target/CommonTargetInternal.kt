@@ -11,6 +11,7 @@ import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
@@ -45,6 +46,8 @@ internal abstract class CommonTargetInternal @Inject constructor(
         project.objects.newInstance(CommonTopLevelCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME, this)
     }
 
+    override val mixins get() = main.mixins
+    override val accessWideners get() = main.accessWideners
     override val sourceSet get() = main.sourceSet
     override val data get() = main.data
     override val test get() = main.test

@@ -30,7 +30,6 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
@@ -200,7 +199,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
         it.targetMetadata.set(metadata)
-        it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
+        it.mixinConfigs.from(mixins)
     }
 
     private val generateMappingsArtifact = project.tasks.register(
@@ -272,7 +271,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         generateModJson.configure {
-            it.clientMixinConfigs.from(project.configurations.named(client.sourceSet.mixinsConfigurationName))
+            it.clientMixinConfigs.from(client.mixins)
         }
 
         client

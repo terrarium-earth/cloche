@@ -36,6 +36,7 @@ internal const val FABRIC = "fabric"
 internal const val NEOFORGE = "neoforge"
 internal const val COMMON = "common"
 
+// TODO Remove overloads with no `configure`
 @JvmDefaultWithoutCompatibility
 interface TargetContainer {
     fun fabric(): FabricTarget = fabric(FABRIC)
@@ -70,6 +71,7 @@ interface TargetContainer {
     fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget
 }
 
+// TODO Don't have target methods that accept a name
 class SingleTargetConfigurator(private val project: Project, private val extension: ClocheExtension) : TargetContainer {
     internal var target: MinecraftTarget? = null
 

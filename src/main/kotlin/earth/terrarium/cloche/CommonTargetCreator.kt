@@ -6,7 +6,6 @@ import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ConfigurationContainer
@@ -281,8 +280,6 @@ internal fun createCommonTarget(
                 KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR,
             )
         }
-
-        dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
