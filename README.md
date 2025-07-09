@@ -11,13 +11,13 @@ A plethora of easily configurable features, including but not limited to:
 - Pre-applied mixins, allowing for a better debug experience (WIP)
 - Mod metadata(`fabric.mod.json`, `neoforge.mods.toml`, etc) generated for all targets
 - Multi-platform utilities when using multiple targets, such as Java @Expect/@Actual annotations and Kotlin multiplatform features
-  - Part of the [jvm-multiplatform](https://github.com/MsRandom/jvm-multiplatform) tool suite 
+  - Part of the [jvm-multiplatform](https://github.com/MsRandom/jvm-multiplatform) tool suite
 
 ### Publishing and Consumption
 If you publish a library/mod API with Cloche, variants are automatically configured for consumers, thus if you use the library in common, it will automatically pick the right variants for each consuming target.
 
 ## Setup
-The basic structure for using this goes as follows in `build.gradle.kts`
+The basic structure for using Cloche in a `build.gradle`(`.kts`) build script is generally as follows:
 ```kt
 plugins {
     id("earth.terrarium.cloche") version "VERSION"
@@ -26,6 +26,26 @@ plugins {
 // Group and version can be in gradle.properties as well
 group = "net.xyz"
 version = "1.0.0"
+
+// Add the relevant repositories, depending on what targets you have
+repositories {
+  cloche.librariesMinecraft() // libraries.minecraft.net, always recommended first as Mojang sometimes publishes non-standard classifiers there which are needed on certain platforms
+
+  mavenCentral() // Maven central second for best reliability
+
+  cloche {
+    main() // General multiplatform or configuration libraries, generally not needed in single-target neoforge
+
+    // Neoforge specific mavens (if neoforge targets are added)
+    mavenNeoforgedMeta()
+    mavenNeoforged(/* releases */)
+
+    mavenFabric() // maven.fabricmc.net (if fabric targets are added)
+    mavenForge() // maven.minecraftforge.net (if forge targets are added)
+
+    mavenParchment() // maven.parchmentmc.org (if parchment is used)
+  }
+}
 
 cloche {
     metadata {

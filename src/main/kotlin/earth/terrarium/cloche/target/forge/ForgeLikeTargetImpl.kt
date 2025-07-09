@@ -14,6 +14,7 @@ import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
@@ -284,11 +285,11 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+        project.configurations.named(sourceSet.compileOnlyConfigurationName) {
             it.extendsFrom(minecraftLibrariesConfiguration)
         }
 
-        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+        project.configurations.named(sourceSet.localRuntimeConfigurationName) {
             it.extendsFrom(minecraftLibrariesConfiguration)
         }
 

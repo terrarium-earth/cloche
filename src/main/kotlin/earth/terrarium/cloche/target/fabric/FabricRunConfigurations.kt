@@ -2,11 +2,14 @@ package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
+import earth.terrarium.cloche.api.run.commonDescription
+import earth.terrarium.cloche.api.run.quotedDescription
+import earth.terrarium.cloche.api.run.withCompilation
+import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
-import earth.terrarium.cloche.api.target.compilation.Compilation
+import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
@@ -35,16 +38,21 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         return run
     }
 
+    private fun clientDescription(name: String) = if (target.hasIncludedClient) {
+        quotedDescription(name)
+    } else if (target.client.value.isPresent) {
+        "'${FabricTarget::client.name} { ${commonDescription(name)} }'"
+    } else {
+        "'${FabricTarget::client.name} { ${commonDescription(name)} }' or ${quotedDescription(name)}"
+    }
+
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
             it.server {
                 it.modOutputs.from(project.modOutputs(target.main))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
-        }
-            .sourceSet(target.sourceSet)
-            .addMixinJavaAgent()
-            .beforeRun(target.main.generateModOutputs)
+        }.withCompilation(target.main)
     }
 
     override val client = project.lazyConfigurable {
@@ -69,10 +77,12 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                     )
                 )
             }
+        }.withCompilation(target, compilation) {
+            // TODO This error description is currently unused, as the fallback to target.main will *always* succeed
+            //  Whether this should be changed is still up for debate. Should a target with no configured client still be runnable as client?
+            //  it makes sense for server mods and datapacks to still be tested on the client, so the best option is probably removing the checking here and always allowing client runs
+            ""
         }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 
     override val data = project.lazyConfigurable {
@@ -93,10 +103,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                     )
                 )
             }
-        }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
+        }.withCompilation(target, compilation) { quotedDescription(CommonSecondarySourceSets::data.name) }
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenDirectory)
@@ -137,7 +144,6 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
-
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
@@ -151,10 +157,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                     )
                 )
             }
+        }.withCompilation(target, compilation) {
+            clientDescription(CommonSecondarySourceSets::data.name)
         }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
 
         target.client.onConfigured {
             project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -241,10 +246,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
+        }.withCompilation(target, compilation) {
+            quotedDescription(CommonSecondarySourceSets::test.name)
         }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 
     override val clientTest = project.lazyConfigurable {
@@ -268,9 +272,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                     )
                 )
             }
+        }.withCompilation(target, compilation) {
+            clientDescription(CommonSecondarySourceSets::test.name)
         }
-            .sourceSet(compilation.map(Compilation::sourceSet))
-            .addMixinJavaAgent()
-            .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
     }
 }

@@ -10,7 +10,6 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.GenerateMcpToSrg
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.provider.Provider
@@ -18,6 +17,7 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
+import java.io.File
 import javax.inject.Inject
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
@@ -112,8 +112,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
             it.manifest {
                 it.attributes["MixinConfigs"] = object {
                     override fun toString(): String {
-                        return project.configurations.getByName(compilation.sourceSet.mixinsConfigurationName)
-                            .joinToString(",") { it.name }
+                        return compilation.mixins.joinToString(",", transform = File::getName)
                     }
                 }
             }

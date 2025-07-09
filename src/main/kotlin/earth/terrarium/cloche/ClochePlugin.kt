@@ -4,12 +4,20 @@ import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.util.isIdeDetected
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.MinecraftTargetInternal
+import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.initialization.Settings
 import org.gradle.api.plugins.PluginAware
+import org.gradle.util.GradleVersion
 
-fun Project.ideaSyncHook() {
+internal fun Project.requireGroup() {
+    if (group.toString().isEmpty()) {
+        throw InvalidUserCodeException("Group was not set for $project. Please set 'group' in either a gradle.properties file or a build script like build.gradle(.kts)")
+    }
+}
+
+internal fun Project.ideaSyncHook() {
     tasks.register(IDE_SYNC_TASK_NAME)
 
     if (!isIdeDetected()) {
@@ -55,6 +63,12 @@ internal fun addTarget(
 
 class ClochePlugin<T : PluginAware> : Plugin<T> {
     override fun apply(target: T) {
+        val currentGradle = GradleVersion.current()
+
+        if (currentGradle < MINIMUM_GRADLE) {
+            throw InvalidUserCodeException("Current Gradle version is ${currentGradle.version} while the minimum supported version is ${MINIMUM_GRADLE.version}")
+        }
+
         when (target) {
             is Project -> {
                 applyToProject(target)
@@ -66,7 +80,7 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
         }
     }
 
-    companion object {
+    internal companion object {
         const val SERVER_RUNNABLE_NAME = "server"
         const val CLIENT_COMPILATION_NAME = "client"
         const val DATA_COMPILATION_NAME = "data"
@@ -80,5 +94,8 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
         const val STUB_DEPENDENCY = "$STUB_MODULE:$STUB_VERSION"
 
         const val KOTLIN_JVM_PLUGIN_ID = "org.jetbrains.kotlin.jvm"
+
+        @JvmField
+        val MINIMUM_GRADLE: GradleVersion = GradleVersion.version("8.11")
     }
 }

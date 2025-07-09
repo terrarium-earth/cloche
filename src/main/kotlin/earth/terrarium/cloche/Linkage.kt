@@ -6,13 +6,14 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSet
 
-const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.8"
+const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.9"
+const val JAVA_CLASS_EXTENSIONS_ANNOTATIONS = "net.msrandom:class-extension-annotations:1.0.0"
+const val JAVA_CLASS_EXTENSIONS_PROCESSOR = "net.msrandom:java-class-extensions-processor:1.0.0"
 const val KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR = "net.msrandom:kmp-actual-stubs-processor:1.0.3"
 
 context(Project)
@@ -71,8 +72,6 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
         modConfigurationName(localRuntimeConfigurationName),
         modConfigurationName(dependency.localRuntimeConfigurationName),
     )
-
-    project.extend(mixinsConfigurationName, dependency.mixinsConfigurationName)
 }
 
 /**
@@ -91,7 +90,9 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
     }
 
     sourceSet.extendConfigurations(dependency.sourceSet, true)
+
     accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
 }
 
 /**
@@ -113,7 +114,9 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
     }
 
     sourceSet.extendConfigurations(dependency.sourceSet, false)
+
     accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
 }
 
 /**
@@ -127,6 +130,10 @@ internal fun CompilationInternal.addSourceDependency(dependency: CommonCompilati
 
     sourceSet.extendConfigurations(dependency.sourceSet, true)
 
+    project.dependencies.add(sourceSet.compileOnlyConfigurationName, JAVA_CLASS_EXTENSIONS_ANNOTATIONS)
+    project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_CLASS_EXTENSIONS_PROCESSOR)
     project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR)
+
     accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
 }

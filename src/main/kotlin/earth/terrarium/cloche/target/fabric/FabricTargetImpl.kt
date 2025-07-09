@@ -14,6 +14,7 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -29,7 +30,6 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
@@ -199,7 +199,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
         it.targetMetadata.set(metadata)
-        it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
+        it.mixinConfigs.from(mixins)
     }
 
     private val generateMappingsArtifact = project.tasks.register(
@@ -227,14 +227,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     lateinit var mergeJarTask: TaskProvider<Jar>
     override lateinit var includeJarTask: TaskProvider<JarInJar>
 
-    private var hasIncludedClientValue = false
-    private val hasIncludedClient = project.provider { hasIncludedClientValue }
+    var hasIncludedClient = false
+        private set
+
+    private val hasIncludedClientProvider = project.provider { hasIncludedClient }
     private val includedClientActions = mutableListOf<() -> Unit>()
 
     final override lateinit var main: TargetCompilation
 
     final override val client: LazyConfigurableInternal<FabricClientSecondarySourceSets> = project.lazyConfigurable {
-        if (hasIncludedClientValue) {
+        if (hasIncludedClient) {
             throw InvalidUserCodeException("Used `client()` in $name after previously using `includedClient()`")
         }
 
@@ -269,7 +271,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         generateModJson.configure {
-            it.clientMixinConfigs.from(project.configurations.named(client.sourceSet.mixinsConfigurationName))
+            it.clientMixinConfigs.from(client.mixins)
         }
 
         client
@@ -329,7 +331,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     private fun registerCommonCompilation(name: String): TargetCompilation {
         fun <T> clientAlternative(normal: Provider<T>, client: Provider<T>) =
-            hasIncludedClient.flatMap {
+            hasIncludedClientProvider.flatMap {
                 if (it) {
                     client
                 } else {
@@ -460,11 +462,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-            project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            project.configurations.named(sourceSet.compileOnlyConfigurationName) {
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
-            project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+            project.configurations.named(sourceSet.localRuntimeConfigurationName) {
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
@@ -543,15 +545,15 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             throw InvalidUserCodeException("Used 'includedClient' in target $name after already configuring client compilation")
         }
 
-        hasIncludedClientValue = true
+        hasIncludedClient = true
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+        project.configurations.named(sourceSet.compileOnlyConfigurationName) {
             it.extendsFrom(clientLibrariesConfiguration)
         }
 
-        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+        project.configurations.named(sourceSet.localRuntimeConfigurationName) {
             it.extendsFrom(clientLibrariesConfiguration)
         }
 
@@ -563,7 +565,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun onClientIncluded(action: () -> Unit) {
-        if (hasIncludedClientValue) {
+        if (hasIncludedClient) {
             action()
         } else {
             includedClientActions.add(action)

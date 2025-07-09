@@ -22,6 +22,8 @@ internal fun Project.createCompilationVariants(
             java.withSourcesJar()
         }
     } else {
+        requireGroup()
+
         java.registerFeature(sourceSet.name) { spec ->
             spec.usingSourceSet(sourceSet)
 

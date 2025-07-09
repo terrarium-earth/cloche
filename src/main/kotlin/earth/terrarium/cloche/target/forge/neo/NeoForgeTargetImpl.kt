@@ -10,7 +10,6 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
@@ -21,7 +20,6 @@ import javax.inject.Inject
 private val NEOFORGE_DISTRIBUTION_ATTRIBUTE = Attribute.of("net.neoforged.distribution", String::class.java)
 private val NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE = Attribute.of("net.neoforged.operatingsystem", String::class.java)
 
-@Suppress("UnstableApiUsage")
 internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), NeoforgeTarget {
     final override val group
         get() = "net.neoforged"
@@ -91,7 +89,11 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
                 it.dir("META-INF").file("neoforge.mods.toml")
             })
 
-            it.mixinConfigs.from(project.configurations.named(sourceSet.mixinsConfigurationName))
+            it.mixinConfigs.from(mixins)
+        }
+
+        resolvePatchedMinecraft.configure {
+            it.neoforge.set(true)
         }
     }
 
@@ -134,7 +136,6 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
         if (SourceSet.isMain(sourceSet)) {
             // Fix attributes for implicitly created test source set
-
             addAttributes(project.extension<SourceSetContainer>().getByName(SourceSet.TEST_SOURCE_SET_NAME))
         }
     }

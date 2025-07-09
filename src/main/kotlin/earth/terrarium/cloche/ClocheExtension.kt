@@ -36,6 +36,7 @@ internal const val FABRIC = "fabric"
 internal const val NEOFORGE = "neoforge"
 internal const val COMMON = "common"
 
+// TODO Remove overloads with no `configure`
 @JvmDefaultWithoutCompatibility
 interface TargetContainer {
     fun fabric(): FabricTarget = fabric(FABRIC)
@@ -70,6 +71,7 @@ interface TargetContainer {
     fun neoforge(name: String, configure: Action<NeoforgeTarget>): NeoforgeTarget
 }
 
+// TODO Don't have target methods that accept a name
 class SingleTargetConfigurator(private val project: Project, private val extension: ClocheExtension) : TargetContainer {
     internal var target: MinecraftTarget? = null
 
@@ -78,11 +80,11 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
     override fun neoforge(name: String, configure: Action<NeoforgeTarget>) = target(name, NeoForgeTargetImpl::class.java, configure)
 
     private fun <T : MinecraftTarget> target(name: String, type: Class<out T>, configure: Action<T>): T {
-        extension.targets.all {
+        extension.targets.configureEach {
             throw UnsupportedOperationException("Target ${it.name} has been configured. Can not set single target to $name")
         }
 
-        extension.commonTargets.all {
+        extension.commonTargets.configureEach {
             throw UnsupportedOperationException("Common target ${it.name} has been configured. Can not use single target mode with target $name")
         }
 

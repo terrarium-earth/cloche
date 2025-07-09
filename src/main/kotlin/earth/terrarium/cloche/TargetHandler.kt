@@ -16,7 +16,6 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.named
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
@@ -115,11 +114,15 @@ private fun TargetCompilation.addDependencies() {
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
 
-        it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
 
         if (!isTest) {
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
         }
+    }
+
+    project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+        it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
     }
 }
 
@@ -140,9 +143,9 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"),
             Copy::class.java
         ) {
-            it.from(configurations.named(compilation.sourceSet.mixinsConfigurationName))
-            it.destinationDir =
-                project.layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
+            it.from(compilation.mixins)
+
+            it.destinationDir = layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
         }
 
         sourceSet.resources.srcDir(copyMixins.map(Copy::getDestinationDir))
@@ -150,16 +153,18 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         target.registerAccessWidenerMergeTask(compilation)
         target.addJarInjects(compilation)
 
-        val modOutputs = project.configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
-            val capabilitySuffix = compilation.capabilityName?.let { "-$it" }.orEmpty() + "-mod-outputs"
+        val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
+            val capabilitySuffix = compilation.capabilityName?.let { "$it-" }.orEmpty() + "mod-outputs"
 
-            modOutputs.outgoing.capability("${project.group}:${project.name}:${project.version}")
+            requireGroup()
+
+            modOutputs.outgoing.capability("$group:$name:$version")
 
             compilation.capabilityName?.let {
-                modOutputs.outgoing.capability("${project.group}:${project.name}-$it:${project.version}")
+                modOutputs.outgoing.capability("$group:$name-$it:$version")
             }
 
-            modOutputs.outgoing.capability("${project.group}:${project.name}$capabilitySuffix:${project.version}")
+            modOutputs.outgoing.capability("$group:$name-$capabilitySuffix:$version")
 
             modOutputs.attributes
                 .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
@@ -167,7 +172,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
             compilation.attributes(modOutputs.attributes)
 
-            project.components.named("java") { java ->
+            components.named("java") { java ->
                 java as AdhocComponentWithVariants
 
                 java.addVariantsFromConfiguration(modOutputs) {
@@ -176,7 +181,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             }
         }
 
-        project.artifacts.add(modOutputs.name, compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
+        artifacts.add(modOutputs.name, compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
             it.type = JSON_ARTIFACT_TYPE
         }
 

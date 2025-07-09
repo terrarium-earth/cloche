@@ -13,7 +13,6 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -130,7 +129,13 @@ internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String,
         sourceSetName(name, target)
     }
 
-    return target.project.extension<SourceSetContainer>().maybeCreate(name)
+    val sourceSet = target.project.extension<SourceSetContainer>().maybeCreate(name)
+
+    if (sourceSet.localRuntimeConfigurationName !in target.project.configurations.names) {
+        target.project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
+    }
+
+    return sourceSet
 }
 
 private fun setupModTransformationPipeline(
@@ -277,8 +282,6 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
     }
 
     init {
-        project.dependencies.add(sourceSet.mixinsConfigurationName, mixins)
-
         setupModTransformationPipeline(project, target, this)
 
         val state = target.modRemapNamespace.map {

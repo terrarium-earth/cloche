@@ -5,6 +5,7 @@ import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
@@ -19,6 +20,9 @@ import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.JavaLibraryPlugin
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 
 fun applyToProject(project: Project) {
     val cloche = project.extensions.create("cloche", ClocheExtension::class.java)
@@ -42,6 +46,19 @@ fun applyToProject(project: Project) {
 
     project.plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
         project.plugins.apply(KspGradleSubplugin::class.java)
+    }
+
+    project.plugins.withType(MavenPublishPlugin::class.java) {
+        project.extension<PublishingExtension>().publications.configureEach { publication ->
+            if (publication is MavenPublication) {
+                // afterEvaluate needed to query value of property
+                project.afterEvaluate {
+                    if (publication.artifactId != project.name) {
+                        project.logger.warn("WARNING: artifactId set for publication '${publication.name}' in $project. This is heavily discouraged as it can break core capability functionality.")
+                    }
+                }
+            }
+        }
     }
 
     ClocheRepositoriesExtension.register(project.repositories)

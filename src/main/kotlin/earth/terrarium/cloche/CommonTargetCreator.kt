@@ -15,7 +15,6 @@ import earth.terrarium.cloche.target.getNonProjectArtifacts
 import earth.terrarium.cloche.target.getRelevantSyncArtifacts
 import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.mixins.mixinsConfigurationName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ConfigurationContainer
@@ -138,7 +137,7 @@ internal fun createCommonTarget(
         components.named("java") { java ->
             java as AdhocComponentWithVariants
 
-            java.withVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
+            java.addVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
                 // Common compilations are not runnable.
                 variant.skip()
             }
@@ -290,8 +289,6 @@ internal fun createCommonTarget(
                 KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR,
             )
         }
-
-        dependencies.add(sourceSet.mixinsConfigurationName, compilation.mixins)
 
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
