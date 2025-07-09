@@ -144,6 +144,8 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     @Suppress("UNCHECKED_CAST")
     internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
+    internal val intermediaryMinecraftProviders = project.objects.newInstance(IntermediaryMinecraftProviders::class.java)
+
     private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, () -> Unit>()
 
     private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: () -> Unit) {

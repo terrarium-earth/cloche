@@ -7,6 +7,7 @@ import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.RemapNamespaceAttribute
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.getRemappedMinecraftByNamespace
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -162,9 +163,15 @@ private fun setupModTransformationPipeline(
                 it.parameters {
                     it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                    it.sourceNamespace.set(remapNamespace?.takeUnless { it === RemapNamespaceAttribute.INITIAL } ?: target.modRemapNamespace.get())
+                    val namespace = remapNamespace?.takeUnless { it === RemapNamespaceAttribute.INITIAL } ?: target.modRemapNamespace.get()
+                    it.sourceNamespace.set(namespace)
 
-                    it.extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
+                    it.extraClasspath.from(
+                        compilation.info.target.getRemappedMinecraftByNamespace(
+                            namespace,
+                            compilation.info.target.project.extension()
+                        )
+                    )
 
                     it.cacheDirectory.set(getGlobalCacheDirectory(project))
 

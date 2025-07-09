@@ -42,7 +42,7 @@ import javax.inject.Inject
 @Suppress("UnstableApiUsage")
 internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     MinecraftTargetInternal(name), ForgeLikeTarget {
-    protected val minecraftLibrariesConfiguration: Configuration =
+    internal val minecraftLibrariesConfiguration: Configuration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
             it.isCanBeConsumed = false
 
@@ -67,7 +67,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.isCanBeConsumed = false
     }
 
-    protected val resolvePatchedMinecraft: TaskProvider<ResolvePatchedMinecraft> = project.tasks.register(
+    internal val resolvePatchedMinecraft: TaskProvider<ResolvePatchedMinecraft> = project.tasks.register(
         lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft"),
         ResolvePatchedMinecraft::class.java
     ) {
