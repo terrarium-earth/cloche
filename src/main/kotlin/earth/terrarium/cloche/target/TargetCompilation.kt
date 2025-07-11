@@ -174,7 +174,7 @@ private fun setupModTransformationPipeline(
                     it.extraClasspath.from(
                         compilation.info.target.getRemappedMinecraftByNamespace(
                             namespace,
-                            compilation.info.target.project.extension()
+                            compilation.info.target.project.extension<ClocheExtension>().intermediaryMinecraftProviders
                         )
                     )
 

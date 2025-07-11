@@ -3,17 +3,8 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
-import earth.terrarium.cloche.target.CommonCompilation
-import earth.terrarium.cloche.target.CommonTargetInternal
-import earth.terrarium.cloche.target.CommonTopLevelCompilation
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.configureSourceSet
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.target.getNonProjectArtifacts
-import earth.terrarium.cloche.target.getRelevantSyncArtifacts
-import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project

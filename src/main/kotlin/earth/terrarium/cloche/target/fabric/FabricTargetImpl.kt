@@ -77,7 +77,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             )
         }
 
-    private val resolveCommonMinecraft =
+    internal val resolveCommonMinecraft =
         project.tasks.register(
             lowerCamelCaseGradleName("resolve", name, "common"),
             ResolveMinecraftCommon::class.java,
@@ -89,7 +89,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.output.set(output("obf"))
         }
 
-    private val resolveClientMinecraft =
+    internal val resolveClientMinecraft =
         project.tasks.register(
             lowerCamelCaseGradleName("resolve", name, "client"),
             ResolveMinecraftClient::class.java,

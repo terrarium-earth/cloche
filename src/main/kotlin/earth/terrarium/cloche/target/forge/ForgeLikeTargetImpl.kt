@@ -78,10 +78,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.universal.from(universal)
 
         it.output.set(output(minecraftRemapNamespace.map {
-            if (it.isEmpty()) {
+            it.ifEmpty {
                 MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE
-            } else {
-                it
             }
         }))
     }

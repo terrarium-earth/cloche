@@ -9,9 +9,7 @@ import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.Project
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
-import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.Nested
 import javax.inject.Inject
 import kotlin.reflect.KClass
 
@@ -19,63 +17,103 @@ private typealias Classpath = FileCollection
 
 private typealias TaskInput = Provider<RegularFile>
 
-private typealias IntermediaryMinecraftProvider = Map<String, Pair<TaskInput, Classpath>>
+private typealias TargetMinecraftProvider = Map<String, TaskInput>
 
-internal abstract class IntermediaryMinecraftProviders {
-    abstract val providers: MapProperty<KClass<out MinecraftTarget>, (MinecraftTarget) -> IntermediaryMinecraftProvider>
-        @Nested get
+private typealias Namespace = String
+
+internal abstract class DefinedMinecraftProviders {
+    val providers: MutableMap<KClass<out MinecraftTarget>, MutableMap<Namespace, (MinecraftTarget) -> TargetMinecraftProvider>> =
+        hashMapOf()
+
+    val classpaths: MutableMap<KClass<out MinecraftTarget>, MutableMap<Namespace, (MinecraftTarget, String) -> Classpath>> =
+        hashMapOf()
 
     abstract val project: Project
         @Inject get
 
     init {
-        register<FabricTargetImpl> {
+        registerClasspath<FabricTargetImpl>(RemapNamespaceAttribute.INTERMEDIARY) { target, variant ->
+            when (variant) {
+                "common" -> target.commonLibrariesConfiguration
+                "client" -> project.files(
+                    target.commonLibrariesConfiguration,
+                    target.clientLibrariesConfiguration,
+                    target.resolveCommonMinecraft.flatMap { it.output })
+
+                else -> error("Unknown variant $variant")
+            }
+        }
+
+        registerProvider<FabricTargetImpl>(RemapNamespaceAttribute.OBF) {
             mapOf(
-                "common" to
-                        (it.remapCommonMinecraftIntermediary.flatMap { it.outputFile } to it.commonLibrariesConfiguration),
-                "client" to
-                        (it.remapClientMinecraftIntermediary.flatMap { it.outputFile } to
-                                project.files(
-                                    it.commonLibrariesConfiguration,
-                                    it.clientLibrariesConfiguration,
-                                    it.remapCommonMinecraftIntermediary.flatMap { it.outputFile })),
+                "common" to it.resolveCommonMinecraft.flatMap { it.output },
+                "client" to it.resolveClientMinecraft.flatMap { it.output },
             )
         }
 
-        register<ForgeLikeTargetImpl> {
-            mapOf("" to (it.resolvePatchedMinecraft.flatMap { it.output } to it.minecraftLibrariesConfiguration))
+        registerProvider<FabricTargetImpl>(RemapNamespaceAttribute.INTERMEDIARY) {
+            mapOf(
+                "common" to it.remapCommonMinecraftIntermediary.flatMap { it.outputFile },
+                "client" to it.remapClientMinecraftIntermediary.flatMap { it.outputFile },
+            )
+        }
+
+        registerClasspath<ForgeLikeTargetImpl>(RemapNamespaceAttribute.SEARGE) { target, _ ->
+            target.minecraftLibrariesConfiguration
+        }
+
+        registerProvider<ForgeLikeTargetImpl>(RemapNamespaceAttribute.SEARGE) {
+            mapOf("" to it.resolvePatchedMinecraft.flatMap { it.output })
         }
     }
 
-    internal inline fun <reified T : MinecraftTarget> register(noinline provider: (T) -> IntermediaryMinecraftProvider) {
-        providers.put(T::class, provider as (MinecraftTarget) -> IntermediaryMinecraftProvider)
+    private inline fun <reified T : MinecraftTarget> registerClasspath(
+        namespace: Namespace,
+        noinline provider: (T, String) -> Classpath
+    ) {
+        val map = classpaths.computeIfAbsent(T::class) { hashMapOf() }
+        map[namespace] = provider as (MinecraftTarget, String) -> Classpath
     }
 
-    private fun getProvider(target: MinecraftTarget) = providers.flatMap {
-        // FIXME Use `flatMap` for https://github.com/gradle/gradle/issues/12388. Should be fixed after Gradle 9 published.
-        project.provider {
-            it[target::class] ?: it.firstNotNullOfOrNull { (key, value) ->
-                if (key.isInstance(target)) value
-                else null
-            }
-        } as Provider<(MinecraftTarget) -> IntermediaryMinecraftProvider>
+    private inline fun <reified T : MinecraftTarget> registerProvider(
+        namespace: Namespace,
+        noinline provider: (T) -> TargetMinecraftProvider
+    ) {
+        val map = providers.computeIfAbsent(T::class) { hashMapOf() }
+        map[namespace] = provider as (MinecraftTarget) -> TargetMinecraftProvider
     }
 
-    operator fun get(target: MinecraftTarget): Provider<IntermediaryMinecraftProvider> =
-        getProvider(target).map { it.invoke(target) }
+    private fun getProvider(target: MinecraftTarget) =
+        providers[target::class] ?: providers.firstNotNullOfOrNull { (key, value) ->
+            if (key.isInstance(target)) value
+            else null
+        } as MutableMap<Namespace, (MinecraftTarget) -> TargetMinecraftProvider>
+
+    fun getProvider(target: MinecraftTarget, namespace: Namespace): TargetMinecraftProvider? =
+        getProvider(target)[namespace]?.invoke(target)
+
+    private fun getClasspath(target: MinecraftTarget) = classpaths.computeIfAbsent(target::class) { hashMapOf() }
+
+    fun getClasspath(target: MinecraftTarget, namespace: Namespace): Classpath =
+        getClasspath(target)[namespace]?.invoke(target, namespace) ?: project.files()
 }
 
 internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
     namespace: String,
-    providers: IntermediaryMinecraftProviders,
+    providers: DefinedMinecraftProviders,
 ): FileCollection {
     if (namespace == minecraftRemapNamespace.get()) {
         return main.info.intermediaryMinecraftClasspath
     }
 
-    val providers = providers[this].orNull ?: error("Unknown target type $this")
+    val provider = providers.getProvider(this, namespace)
+    if (provider != null) {
+        return project.files(provider.map { it.value })
+    }
 
-    val intermediaryJars = providers.map { (variant, input) ->
+    val intermediaryJarProvider = providers.getProvider(this, target.minecraftRemapNamespace.get())
+        ?: error("No intermediary provider found for $this")
+    val intermediaryJars = intermediaryJarProvider.map { (variant, input) ->
         project.tasks.maybeRegister<RemapTask>(
             lowerCamelCaseGradleName(
                 "remap",
@@ -87,18 +125,29 @@ internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
         ) {
             it.group = "minecraft-transforms"
 
-            it.inputFile.set(input.first)
+            it.inputFile.set(input)
             it.sourceNamespace.set(minecraftRemapNamespace)
             it.targetNamespace.set(namespace)
 
-            it.classpath.from(input.second)
+            it.classpath.from(providers.getClasspath(this, namespace))
 
             it.mappings.set(loadMappingsTask.flatMap { it.output })
 
             it.outputFile.set(outputDirectory.zip(minecraftVersion) { dir, version ->
-                dir.file("minecraft-$version-$variant-$namespace.jar")
+                dir.file(buildString {
+                    append("minecraft")
+                    append("-")
+                    append(version)
+                    if (variant.isNotBlank()) {
+                        append("-")
+                        append(variant)
+                    }
+                    append("-")
+                    append(namespace)
+                    append(".jar")
+                })
             })
-        }
+        }.flatMap { it.outputFile }
     }
 
     return project.files(intermediaryJars)
