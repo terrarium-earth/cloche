@@ -81,6 +81,7 @@ fun applyToProject(project: Project) {
                 .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+                .attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
         }
 
         it.create(JSON_ARTIFACT_TYPE)
