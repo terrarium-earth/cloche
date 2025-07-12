@@ -9,6 +9,7 @@ import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.Project
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Provider
 import javax.inject.Inject
 import kotlin.reflect.KClass
@@ -17,19 +18,30 @@ private typealias Classpath = FileCollection
 
 private typealias TaskInput = Provider<RegularFile>
 
-private typealias TargetMinecraftProvider = Map<String, TaskInput>
+private typealias TargetMinecraftProvider = MapProperty<String, TaskInput>
 
 private typealias Namespace = String
 
 internal abstract class DefinedMinecraftProviders {
-    val providers: MutableMap<KClass<out MinecraftTarget>, MutableMap<Namespace, (MinecraftTarget) -> TargetMinecraftProvider>> =
-        hashMapOf()
-
-    val classpaths: MutableMap<KClass<out MinecraftTarget>, MutableMap<Namespace, (MinecraftTarget, String) -> Classpath>> =
-        hashMapOf()
-
     abstract val project: Project
         @Inject get
+
+    protected val objects
+        get() = project.objects
+
+    @Suppress("UNCHECKED_CAST")
+    val providers =
+        objects.mapProperty(
+            KClass::class.java as Class<KClass<out MinecraftTarget>>,
+            MapProperty::class.java as Class<MapProperty<String, (MinecraftTarget) -> TargetMinecraftProvider>>
+        ).convention(mutableMapOf())
+
+    @Suppress("UNCHECKED_CAST")
+    val classpaths =
+        objects.mapProperty(
+            KClass::class.java as Class<KClass<out MinecraftTarget>>,
+            MapProperty::class.java as Class<MapProperty<String, (MinecraftTarget, String) -> FileCollection>>
+        ).convention(mutableMapOf())
 
     init {
         registerClasspath<FabricTargetImpl>(RemapNamespaceAttribute.INTERMEDIARY) { target, variant ->
@@ -67,35 +79,61 @@ internal abstract class DefinedMinecraftProviders {
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     private inline fun <reified T : MinecraftTarget> registerClasspath(
         namespace: Namespace,
         noinline provider: (T, String) -> Classpath
     ) {
-        val map = classpaths.computeIfAbsent(T::class) { hashMapOf() }
-        map[namespace] = provider as (MinecraftTarget, String) -> Classpath
+        val currentMap = classpaths.get()[T::class] ?: run {
+            val newMap = objects.mapProperty(
+                String::class.java,
+                Object::class.java as Class<(MinecraftTarget, String) -> FileCollection>
+            )
+            newMap.convention(mutableMapOf())
+            classpaths.put(T::class, newMap)
+            newMap
+        }
+        currentMap.put(namespace, provider as (MinecraftTarget, String) -> Classpath)
     }
 
+    @Suppress("UNCHECKED_CAST")
     private inline fun <reified T : MinecraftTarget> registerProvider(
         namespace: Namespace,
-        noinline provider: (T) -> TargetMinecraftProvider
+        noinline provider: (T) -> Map<String, TaskInput>
     ) {
-        val map = providers.computeIfAbsent(T::class) { hashMapOf() }
-        map[namespace] = provider as (MinecraftTarget) -> TargetMinecraftProvider
+        val currentMap = providers.get()[T::class] ?: run {
+            val newMap = objects.mapProperty(
+                String::class.java,
+                java.lang.Object::class.java as Class<(MinecraftTarget) -> MapProperty<String, TaskInput>>
+            )
+            newMap.convention(mutableMapOf())
+            providers.put(T::class, newMap)
+            newMap
+        }
+
+        currentMap.put(namespace) {
+            objects.mapProperty(String::class.java, Provider::class.java as Class<TaskInput>).value(provider(it as T))
+        }
     }
 
-    private fun getProvider(target: MinecraftTarget) =
-        providers[target::class] ?: providers.firstNotNullOfOrNull { (key, value) ->
-            if (key.isInstance(target)) value
-            else null
-        } as MutableMap<Namespace, (MinecraftTarget) -> TargetMinecraftProvider>
+    private fun getProvider(target: MinecraftTarget): MapProperty<Namespace, (MinecraftTarget) -> TargetMinecraftProvider>? =
+        providers.get()[target::class]
+            ?: providers.get().entries.firstOrNull { (key, _) -> key.isInstance(target) }?.value
 
     fun getProvider(target: MinecraftTarget, namespace: Namespace): TargetMinecraftProvider? =
-        getProvider(target)[namespace]?.invoke(target)
+        getProvider(target)?.get()?.get(namespace)?.invoke(target)
 
-    private fun getClasspath(target: MinecraftTarget) = classpaths.computeIfAbsent(target::class) { hashMapOf() }
+    private fun getClasspath(target: MinecraftTarget): MapProperty<Namespace, (MinecraftTarget, String) -> Classpath> {
+        val map = objects.mapProperty(
+            String::class.java,
+            java.lang.Object::class.java as Class<(MinecraftTarget, String) -> FileCollection>
+        )
+        map.convention(mutableMapOf())
+        return classpaths.get()[target::class] ?: map
+    }
 
     fun getClasspath(target: MinecraftTarget, namespace: Namespace): Classpath =
-        getClasspath(target)[namespace]?.invoke(target, namespace) ?: project.files()
+        getClasspath(target).get()[namespace]?.invoke(target, namespace) ?: project.files()
 }
 
 internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
@@ -108,46 +146,56 @@ internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
 
     val provider = providers.getProvider(this, namespace)
     if (provider != null) {
-        return project.files(provider.map { it.value })
+        return project.files(provider.map { it.values })
     }
 
     val intermediaryJarProvider = providers.getProvider(this, target.minecraftRemapNamespace.get())
         ?: error("No intermediary provider found for $this")
-    val intermediaryJars = intermediaryJarProvider.map { (variant, input) ->
-        project.tasks.maybeRegister<RemapTask>(
-            lowerCamelCaseGradleName(
-                "remap",
-                featureName,
-                variant,
-                "minecraft",
-                namespace
-            )
-        ) {
-            it.group = "minecraft-transforms"
+    val intermediaryJars = objectFactory.listProperty(RegularFile::class.java)
 
-            it.inputFile.set(input)
-            it.sourceNamespace.set(minecraftRemapNamespace)
-            it.targetNamespace.set(namespace)
+    intermediaryJarProvider.map {
+        it.forEach { (variant, input) ->
+            val task = project.tasks.maybeRegister<RemapTask>(
+                lowerCamelCaseGradleName(
+                    "remap",
+                    featureName,
+                    variant,
+                    "minecraft",
+                    namespace
+                )
+            ) {
+                it.group = "minecraft-transforms"
 
-            it.classpath.from(providers.getClasspath(this, namespace))
+                it.inputFile.set(input)
+                it.sourceNamespace.set(minecraftRemapNamespace)
+                it.targetNamespace.set(namespace)
 
-            it.mappings.set(loadMappingsTask.flatMap { it.output })
+                it.classpath.from(providers.getClasspath(this, namespace))
 
-            it.outputFile.set(outputDirectory.zip(minecraftVersion) { dir, version ->
-                dir.file(buildString {
-                    append("minecraft")
-                    append("-")
-                    append(version)
-                    if (variant.isNotBlank()) {
+                it.mappings.set(loadMappingsTask.flatMap { it.output })
+
+                it.outputFile.set(outputDirectory.zip(minecraftVersion) { dir, version ->
+                    dir.file(buildString {
+                        append("minecraft")
                         append("-")
-                        append(variant)
-                    }
-                    append("-")
-                    append(namespace)
-                    append(".jar")
+                        append(version)
+                        if (variant.isNotBlank()) {
+                            append("-")
+                            append(variant)
+                        }
+                        append("-")
+                        append(namespace)
+                        append(".jar")
+                    })
                 })
-            })
-        }.flatMap { it.outputFile }
+            }
+
+            project.tasks.named(ClochePlugin.IDE_SYNC_TASK_NAME) {
+                it.dependsOn(task)
+            }
+
+            intermediaryJars.add(task.flatMap { it.outputFile })
+        }
     }
 
     return project.files(intermediaryJars)
