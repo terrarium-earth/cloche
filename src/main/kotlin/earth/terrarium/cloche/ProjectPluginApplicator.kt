@@ -17,12 +17,18 @@ import net.msrandom.minecraftcodev.mixins.MinecraftCodevMixinsPlugin
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.runs.MinecraftCodevRunsPlugin
 import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
+import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
+
+private fun propertyName(name: String) = "earth.terrarium.cloche.$name"
+
+private fun Project.checkFlag(name: String) =
+    project.findProperty(propertyName(name))?.toString()?.toBoolean() == true
 
 fun applyToProject(project: Project) {
     val cloche = project.extensions.create("cloche", ClocheExtension::class.java)
@@ -38,7 +44,7 @@ fun applyToProject(project: Project) {
 
     project.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
 
-    if (project.findProperty("earth.terrarium.cloche.disable-class-extensions")?.toString()?.toBoolean() != true) {
+    if (!project.checkFlag("disable-class-extensions")) {
         project.plugins.apply(ClassExtensionsPlugin::class.java)
     }
 
@@ -53,8 +59,14 @@ fun applyToProject(project: Project) {
             if (publication is MavenPublication) {
                 // afterEvaluate needed to query value of property
                 project.afterEvaluate {
+                    val error = "artifactId set for publication '${publication.name}' in $project. This is heavily discouraged as it can break core capability functionality."
+
                     if (publication.artifactId != project.name) {
-                        project.logger.warn("WARNING: artifactId set for publication '${publication.name}' in $project. This is heavily discouraged as it can break core capability functionality.")
+                        if (project.checkFlag("allow-maven-artifact-id")) {
+                            project.logger.warn("WARNING: $error")
+                        } else {
+                            throw InvalidUserCodeException("$error If you explicitly want opt-in to artifact-id, set the ${propertyName("allow-maven-artifact-id")} property")
+                        }
                     }
                 }
             }
