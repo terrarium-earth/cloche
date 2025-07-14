@@ -44,6 +44,22 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         modVersion.convention(project.provider { project.version.toString() })
     }
 
+    private fun Metadata.Environment.toForgeString(): String {
+        return when (this) {
+            Metadata.Environment.CLIENT -> {
+                "CLIENT"
+            }
+
+            Metadata.Environment.SERVER -> {
+                "SERVER"
+            }
+
+            Metadata.Environment.BOTH -> {
+                "BOTH"
+            }
+        }
+    }
+
     private fun buildVersionRange(range: Metadata.VersionRange): String {
         if (!range.start.isPresent && !range.end.isPresent) {
             return "[0,)"
@@ -115,6 +131,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                             "optional"
                         }
                     },
+                    "side" to dependency.environment.getOrElse(Metadata.Environment.BOTH).toForgeString()
                 )
 
                 dependency.version.map { buildVersionRange(it) }.orNull.let {
