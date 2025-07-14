@@ -161,6 +161,11 @@ interface Metadata {
             @Optional
             get
 
+        val environment: Property<Environment>
+            @Input
+            @Optional
+            get
+
         val objects: ObjectFactory
             @Inject get
 
