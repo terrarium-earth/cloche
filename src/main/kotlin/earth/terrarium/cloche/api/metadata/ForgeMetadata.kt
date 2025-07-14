@@ -47,23 +47,14 @@ interface ForgeMetadata : Metadata {
         @Nested
         get
 
-    override fun custom(vararg data: Pair<String, Any?>) =
-        modProperties(*data)
-
-    override fun custom(data: Map<String, Any?>) =
-        modProperties(data)
-
-    override fun custom(name: String, value: Any?) =
-        modProperty(name, value)
+    fun modProperty(name: String, value: Any?) =
+        modProperties.put(name, convertToSerializable(objects, value))
 
     fun modProperties(vararg data: Pair<String, Any?>) =
         custom(mapOf(*data))
 
     fun modProperties(data: Map<String, Any?>) =
         modProperties.putAll(data.mapValues { (_, value) -> convertToSerializable(objects, value) })
-
-    fun modProperty(name: String, value: Any?) =
-        modProperties.put(name, convertToSerializable(objects, value))
 
     fun loaderVersion(version: String) = loaderVersion {
         it.start.set(version)
