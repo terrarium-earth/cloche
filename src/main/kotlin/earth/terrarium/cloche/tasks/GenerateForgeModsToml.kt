@@ -148,7 +148,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 val map: MutableMap<String, Any> = mutableMapOf(
                     "modId" to dependency.modId.get(),
                     // TODO: Don't add both the `mandatory` and `type` fields
-                    "mandatory" to dependencyType,
+                    "mandatory" to (dependencyType == Metadata.Dependency.Type.REQUIRED),
                     "type" to dependencyType.toForgeString(),
                     "ordering" to dependency.ordering.getOrElse(Metadata.Dependency.Ordering.NONE),
                     "side" to dependency.environment.getOrElse(Metadata.Environment.BOTH).toForgeString()
