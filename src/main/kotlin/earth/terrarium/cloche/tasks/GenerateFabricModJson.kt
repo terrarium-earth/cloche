@@ -127,6 +127,12 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 JsonPrimitive(metadata.description.get())
             )
 
+            if (metadata.icon.isPresent) {
+                put("icon", JsonPrimitive(metadata.icon.get()))
+            }
+
+            put("license", JsonPrimitive(metadata.license.get()))
+
             if (metadata.authors.get().isNotEmpty()) {
                 put(
                     "authors",
@@ -141,18 +147,24 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 )
             }
 
-            if (metadata.url.isPresent) {
+            if (metadata.url.isPresent || metadata.sources.isPresent || metadata.issues.isPresent) {
+                val contact = mutableMapOf<String, JsonPrimitive>()
+                if (metadata.url.isPresent) {
+                    contact["homepage"] = JsonPrimitive(metadata.url.get())
+                }
+                if (metadata.sources.isPresent) {
+                    contact["sources"] = JsonPrimitive(metadata.sources.get())
+                }
+                if (metadata.issues.isPresent) {
+                    contact["issues"] = JsonPrimitive(metadata.issues.get())
+                }
+
                 put(
                     "contact",
-                    JsonObject(mapOf("homepage" to JsonPrimitive(metadata.url.get()))),
+                    JsonObject(contact),
                 )
             }
 
-            put("license", JsonPrimitive(metadata.license.get()))
-
-            if (metadata.icon.isPresent) {
-                put("icon", JsonPrimitive(metadata.icon.get()))
-            }
 
             put("environment", JsonPrimitive(metadata.environment.get().toFabricString()))
 
