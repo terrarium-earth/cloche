@@ -13,8 +13,9 @@ import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
 @JvmDefaultWithoutCompatibility
-interface ModMetadata {
+interface Metadata {
     val modId: Property<String>
+        @Optional
         @Input get
 
     val name: Property<String>
@@ -52,7 +53,7 @@ interface ModMetadata {
         @Input
         get
 
-    val clientOnly: Property<Boolean>
+    val environment: Property<Environment>
         @Optional
         @Input
         get
@@ -169,5 +170,11 @@ interface ModMetadata {
 
         fun version(action: Action<VersionRange>) =
             version.set(objects.newInstance(VersionRange::class.java).also(action::execute))
+    }
+
+    enum class Environment {
+        CLIENT,
+        SERVER,
+        BOTH
     }
 }
