@@ -67,7 +67,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
     override val hasSeparateClient = client.isConfigured
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
-        project.objects.namedDomainObjectList(CommonTarget::class.java)
+        project.objects.domainObjectSet(CommonTarget::class.java)
 
     override val dependents: Provider<List<MinecraftTarget>> = run {
         val cloche = project.extension<ClocheExtension>()
