@@ -212,10 +212,16 @@ abstract class GenerateForgeModsToml : DefaultTask() {
 
         toml["mods"] = arrayOf(mod)
 
-        val custom = metadata.custom.get() + metadata.modProperties.get()
-
+        val custom = metadata.custom.get()
         if (custom.isNotEmpty()) {
-            toml["modproperties"] = custom.mapValues { (_, value) ->
+            custom.mapValues { (key, value) ->
+                toml[key] = convertToObjectFromSerializable(value)
+            }
+        }
+
+        val modProperties = metadata.modProperties.get()
+        if (modProperties.isNotEmpty()) {
+            toml["modproperties"] = modProperties.mapValues { (_, value) ->
                 convertToObjectFromSerializable(value)
             }
         }
