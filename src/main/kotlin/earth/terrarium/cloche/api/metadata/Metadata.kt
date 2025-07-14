@@ -101,6 +101,76 @@ interface Metadata {
     fun author(action: Action<Person>) =
         authors.add(objects.newInstance(Person::class.java).also(action::execute))
 
+    fun require(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.REQUIRED, reason, ordering, environment)
+    }
+
+    fun recommend(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.RECOMMENDED, reason, ordering, environment)
+    }
+
+    fun suggest(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.SUGGESTED, reason, ordering, environment)
+    }
+
+    fun markConflict(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.CONFLICTS, reason, ordering, environment)
+    }
+
+    fun markIncompatible(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.BREAKS, reason, ordering, environment)
+    }
+
+    fun dependency(
+        modId: String,
+        version: String,
+        type: Dependency.Type = Dependency.Type.REQUIRED,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency() {
+            it.modId.set(modId)
+            it.version(version)
+            it.type.set(type)
+            if (reason != null) {
+                it.reason.set(reason)
+            }
+            it.ordering.set(ordering)
+            it.environment.set(environment)
+        }
+    }
+
     fun dependency(action: Action<Dependency>) =
         dependencies.add(objects.newInstance(Dependency::class.java).also(action::execute))
 
