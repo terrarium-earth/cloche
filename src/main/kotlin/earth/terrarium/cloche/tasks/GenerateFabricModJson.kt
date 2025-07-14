@@ -201,19 +201,47 @@ abstract class GenerateFabricModJson : DefaultTask() {
 
             val dependencies = metadata.dependencies.get()
             if (dependencies.isNotEmpty()) {
+                val recommends = mutableMapOf<String, String>()
                 val suggests = mutableMapOf<String, String>()
+                val conflicts = mutableMapOf<String, String>()
+                val breaks = mutableMapOf<String, String>()
                 for (dependency in dependencies) {
                     val key = dependency.modId.get()
                     val version = dependency.version.map { buildVersionRange(it) ?: "*" }.getOrElse("*")
-                    if (dependency.required.getOrElse(false)) {
-                        depends[key] = version
-                    } else {
-                        suggests[key] = version
+                    when (dependency.type.getOrElse(Metadata.Dependency.Type.REQUIRED)) {
+                        Metadata.Dependency.Type.REQUIRED -> {
+                            depends[key] = version
+                        }
+
+                        Metadata.Dependency.Type.RECOMMENDED -> {
+                            recommends[key] = version
+                        }
+
+                        Metadata.Dependency.Type.SUGGESTED -> {
+                            suggests[key] = version
+                        }
+
+                        Metadata.Dependency.Type.CONFLICTS -> {
+                            conflicts[key] = version
+                        }
+
+                        Metadata.Dependency.Type.BREAKS -> {
+                            breaks[key] = version
+                        }
                     }
                 }
 
                 if (suggests.isNotEmpty()) {
+                    put("recommends", JsonObject(recommends.mapValues { (_, value) -> JsonPrimitive(value) }))
+                }
+                if (suggests.isNotEmpty()) {
                     put("suggests", JsonObject(suggests.mapValues { (_, value) -> JsonPrimitive(value) }))
+                }
+                if (conflicts.isNotEmpty()) {
+                    put("conflicts", JsonObject(conflicts.mapValues { (_, value) -> JsonPrimitive(value) }))
+                }
+                if (breaks.isNotEmpty()) {
+                    put("breaks", JsonObject(breaks.mapValues { (_, value) -> JsonPrimitive(value) }))
                 }
             }
 
