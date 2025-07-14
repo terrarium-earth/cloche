@@ -2,7 +2,9 @@ package earth.terrarium.cloche.api.target
 
 import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.api.LazyConfigurable
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
+import org.gradle.api.Action
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Optional
 
@@ -22,5 +24,9 @@ interface CommonTarget : ClocheTarget, CommonSecondarySourceSets {
     override val minecraftVersion: Provider<String>
         @Optional get
 
+    val metadata: Metadata
+
     fun withPublication()
+
+    fun metadata(configure: Action<Metadata>) = configure.execute(metadata)
 }

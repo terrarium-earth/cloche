@@ -1,8 +1,9 @@
 package earth.terrarium.cloche.tasks
 
 import earth.terrarium.cloche.api.metadata.FabricMetadata
-import earth.terrarium.cloche.api.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.metadata.custom.convertToJsonFromSerializable
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.*
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import org.gradle.api.DefaultTask
@@ -13,6 +14,7 @@ import org.gradle.api.tasks.*
 import java.io.File
 import kotlin.io.path.outputStream
 
+@OptIn(ExperimentalSerializationApi::class)
 abstract class GenerateFabricModJson : DefaultTask() {
     abstract val loaderDependencyVersion: Property<String>
         @Input get
@@ -20,10 +22,7 @@ abstract class GenerateFabricModJson : DefaultTask() {
     abstract val output: RegularFileProperty
         @OutputFile get
 
-    abstract val commonMetadata: Property<ModMetadata>
-        @Nested get
-
-    abstract val targetMetadata: Property<FabricMetadata>
+    abstract val metadata: Property<FabricMetadata>
         @Nested get
 
     abstract val accessWidener: Property<String>
@@ -44,11 +43,15 @@ abstract class GenerateFabricModJson : DefaultTask() {
         @InputFiles
         get
 
+    private val jsonBuilder: Json = Json {
+        prettyPrint = true
+    }
+
     init {
         modVersion.convention(project.provider { project.version.toString() })
     }
 
-    private fun buildVersionRange(range: ModMetadata.VersionRange): String? {
+    private fun buildVersionRange(range: Metadata.VersionRange): String? {
         if (!range.start.isPresent && !range.end.isPresent) {
             return null
         }
@@ -86,7 +89,7 @@ abstract class GenerateFabricModJson : DefaultTask() {
         }
     }
 
-    private fun convertPerson(person: ModMetadata.Person) = buildMap {
+    private fun convertPerson(person: Metadata.Person) = buildMap {
         put("name", JsonPrimitive(person.name.get()))
 
         if (person.contact.isPresent) {
@@ -96,45 +99,43 @@ abstract class GenerateFabricModJson : DefaultTask() {
 
     @TaskAction
     fun makeJson() {
-        val commonMetadata = commonMetadata.get()
-        val targetMetadata = targetMetadata.get()
-
         val json = buildMap {
+            val metadata = metadata.get()
             put("schemaVersion", JsonPrimitive(1))
-            put("id", JsonPrimitive(commonMetadata.modId.get()))
+            put("id", JsonPrimitive(metadata.modId.get()))
             put("version", JsonPrimitive(modVersion.get()))
 
-            if (commonMetadata.name.isPresent) put("name", JsonPrimitive(commonMetadata.name.get()))
-            if (commonMetadata.description.isPresent) put(
+            if (metadata.name.isPresent) put("name", JsonPrimitive(metadata.name.get()))
+            if (metadata.description.isPresent) put(
                 "description",
-                JsonPrimitive(commonMetadata.description.get())
+                JsonPrimitive(metadata.description.get())
             )
 
-            if (commonMetadata.authors.get().isNotEmpty()) {
+            if (metadata.authors.get().isNotEmpty()) {
                 put(
                     "authors",
-                    JsonArray(commonMetadata.authors.get().map(::convertPerson))
+                    JsonArray(metadata.authors.get().map(::convertPerson))
                 )
             }
 
-            if (commonMetadata.contributors.get().isNotEmpty()) {
+            if (metadata.contributors.get().isNotEmpty()) {
                 put(
                     "contributors",
-                    JsonArray(commonMetadata.contributors.get().map(::convertPerson))
+                    JsonArray(metadata.contributors.get().map(::convertPerson))
                 )
             }
 
-            if (commonMetadata.url.isPresent) {
+            if (metadata.url.isPresent) {
                 put(
                     "contact",
-                    JsonObject(mapOf("homepage" to JsonPrimitive(commonMetadata.url.get()))),
+                    JsonObject(mapOf("homepage" to JsonPrimitive(metadata.url.get()))),
                 )
             }
 
-            put("license", JsonPrimitive(commonMetadata.license.get()))
+            put("license", JsonPrimitive(metadata.license.get()))
 
-            if (commonMetadata.icon.isPresent) {
-                put("icon", JsonPrimitive(commonMetadata.icon.get()))
+            if (metadata.icon.isPresent) {
+                put("icon", JsonPrimitive(metadata.icon.get()))
             }
 
             if (accessWidener.isPresent) {
@@ -142,10 +143,9 @@ abstract class GenerateFabricModJson : DefaultTask() {
             }
 
             val mixinNames = mixinConfigs.map(File::getName)
-            val clientMixinNames = clientMixinConfigs.map(File::getName) - mixinNames
+            val clientMixinNames = clientMixinConfigs.map(File::getName) - mixinNames.toSet()
 
             val commonMixins = mixinNames.map(::JsonPrimitive)
-
             val clientMixins = clientMixinNames.map {
                 JsonObject(
                     mapOf(
@@ -154,17 +154,13 @@ abstract class GenerateFabricModJson : DefaultTask() {
                     )
                 )
             }
-
             if (commonMixins.isNotEmpty() || clientMixins.isNotEmpty()) {
                 put("mixins", JsonArray(commonMixins + clientMixins))
             }
 
-            val depends = mutableMapOf<String, String>()
-
-            val entrypoints = targetMetadata.entrypoints.get()
-
+            val entrypoints = metadata.entrypoints.get()
             if (entrypoints.isNotEmpty()) {
-                put("entrypoints", JsonObject(entrypoints.mapValues { (key, value) ->
+                put("entrypoints", JsonObject(entrypoints.mapValues { (_, value) ->
                     JsonArray(value.map { entrypoint ->
                         JsonObject(buildMap {
                             put("value", JsonPrimitive(entrypoint.value.get()))
@@ -177,23 +173,20 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 }))
             }
 
-            val languageAdapters = targetMetadata.languageAdapters.get()
-
+            val languageAdapters = metadata.languageAdapters.get()
             if (languageAdapters.isNotEmpty()) {
                 put("languageAdapters", JsonObject(languageAdapters.mapValues { (_, value) -> JsonPrimitive(value) }))
             }
 
-            depends.put("fabricloader", ">=${loaderDependencyVersion.get()}")
+            val depends = mutableMapOf<String, String>()
+            depends["fabricloader"] = ">=${loaderDependencyVersion.get()}"
 
-            val dependencies = commonMetadata.dependencies.get() + targetMetadata.dependencies.get()
-
+            val dependencies = metadata.dependencies.get()
             if (dependencies.isNotEmpty()) {
                 val suggests = mutableMapOf<String, String>()
-
                 for (dependency in dependencies) {
                     val key = dependency.modId.get()
-                    val version = dependency.version.map { buildVersionRange(it) }.getOrElse("*")
-
+                    val version = dependency.version.map { buildVersionRange(it) ?: "*" }.getOrElse("*")
                     if (dependency.required.getOrElse(false)) {
                         depends[key] = version
                     } else {
@@ -208,17 +201,14 @@ abstract class GenerateFabricModJson : DefaultTask() {
 
             put("depends", JsonObject(depends.mapValues { (_, value) -> JsonPrimitive(value) }))
 
-            val custom = commonMetadata.custom.get() + targetMetadata.custom.get()
-
+            val custom = metadata.custom.get()
             if (custom.isNotEmpty()) {
                 put("custom", JsonObject(custom.mapValues { (_, value) -> convertToJsonFromSerializable(value) }))
             }
         }
 
         output.getAsPath().outputStream().use {
-            Json {
-                prettyPrint = true
-            }.encodeToStream(json, it)
+            jsonBuilder.encodeToStream(json, it)
         }
     }
 }

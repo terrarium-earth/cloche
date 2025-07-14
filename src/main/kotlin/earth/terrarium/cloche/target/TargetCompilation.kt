@@ -230,7 +230,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         lowerCamelCaseGradleName("generate", sourceSet.takeUnless(SourceSet::isMain)?.name, "modOutputs"),
         GenerateModOutputs::class.java,
     ) {
-        it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+        it.modId.set(project.extension<ClocheExtension>().rootMetadata.modId)
 
         // TODO Make this logic a bit better;
         //   The way it should go is as follows:

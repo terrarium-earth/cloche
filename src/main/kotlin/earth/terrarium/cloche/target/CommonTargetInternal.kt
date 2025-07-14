@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
@@ -11,7 +12,6 @@ import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
@@ -67,7 +67,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
     override val hasSeparateClient = client.isConfigured
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
-        project.objects.domainObjectSet(CommonTarget::class.java)
+        project.objects.namedDomainObjectList(CommonTarget::class.java)
 
     override val dependents: Provider<List<MinecraftTarget>> = run {
         val cloche = project.extension<ClocheExtension>()
@@ -100,6 +100,8 @@ internal abstract class CommonTargetInternal @Inject constructor(
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         versions.onlyValue()
     }
+
+    override val metadata: Metadata = project.objects.newInstance(Metadata::class.java)
 
     val commonType: Provider<String> = dependents.map { dependants ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
