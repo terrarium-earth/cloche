@@ -156,7 +156,17 @@ interface Metadata {
             @Optional
             get
 
-        val required: Property<Boolean>
+        val type: Property<Type>
+            @Input
+            @Optional
+            get
+
+        val reason: Property<String>
+            @Input
+            @Optional
+            get
+
+        val ordering: Property<Ordering>
             @Input
             @Optional
             get
@@ -175,6 +185,20 @@ interface Metadata {
 
         fun version(action: Action<VersionRange>) =
             version.set(objects.newInstance(VersionRange::class.java).also(action::execute))
+
+        enum class Type {
+            REQUIRED,
+            RECOMMENDED,
+            SUGGESTED,
+            CONFLICTS,
+            BREAKS
+        }
+
+        enum class Ordering {
+            NONE,
+            BEFORE,
+            AFTER
+        }
     }
 
     enum class Environment {

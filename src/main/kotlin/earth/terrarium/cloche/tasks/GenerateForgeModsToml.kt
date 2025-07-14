@@ -60,6 +60,30 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         }
     }
 
+    private fun Metadata.Dependency.Type.toForgeString(): String {
+        return when (this) {
+            Metadata.Dependency.Type.REQUIRED -> {
+                "required"
+            }
+
+            Metadata.Dependency.Type.RECOMMENDED -> {
+                "optional"
+            }
+
+            Metadata.Dependency.Type.SUGGESTED -> {
+                "optional"
+            }
+
+            Metadata.Dependency.Type.CONFLICTS -> {
+                "discouraged"
+            }
+
+            Metadata.Dependency.Type.BREAKS -> {
+                "incompatible"
+            }
+        }
+    }
+
     private fun buildVersionRange(range: Metadata.VersionRange): String {
         if (!range.start.isPresent && !range.end.isPresent) {
             return "[0,)"
@@ -120,19 +144,18 @@ abstract class GenerateForgeModsToml : DefaultTask() {
 
         dependencies.addAll(
             metadata.dependencies.get().map { dependency ->
+                val dependencyType = dependency.type.getOrElse(Metadata.Dependency.Type.REQUIRED)
                 val map: MutableMap<String, Any> = mutableMapOf(
                     "modId" to dependency.modId.get(),
-                    // TODO Don't add both fields
-                    "mandatory" to dependency.required.getOrElse(false),
-                    "type" to dependency.required.getOrElse(false).let {
-                        if (it) {
-                            "required"
-                        } else {
-                            "optional"
-                        }
-                    },
+                    // TODO: Don't add both the `mandatory` and `type` fields
+                    "mandatory" to dependencyType,
+                    "type" to dependencyType.toForgeString(),
+                    "ordering" to dependency.ordering.getOrElse(Metadata.Dependency.Ordering.NONE),
                     "side" to dependency.environment.getOrElse(Metadata.Environment.BOTH).toForgeString()
                 )
+                if (dependency.reason.isPresent) {
+                    map["reason"] = dependency.reason.get()
+                }
 
                 dependency.version.map { buildVersionRange(it) }.orNull.let {
                     map["versionRange"] = it ?: "[0,)"
