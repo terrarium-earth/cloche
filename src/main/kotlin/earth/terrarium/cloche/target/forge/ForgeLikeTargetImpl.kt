@@ -9,7 +9,7 @@ import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
 import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
-import earth.terrarium.cloche.api.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
@@ -21,6 +21,8 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
+import earth.terrarium.cloche.util.mergeMetadata
+import earth.terrarium.cloche.util.validateMetadata
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -269,8 +271,14 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.dir("META-INF").file("mods.toml")
         })
 
-        it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
-        it.targetMetadata.set(metadata)
+        val forgeMetadata = metadata
+        val metadata = mutableListOf(project.extension<ClocheExtension>().rootMetadata)
+        metadata.addAll(dependsOn.map { it.metadata })
+        metadata.add(forgeMetadata)
+
+        val mergedMetadata = mergeMetadata<ForgeMetadata>(project.objects, metadata)
+        validateMetadata(mergedMetadata)
+        it.metadata.set(mergedMetadata)
 
         it.loaderName.set(loaderName)
     }
@@ -311,8 +319,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
     }
 
-    protected fun loaderVersionRange(version: String): ModMetadata.VersionRange =
-        objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
+    protected fun loaderVersionRange(version: String): Metadata.VersionRange =
+        objectFactory.newInstance(Metadata.VersionRange::class.java).apply {
             start.set(version)
         }
 
