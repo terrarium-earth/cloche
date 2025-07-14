@@ -51,6 +51,22 @@ abstract class GenerateFabricModJson : DefaultTask() {
         modVersion.convention(project.provider { project.version.toString() })
     }
 
+    private fun Metadata.Environment.toFabricString(): String {
+        return when (this) {
+            Metadata.Environment.CLIENT -> {
+                "client"
+            }
+
+            Metadata.Environment.SERVER -> {
+                "server"
+            }
+
+            Metadata.Environment.BOTH -> {
+                "*"
+            }
+        }
+    }
+
     private fun buildVersionRange(range: Metadata.VersionRange): String? {
         if (!range.start.isPresent && !range.end.isPresent) {
             return null
@@ -137,6 +153,8 @@ abstract class GenerateFabricModJson : DefaultTask() {
             if (metadata.icon.isPresent) {
                 put("icon", JsonPrimitive(metadata.icon.get()))
             }
+
+            put("environment", JsonPrimitive(metadata.environment.get().toFabricString()))
 
             if (accessWidener.isPresent) {
                 put("accessWidener", JsonPrimitive(accessWidener.get()))
