@@ -63,11 +63,24 @@ inline fun <reified MetadataType : Metadata> mergeMetadata(objectFactory: Object
         when (metadata) {
             is FabricMetadata -> {
                 val mergedMetadata = (mergedMetadata as FabricMetadata)
-                val mergedEntrypoints = mergedMetadata.entrypoints.get().toMutableMap()
-                metadata.entrypoints.get().forEach { (key, value) ->
-                    mergedEntrypoints.merge(key, value) { oldValue, newValue -> oldValue + newValue }
+                if (mergedMetadata.entrypoints == null) {
+                    mergedMetadata.entrypoints = mutableMapOf()
                 }
-                mergedMetadata.entrypoints.set(mergedEntrypoints)
+                metadata.entrypoints?.forEach { (key, value) ->
+                    mergedMetadata.entrypoints!!.merge(key, value) { oldValue, newValue -> run {
+                        val merged = objectFactory.listProperty(FabricMetadata.Entrypoint::class.java)
+                        if (oldValue.orNull == null && newValue.orNull == null) {
+                            return@merge null
+                        } else if (oldValue.orNull == null) {
+                            return@merge newValue
+                        } else if (newValue.orNull == null) {
+                            return@merge oldValue
+                        }
+
+                        merged.addAll(oldValue.get() + newValue.get())
+                        merged
+                    } }
+                }
                 mergedMetadata.languageAdapters.putAll(metadata.languageAdapters.get())
             }
 

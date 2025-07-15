@@ -188,10 +188,10 @@ abstract class GenerateFabricModJson : DefaultTask() {
                 put("mixins", JsonArray(commonMixins + clientMixins))
             }
 
-            val entrypoints = metadata.entrypoints.get()
-            if (entrypoints.isNotEmpty()) {
+            val entrypoints = metadata.entrypoints
+            if (!entrypoints.isNullOrEmpty()) {
                 put("entrypoints", JsonObject(entrypoints.mapValues { (_, value) ->
-                    JsonArray(value.map { entrypoint ->
+                    JsonArray(value.get().map { entrypoint ->
                         JsonObject(buildMap {
                             put("value", JsonPrimitive(entrypoint.value.get()))
 
