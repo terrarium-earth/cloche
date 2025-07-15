@@ -22,12 +22,10 @@ interface FabricMetadata : Metadata {
         entrypoint(name, listOf(action))
 
     fun entrypoint(name: String, actions: List<Action<Entrypoint>>) {
-        val mergedEntrypoints = this.entrypoints.get().toMutableMap()
         val entrypoints = actions.map {
             objects.newInstance(Entrypoint::class.java).also(it::execute)
         }
-        mergedEntrypoints.merge(name, entrypoints) { oldValue, newValue -> oldValue + newValue }
-        this.entrypoints.set(mergedEntrypoints)
+        this.entrypoints.put(name, entrypoints)
     }
 
     interface Entrypoint {
