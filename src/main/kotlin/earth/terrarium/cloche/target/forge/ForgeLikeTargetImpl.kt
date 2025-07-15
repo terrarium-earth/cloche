@@ -244,7 +244,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     override val commonType get() = FORGE
 
-    override val metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
+    override var metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
 
     private val remapTask = project.tasks.register(
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
@@ -271,14 +271,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.dir("META-INF").file("mods.toml")
         })
 
-        val forgeMetadata = metadata
-        val metadata = mutableListOf(project.extension<ClocheExtension>().rootMetadata)
-        metadata.addAll(dependsOn.map { it.metadata })
-        metadata.add(forgeMetadata)
-
-        val mergedMetadata = mergeMetadata<ForgeMetadata>(project.objects, metadata)
-        validateMetadata(mergedMetadata)
-        it.metadata.set(mergedMetadata)
+        it.metadata.set(metadata)
 
         it.loaderName.set(loaderName)
     }
@@ -301,6 +294,14 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         })
 
         project.dependencies.add(universal.name, forgeDependency {})
+
+        val metadata = mutableListOf(project.extension<ClocheExtension>().rootMetadata)
+        metadata.addAll(dependsOn.map { it.metadata })
+        metadata.add(this.metadata)
+
+        val mergedMetadata = mergeMetadata<ForgeMetadata>(project.objects, metadata)
+        validateMetadata(mergedMetadata)
+        this.metadata = mergedMetadata
     }
 
     private fun configureLegacyClasspath(task: WriteClasspathFile, compilation: TargetCompilation, configuration: Provider<Configuration>) {
