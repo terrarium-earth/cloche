@@ -200,14 +200,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.file("fabric.mod.json")
         })
 
-        val fabricMetadata = metadata
-        val metadata = mutableListOf(project.extension<ClocheExtension>().rootMetadata)
-        metadata.addAll(dependsOn.map { it.metadata })
-        metadata.add(fabricMetadata)
-
-        val mergedMetadata = mergeMetadata<FabricMetadata>(project.objects, metadata)
-        validateMetadata(mergedMetadata)
-        it.metadata.set(mergedMetadata)
+        it.metadata.set(metadata)
 
         it.mixinConfigs.from(mixins)
     }
@@ -293,7 +286,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         registerCommonCompilation(SourceSet.TEST_SOURCE_SET_NAME)
     }
 
-    override val metadata: FabricMetadata = project.objects.newInstance(FabricMetadata::class.java)
+    override var metadata: FabricMetadata = project.objects.newInstance(FabricMetadata::class.java)
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get
@@ -331,6 +324,14 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.requireCapability("net.msrandom:$clientTargetMinecraftName")
             }
         })
+
+        val metadata = mutableListOf(project.extension<ClocheExtension>().rootMetadata)
+        metadata.addAll(dependsOn.map { it.metadata })
+        metadata.add(this.metadata)
+
+        val mergedMetadata = mergeMetadata<FabricMetadata>(project.objects, metadata)
+        validateMetadata(mergedMetadata)
+        this.metadata = mergedMetadata
     }
 
     private fun output(suffix: String) = outputDirectory.zip(minecraftVersion) { dir, version ->
