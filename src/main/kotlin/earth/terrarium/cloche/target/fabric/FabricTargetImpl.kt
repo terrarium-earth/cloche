@@ -51,7 +51,7 @@ import javax.inject.Inject
 internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     MinecraftTargetInternal(name),
     FabricTarget {
-    private val commonLibrariesConfiguration =
+    internal val commonLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "commonMinecraftLibraries")) {
             it.isCanBeConsumed = false
 
@@ -64,7 +64,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             )
         }
 
-    private val clientLibrariesConfiguration =
+    internal val clientLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "clientMinecraftLibraries")) {
             it.isCanBeConsumed = false
 
@@ -77,7 +77,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             )
         }
 
-    private val resolveCommonMinecraft =
+    internal val resolveCommonMinecraft =
         project.tasks.register(
             lowerCamelCaseGradleName("resolve", name, "common"),
             ResolveMinecraftCommon::class.java,
@@ -89,7 +89,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.output.set(output("obf"))
         }
 
-    private val resolveClientMinecraft =
+    internal val resolveClientMinecraft =
         project.tasks.register(
             lowerCamelCaseGradleName("resolve", name, "client"),
             ResolveMinecraftClient::class.java,
@@ -101,7 +101,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.output.set(output("client-obf"))
         }
 
-    private val remapCommonMinecraftIntermediary =
+    internal val remapCommonMinecraftIntermediary =
         project.tasks.register(
             lowerCamelCaseGradleName(
                 "remap",
@@ -124,7 +124,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.outputFile.set(output(MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE))
         }
 
-    private val remapClientMinecraftIntermediary =
+    internal val remapClientMinecraftIntermediary =
         project.tasks.register(
             lowerCamelCaseGradleName(
                 "remap",
