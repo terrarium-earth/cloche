@@ -190,7 +190,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         GenerateFabricModJson::class.java
     ) {
         it.loaderDependencyVersion.set(loaderVersion.map {
-            it.substringBefore('.')
+            it.substringAfter('.')
         })
 
         it.output.set(metadataDirectory.map {
