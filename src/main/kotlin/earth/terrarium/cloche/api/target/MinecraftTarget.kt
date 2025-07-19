@@ -1,16 +1,15 @@
 package earth.terrarium.cloche.api.target
 
-import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
 import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.file.Directory
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFile
 import org.gradle.api.plugins.jvm.PlatformDependencyModifiers
 import org.gradle.api.provider.Property
@@ -31,17 +30,11 @@ interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencie
         @Internal
         get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").dir(featureName) }
 
-    val datagenDirectory: Provider<Directory>
-        @Internal
-        get() = project.layout.buildDirectory.dir("generated").map {
-            it.dir("resources").dir(target.featureName)
-        }
+    val datagenDirectory: DirectoryProperty
+        @Input get
 
-    val datagenClientDirectory: Provider<Directory>
-        @Internal
-        get() = project.layout.buildDirectory.dir("generated").map {
-            it.dir("resources").dir(lowerCamelCaseGradleName(target.featureName, ClochePlugin.CLIENT_COMPILATION_NAME))
-        }
+    val datagenClientDirectory: DirectoryProperty
+        @Input get
 
     val finalJar: Provider<RegularFile>
 

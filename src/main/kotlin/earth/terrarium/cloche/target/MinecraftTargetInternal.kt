@@ -2,6 +2,7 @@
 
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.DATA_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
@@ -94,6 +95,16 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     @Suppress("UNCHECKED_CAST")
     private val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
+
+    init {
+        datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
+            it.dir("resources").dir(target.featureName)
+        })
+
+        datagenClientDirectory.convention(project.layout.buildDirectory.dir("generated").map {
+            it.dir("resources").dir(lowerCamelCaseGradleName(target.featureName, ClochePlugin.CLIENT_COMPILATION_NAME))
+        })
+    }
 
     override fun withJavadocJar() = main.withJavadocJar()
     override fun withSourcesJar() = main.withSourcesJar()
