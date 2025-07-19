@@ -85,7 +85,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
         classpath.from(main.finalMinecraftFile)
 
-        task.classpath.from(classpath - project.getModFiles(sourceSet.runtimeClasspathConfigurationName, isTransitive = false))
+        task.classpath.from(classpath - project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
     }
 
     override fun initialize(isSingleTarget: Boolean) {

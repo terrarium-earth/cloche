@@ -104,7 +104,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
         classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
 
-        task.classpath.from(classpath - project.getModFiles(sourceSet.runtimeClasspathConfigurationName, isTransitive = false))
+        task.classpath.from(classpath - project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
     }
 
     private fun addAttributes(sourceSet: SourceSet) {

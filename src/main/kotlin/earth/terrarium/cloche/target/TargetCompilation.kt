@@ -20,7 +20,6 @@ import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
-import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
@@ -40,7 +39,6 @@ internal object States {
 
 internal fun Project.getModFiles(
     configurationName: String,
-    isTransitive: Boolean = true,
     configure: Action<ArtifactView.ViewConfiguration>? = null,
 ): FileCollection {
     val classpath = project.configurations.named(configurationName)
@@ -50,11 +48,7 @@ internal fun Project.getModFiles(
     return project.files(classpath.zip(modDependencies) { classpath, modDependencies ->
         val resolutionResult = modDependencies.incoming.resolutionResult
 
-        val componentIdentifiers = if (isTransitive) {
-            resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
-        } else {
-            resolutionResult.root.dependencies.filterIsInstance<ResolvedDependencyResult>().map { it.selected.id }
-        }
+        val componentIdentifiers = resolutionResult.root.dependencies.filterIsInstance<ResolvedDependencyResult>().map { it.selected.id }
 
         val filteredIdentifiers = componentIdentifiers.filter { it !is ProjectComponentIdentifier }
 
@@ -168,23 +162,9 @@ private fun setupModTransformationPipeline(
 
                 it.cacheDirectory.set(getGlobalCacheDirectory(project))
 
-                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
-                    }
-                }
+                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName)
 
-                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
-                    }
-                }
+                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
 
                 it.modFiles.from(modCompileClasspath)
                 it.modFiles.from(modRuntimeClasspath)
