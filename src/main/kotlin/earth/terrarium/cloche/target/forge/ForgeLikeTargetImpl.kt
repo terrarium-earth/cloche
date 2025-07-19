@@ -283,6 +283,12 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.dependsOn(generateModsToml)
         }
 
+        data.onConfigured {
+            project.tasks.named(it.sourceSet.processResourcesTaskName) {
+                it.dependsOn(generateModsToml)
+            }
+        }
+
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(sourceSet.compileOnlyConfigurationName) {

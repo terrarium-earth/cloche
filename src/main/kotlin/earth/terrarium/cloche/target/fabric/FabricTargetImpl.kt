@@ -459,6 +459,12 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.dependsOn(generateModJson)
         }
 
+        data.onConfigured {
+            project.tasks.named(it.sourceSet.processResourcesTaskName) {
+                it.dependsOn(generateModJson)
+            }
+        }
+
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 

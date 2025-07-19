@@ -34,6 +34,7 @@ import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.language.jvm.tasks.ProcessResources
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -148,7 +149,13 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             it.destinationDir = layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
         }
 
-        sourceSet.resources.srcDir(copyMixins.map(Copy::getDestinationDir))
+        project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+            it.from(copyMixins.map(Copy::getDestinationDir))
+        }
+
+        project.ideaModule(sourceSet) {
+            it.resourceDirs.add(copyMixins.get().destinationDir)
+        }
 
         target.registerAccessWidenerMergeTask(compilation)
         target.addJarInjects(compilation)
@@ -247,7 +254,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
     target.data.onConfigured {
         addCompilation(it)
-        it.addClasspathDependency(target.main)
+        it.addDataClasspathDependency(target.main)
     }
 
     target.test.onConfigured {
@@ -262,11 +269,11 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
             client.data.onConfigured { data ->
                 addCompilation(data)
-                data.addClasspathDependency(client)
-                data.addClasspathDependency(target.main)
+                data.addDataClasspathDependency(client)
+                data.addDataClasspathDependency(target.main)
 
                 target.data.onConfigured {
-                    data.addClasspathDependency(it)
+                    data.addDataClasspathDependency(it)
                 }
             }
 

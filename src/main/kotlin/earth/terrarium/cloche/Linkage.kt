@@ -119,6 +119,29 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
     mixins.from(dependency.mixins)
 }
 
+context(Project)
+internal fun TargetCompilation.addDataClasspathDependency(dependency: TargetCompilation) {
+    println("(classpath dependency) $this -> $dependency")
+
+    sourceSet.compileClasspath += dependency.sourceSet.output.classesDirs
+    sourceSet.runtimeClasspath += dependency.sourceSet.output.classesDirs
+
+    sourceSet.resources.srcDir(dependency.sourceSet.resources)
+
+    if (!isTest && !dependency.isTest) {
+        artifacts {
+            it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+
+            it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+        }
+    }
+
+    sourceSet.extendConfigurations(dependency.sourceSet, false)
+
+    accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
+}
+
 /**
  * Include [dependency] to be compiled alongside the current source, allowing Java platform annotations and Kotlin Multiplatform to function
  */
