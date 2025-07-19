@@ -1,5 +1,7 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.target.FabricTarget
+import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
@@ -149,8 +151,13 @@ internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
         return project.files(provider.map { it.values })
     }
 
-    val intermediaryJarProvider = providers.getProvider(this, target.minecraftRemapNamespace.get())
-        ?: error("No intermediary provider found for $this")
+    val intermediaryNamespace = target.minecraftRemapNamespace.get().takeUnless { it.isEmpty() } ?: when (target) {
+        is FabricTarget -> RemapNamespaceAttribute.INTERMEDIARY
+        is ForgeLikeTarget -> RemapNamespaceAttribute.SEARGE
+        else -> error("No intermediary namespace found for $this")
+    }
+    val intermediaryJarProvider =
+        providers.getProvider(this, intermediaryNamespace) ?: error("No intermediary provider found for $this")
     val intermediaryJars = objectFactory.listProperty(RegularFile::class.java)
 
     intermediaryJarProvider.map {
@@ -167,7 +174,7 @@ internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
                 it.group = "minecraft-transforms"
 
                 it.inputFile.set(input)
-                it.sourceNamespace.set(minecraftRemapNamespace)
+                it.sourceNamespace.set(intermediaryNamespace)
                 it.targetNamespace.set(namespace)
 
                 it.classpath.from(providers.getClasspath(this, namespace))
