@@ -5,6 +5,7 @@ import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
+import earth.terrarium.cloche.util.isIdeDetected
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
@@ -127,6 +128,11 @@ internal fun TargetCompilation.addDataClasspathDependency(dependency: TargetComp
     sourceSet.runtimeClasspath += dependency.sourceSet.output.classesDirs
 
     sourceSet.resources.srcDir(dependency.sourceSet.resources)
+
+    if (isIdeDetected()) {
+        // TODO Model this better
+        sourceSet.compileClasspath += dependency.sourceSet.output
+    }
 
     if (!isTest && !dependency.isTest) {
         artifacts {
