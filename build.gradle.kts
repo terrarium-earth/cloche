@@ -40,7 +40,7 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.6.3")
     implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.6.2")
     implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.5.32")
-    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.6.2")
+    implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.6.3")
     implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.5.32")
     implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.6.3")
     implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.5.32")
