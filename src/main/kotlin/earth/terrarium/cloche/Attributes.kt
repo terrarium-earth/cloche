@@ -97,6 +97,15 @@ internal object ModTransformationStateAttribute {
         lowerCamelCaseName(target.featureName, compilation.featureName, state)
 }
 
+object RemapNamespaceAttribute {
+    @JvmField
+    val ATTRIBUTE = Attribute.of("earth.terrarium.cloche.remapNamespace", String::class.java)
+
+    const val INITIAL = "none"
+    const val OBF = "obf"
+    const val SEARGE = "srg"
+    const val INTERMEDIARY = "intermediary"
+}
 enum class IncludeTransformationState {
     None,
     Stripped,

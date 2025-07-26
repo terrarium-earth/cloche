@@ -4,8 +4,11 @@ import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.DATA_ATTRIBUTE
 import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.ModTransformationStateAttribute
+import earth.terrarium.cloche.NoopAction
 import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.RemapNamespaceAttribute
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.getRemappedMinecraftByNamespace
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -138,50 +141,76 @@ private fun setupModTransformationPipeline(
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform, but that's far slower
     project.afterEvaluate {
-        if (target.modRemapNamespace.get().isEmpty()) {
-            return@afterEvaluate
-        }
+        for (remapNamespace in target.mappings.remapNamespaces.get()) {
+            val namespace =
+                remapNamespace?.takeUnless { it == RemapNamespaceAttribute.INITIAL } ?: target.modRemapNamespace.get()
 
-        project.dependencies.registerTransform(RemapAction::class.java) {
-            it.from.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.INITIAL,
-            )
+            if (namespace.isEmpty()) {
+                project.dependencies.registerTransform(NoopAction::class.java) {
+                    it.from.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        ModTransformationStateAttribute.INITIAL,
+                    )
 
-            it.to.attribute(
-                ModTransformationStateAttribute.ATTRIBUTE,
-                ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
-            )
-
-            it.parameters {
-                it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
-
-                it.sourceNamespace.set(target.modRemapNamespace.get())
-
-                it.extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
-
-                it.cacheDirectory.set(getGlobalCacheDirectory(project))
-
-                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
-                    }
+                    it.to.attribute(
+                        ModTransformationStateAttribute.ATTRIBUTE,
+                        ModTransformationStateAttribute.of(target, compilation, States.REMAPPED)
+                    )
                 }
+                continue
+            }
 
-                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
+            project.dependencies.registerTransform(RemapAction::class.java) {
+                it.from.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
+                it.to.attribute(RemapNamespaceAttribute.ATTRIBUTE, remapNamespace)
+
+                it.from.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.INITIAL,
+                )
+
+                it.to.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.of(target, compilation, States.REMAPPED)
+                )
+
+                it.parameters {
+                    it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+
+                    it.sourceNamespace.set(namespace)
+
+                    it.extraClasspath.from(
+                        compilation.info.target.getRemappedMinecraftByNamespace(
+                            namespace,
+                            compilation.info.target.project.extension<ClocheExtension>().intermediaryMinecraftProviders
                         )
-                    }
-                }
+                    )
 
-                it.modFiles.from(modCompileClasspath)
-                it.modFiles.from(modRuntimeClasspath)
+                    it.cacheDirectory.set(getGlobalCacheDirectory(project))
+
+                    val modCompileClasspath =
+                        project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
+                            it.attributes {
+                                it.attribute(
+                                    ModTransformationStateAttribute.ATTRIBUTE,
+                                    ModTransformationStateAttribute.INITIAL,
+                                )
+                            }
+                        }
+
+                    val modRuntimeClasspath =
+                        project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
+                            it.attributes {
+                                it.attribute(
+                                    ModTransformationStateAttribute.ATTRIBUTE,
+                                    ModTransformationStateAttribute.INITIAL,
+                                )
+                            }
+                        }
+
+                    it.modFiles.from(modCompileClasspath)
+                    it.modFiles.from(modRuntimeClasspath)
+                }
             }
         }
     }
@@ -265,24 +294,20 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
     init {
         setupModTransformationPipeline(project, target, this)
 
-        val state = target.modRemapNamespace.map {
-            if (it.isEmpty()) {
-                ModTransformationStateAttribute.INITIAL
-            } else {
-                ModTransformationStateAttribute.of(target, this, States.REMAPPED)
-            }
-        }
+        val state = ModTransformationStateAttribute.of(target, this, States.REMAPPED)
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, state)
             it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, info.includeState)
+            it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, state)
             it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, info.includeState)
+            it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }

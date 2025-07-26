@@ -92,7 +92,7 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(classifierName) }
 
-    protected val mappings = MappingsBuilder(this, project)
+    internal val mappings = MappingsBuilder(this, project)
 
     @Suppress("UNCHECKED_CAST")
     private val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
