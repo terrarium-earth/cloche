@@ -190,7 +190,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         GenerateFabricModJson::class.java
     ) {
         it.loaderDependencyVersion.set(loaderVersion.map {
-            it.substringAfter('.')
+            it.substringBeforeLast('.')
         })
 
         it.output.set(metadataDirectory.map {
@@ -504,6 +504,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {
+        if (compilation.isTest) {
+            return
+        }
+
         val modId = project.extension<ClocheExtension>().metadata.modId
 
         val task = project.tasks.register(
