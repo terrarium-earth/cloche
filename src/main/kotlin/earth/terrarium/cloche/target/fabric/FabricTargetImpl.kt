@@ -45,6 +45,7 @@ import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
 import org.gradle.process.CommandLineArgumentProvider
+import java.io.File
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -222,6 +223,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.classpath.from(commonLibrariesConfiguration)
         it.classpath.from(clientLibrariesConfiguration)
         it.classpath.from(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile))
+
+        it.separator.set(File.pathSeparator)
     }
 
     lateinit var mergeJarTask: TaskProvider<Jar>
