@@ -2,9 +2,12 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.DATA_ATTRIBUTE
 import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
@@ -13,6 +16,7 @@ import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
+import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
@@ -29,6 +33,7 @@ import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
+import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
@@ -63,6 +68,21 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 )
             )
         }
+
+    val dataIncludeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
+        it.addCollectedDependencies(include)
+        it.addCollectedDependencies(dataInclude)
+
+        attributes(it.attributes)
+
+        it.attributes
+            .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+            .attribute(DATA_ATTRIBUTE, false)
+
+        it.isCanBeConsumed = false
+        it.isTransitive = false
+    }
 
     private val universal = project.configurations.create(lowerCamelCaseGradleName(featureName, "forgeUniversal")) {
         it.isCanBeConsumed = false
@@ -145,6 +165,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     }
 
     override lateinit var includeJarTask: TaskProvider<JarJar>
+    lateinit var dataIncludeJarTask: TaskProvider<JarJar>
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get
@@ -275,6 +296,35 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             })
 
             it.fromResolutionResults(includeConfiguration)
+        }
+
+        dataIncludeJarTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarJar"),
+            JarJar::class.java,
+        ) {
+            val jar = data.value.flatMap {
+                project.tasks.named(it.sourceSet.jarTaskName, Jar::class.java)
+            }
+
+            val remapJar = data.value.flatMap(TargetCompilation::remapJarTask)
+
+            if (!isSingleTarget) {
+                it.archiveClassifier.set(classifierName)
+            }
+
+            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
+
+            it.input.set(modRemapNamespace.flatMap {
+                val jarTask = if (it.isEmpty()) {
+                    jar
+                } else {
+                    remapJar
+                }
+
+                jarTask.flatMap(Jar::getArchiveFile)
+            })
+
+            it.fromResolutionResults(dataIncludeConfiguration)
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
