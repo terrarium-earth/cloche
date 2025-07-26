@@ -5,6 +5,7 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.target.configureSourceSet
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
@@ -82,6 +83,7 @@ private fun TargetCompilation.addDependencies() {
     addModDependencies(sourceSet.runtimeOnlyConfigurationName, dependencyHandler.runtimeOnly, dependencyHandler.modRuntimeOnly)
     addModDependencies(sourceSet.compileOnlyConfigurationName, dependencyHandler.compileOnly, dependencyHandler.modCompileOnly)
     addModDependencies(sourceSet.localRuntimeConfigurationName, dependencyHandler.localRuntime, dependencyHandler.modLocalRuntime)
+    addModDependencies(sourceSet.localImplementationConfigurationName, dependencyHandler.localImplementation, dependencyHandler.modLocalImplementation)
 
     if (!isTest) {
         addModDependencies(
@@ -103,6 +105,7 @@ private fun TargetCompilation.addDependencies() {
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
 
         if (!isTest) {
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
@@ -120,13 +123,19 @@ private fun TargetCompilation.addDependencies() {
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
 
         if (!isTest) {
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
         }
     }
 
+    project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+        it.extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
+    }
+
     project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+        it.extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
         it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
     }
 }

@@ -39,6 +39,9 @@ internal fun getNonProjectArtifacts(configuration: Provider<out Configuration>):
 val SourceSet.localRuntimeConfigurationName
     get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "localRuntime")
 
+val SourceSet.localImplementationConfigurationName
+    get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "localImplementation")
+
 context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
     getNonProjectArtifacts(configurations.named(configurationName)).map(ArtifactView::getFiles)

@@ -28,6 +28,10 @@ internal abstract class CommonCompilation @Inject constructor(
             project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
         }
 
+        if (sourceSet.localImplementationConfigurationName !in project.configurations.names) {
+            project.configurations.dependencyScope(sourceSet.localImplementationConfigurationName)
+        }
+
         sourceSet
     }
 

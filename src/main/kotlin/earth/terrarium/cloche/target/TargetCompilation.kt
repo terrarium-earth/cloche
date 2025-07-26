@@ -127,6 +127,10 @@ internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String,
         target.project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
     }
 
+    if (sourceSet.localImplementationConfigurationName !in target.project.configurations.names) {
+        target.project.configurations.dependencyScope(sourceSet.localImplementationConfigurationName)
+    }
+
     return sourceSet
 }
 
