@@ -108,13 +108,20 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         "$minecraftVersion-$loaderVersion"
 
     override fun addJarInjects(compilation: CompilationInternal) {
+        val configs = object {
+            override fun toString(): String {
+                return compilation.mixins.joinToString(",", transform = File::getName)
+            }
+        }
         project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
             it.manifest {
-                it.attributes["MixinConfigs"] = object {
-                    override fun toString(): String {
-                        return compilation.mixins.joinToString(",", transform = File::getName)
-                    }
-                }
+                it.attributes["MixinConfigs"] = configs
+            }
+        }
+
+        includeJarTask.configure {
+            it.manifest {
+                it.attributes["MixinConfigs"] = configs
             }
         }
     }
