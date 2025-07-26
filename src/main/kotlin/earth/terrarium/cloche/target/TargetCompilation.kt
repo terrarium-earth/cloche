@@ -115,13 +115,7 @@ internal fun registerCompilationTransformations(
 }
 
 internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String, isSingleTarget: Boolean): SourceSet {
-    val name = if (isSingleTarget) {
-        name
-    } else {
-        sourceSetName(name, target)
-    }
-
-    val sourceSet = target.project.extension<SourceSetContainer>().maybeCreate(name)
+    val sourceSet = target.project.extension<SourceSetContainer>().maybeCreate(sourceSetName(target, name, isSingleTarget))
 
     if (sourceSet.localRuntimeConfigurationName !in target.project.configurations.names) {
         target.project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)

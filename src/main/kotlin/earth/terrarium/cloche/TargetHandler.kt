@@ -8,6 +8,7 @@ import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
+import earth.terrarium.cloche.target.sourceSetName
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
@@ -32,6 +33,8 @@ import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
+import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
@@ -142,7 +145,7 @@ private fun TargetCompilation.addDependencies() {
 
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
-    fun addCompilation(compilation: TargetCompilation) {
+    fun addCompilation(compilation: TargetCompilation, testName: String? = null) {
         val sourceSet = compilation.sourceSet
 
         if (!compilation.isTest) {
@@ -261,9 +264,21 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         for (name in configurationNames) {
             configurations.findByName(name)?.attributes(compilation::attributes)
         }
+
+        if (testName != null) {
+            val sourceSetName = sourceSetName(target, testName, singleTarget)
+
+            project.extension<SourceSetContainer>().named { it == sourceSetName }.configureEach {
+                for (name in listOf(it.compileClasspathConfigurationName, it.runtimeClasspathConfigurationName)) {
+                    project.configurations.named(name) {
+                        it.attributes(compilation::attributes)
+                    }
+                }
+            }
+        }
     }
 
-    addCompilation(target.main)
+    addCompilation(target.main, SourceSet.TEST_SOURCE_SET_NAME)
 
     target.data.onConfigured {
         addCompilation(it)
@@ -277,7 +292,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
-            addCompilation(client)
+            addCompilation(client, "${ClochePlugin.CLIENT_COMPILATION_NAME}:${SourceSet.TEST_SOURCE_SET_NAME}")
             client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->
