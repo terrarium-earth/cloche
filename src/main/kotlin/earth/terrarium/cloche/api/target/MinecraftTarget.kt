@@ -16,6 +16,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.Optional
 
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
@@ -31,14 +32,23 @@ interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencie
         get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").dir(featureName) }
 
     val datagenDirectory: DirectoryProperty
-        @Input get
+        @Optional
+        @Input
+        get
 
     val datagenClientDirectory: DirectoryProperty
-        @Input get
+        @Optional
+        @Input
+        get
 
     val finalJar: Provider<RegularFile>
 
     val include: DependencyCollector
+
+    val withMixinAgent: Property<Boolean>
+        @Optional
+        @Input
+        get
 
     fun mappings(action: Action<MappingsBuilder>)
 

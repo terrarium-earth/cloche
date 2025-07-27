@@ -54,7 +54,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
                     setDependenciesWithTest(it as CommonTargetInternal)
                 }
 
-                return common.data()
+                return common.test()
             }
 
             fun addIncludedClientWeakLinks(info: SourceSetStaticLinkageInfo, common: CommonTargetInternal) {
@@ -92,7 +92,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
                 }
 
                 target.test.onConfigured { test ->
-                    val dependency = setDependenciesWithData(dependency)
+                    val dependency = setDependenciesWithTest(dependency)
 
                     test.addSourceDependency(dependency)
                 }

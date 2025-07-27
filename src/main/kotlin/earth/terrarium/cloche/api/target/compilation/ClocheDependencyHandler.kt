@@ -11,6 +11,7 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
     abstract val api: DependencyCollector
     abstract val compileOnlyApi: DependencyCollector
     abstract val localRuntime: DependencyCollector
+    abstract val localImplementation: DependencyCollector
 
     abstract val modApi: DependencyCollector
     abstract val modCompileOnlyApi: DependencyCollector
@@ -18,6 +19,7 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
     abstract val modRuntimeOnly: DependencyCollector
     abstract val modCompileOnly: DependencyCollector
     abstract val modLocalRuntime: DependencyCollector
+    abstract val modLocalImplementation: DependencyCollector
 
     fun fabricApi(apiVersion: String) {
         modImplementation.add(minecraftVersion.map {

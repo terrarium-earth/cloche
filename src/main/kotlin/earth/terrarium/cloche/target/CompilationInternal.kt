@@ -39,6 +39,9 @@ internal fun getNonProjectArtifacts(configuration: Provider<out Configuration>):
 val SourceSet.localRuntimeConfigurationName
     get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "localRuntime")
 
+val SourceSet.localImplementationConfigurationName
+    get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "localImplementation")
+
 context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
     getNonProjectArtifacts(configurations.named(configurationName)).map(ArtifactView::getFiles)
@@ -98,10 +101,16 @@ internal abstract class CompilationInternal : Compilation {
     override fun toString() = target.name + TARGET_NAME_PATH_SEPARATOR + name
 }
 
-internal fun sourceSetName(compilationName: String, target: ClocheTarget) = when {
+internal fun sourceSetName(target: ClocheTarget, compilationName: String) = when {
     target.name == COMMON -> lowerCamelCaseGradleName(compilationName)
     compilationName == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName
     else -> lowerCamelCaseGradleName(target.featureName, compilationName)
+}
+
+internal fun sourceSetName(target: ClocheTarget, compilationName: String, isSingleTarget: Boolean) = if (isSingleTarget) {
+    lowerCamelCaseGradleName(compilationName)
+} else {
+    sourceSetName(target, compilationName)
 }
 
 internal fun Project.configureSourceSet(

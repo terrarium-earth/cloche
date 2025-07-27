@@ -163,19 +163,22 @@ internal fun createCommonTarget(
                 it.addCollectedDependencies(compilation.dependencyHandler.modLocalRuntime)
             }
 
-        val commonImplementation =
-            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.implementation)
-
-                it.extendsFrom(modImplementation.get())
+        val modLocalImplementation =
+            configurations.dependencyScope(modConfigurationName(sourceSet.localImplementationConfigurationName)) {
+                it.addCollectedDependencies(compilation.dependencyHandler.modLocalImplementation)
             }
 
-        val commonApi =
-            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.api)
+        configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)) {
+            it.addCollectedDependencies(compilation.dependencyHandler.implementation)
 
-                it.extendsFrom(modApi.get())
-            }
+            it.extendsFrom(modImplementation.get())
+        }
+
+        configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)) {
+            it.addCollectedDependencies(compilation.dependencyHandler.api)
+
+            it.extendsFrom(modApi.get())
+        }
 
         val commonCompileOnly =
             configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME)) {
@@ -184,12 +187,11 @@ internal fun createCommonTarget(
                 it.extendsFrom(modCompileOnly.get())
             }
 
-        val commonCompileOnlyApi =
-            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.compileOnlyApi)
+        configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)) {
+            it.addCollectedDependencies(compilation.dependencyHandler.compileOnlyApi)
 
-                it.extendsFrom(modCompileOnlyApi.get())
-            }
+            it.extendsFrom(modCompileOnlyApi.get())
+        }
 
         configurations.named(sourceSet.runtimeOnlyConfigurationName) {
             it.addCollectedDependencies(compilation.dependencyHandler.runtimeOnly)
@@ -201,6 +203,12 @@ internal fun createCommonTarget(
             it.addCollectedDependencies(compilation.dependencyHandler.localRuntime)
 
             it.extendsFrom(modLocalRuntime.get())
+        }
+
+        configurations.named(sourceSet.localImplementationConfigurationName) {
+            it.addCollectedDependencies(compilation.dependencyHandler.localImplementation)
+
+            it.extendsFrom(modLocalImplementation.get())
         }
 
         configurations.named(sourceSet.annotationProcessorConfigurationName) {
