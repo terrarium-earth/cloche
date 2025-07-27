@@ -92,7 +92,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
                 }
 
                 target.test.onConfigured { test ->
-                    val dependency = setDependenciesWithData(dependency)
+                    val dependency = setDependenciesWithTest(dependency)
 
                     test.addSourceDependency(dependency)
                 }
