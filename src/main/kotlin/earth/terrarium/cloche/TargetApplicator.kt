@@ -54,7 +54,7 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
                     setDependenciesWithTest(it as CommonTargetInternal)
                 }
 
-                return common.data()
+                return common.test()
             }
 
             fun addIncludedClientWeakLinks(info: SourceSetStaticLinkageInfo, common: CommonTargetInternal) {
