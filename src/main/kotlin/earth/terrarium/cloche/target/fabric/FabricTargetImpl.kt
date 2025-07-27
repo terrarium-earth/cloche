@@ -14,7 +14,7 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
-import earth.terrarium.cloche.target.localRuntimeConfigurationName
+import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -45,6 +45,7 @@ import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.tasks.Jar
 import org.gradle.process.CommandLineArgumentProvider
+import java.io.File
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -190,7 +191,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         GenerateFabricModJson::class.java
     ) {
         it.loaderDependencyVersion.set(loaderVersion.map {
-            it.substringBefore('.')
+            it.substringBeforeLast('.')
         })
 
         it.output.set(metadataDirectory.map {
@@ -222,6 +223,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.classpath.from(commonLibrariesConfiguration)
         it.classpath.from(clientLibrariesConfiguration)
         it.classpath.from(remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile))
+
+        it.separator.set(File.pathSeparator)
     }
 
     lateinit var mergeJarTask: TaskProvider<Jar>
@@ -262,11 +265,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
 
-        project.configurations.named(client.sourceSet.compileClasspathConfigurationName) {
-            it.extendsFrom(clientLibrariesConfiguration)
-        }
-
-        project.configurations.named(client.sourceSet.runtimeClasspathConfigurationName) {
+        project.configurations.named(client.sourceSet.localImplementationConfigurationName) {
             it.extendsFrom(clientLibrariesConfiguration)
         }
 
@@ -459,14 +458,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.dependsOn(generateModJson)
         }
 
+        data.onConfigured {
+            project.tasks.named(it.sourceSet.processResourcesTaskName) {
+                it.dependsOn(generateModJson)
+            }
+        }
+
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-            project.configurations.named(sourceSet.compileOnlyConfigurationName) {
-                it.extendsFrom(commonLibrariesConfiguration)
-            }
-
-            project.configurations.named(sourceSet.localRuntimeConfigurationName) {
+            project.configurations.named(sourceSet.localImplementationConfigurationName) {
                 it.extendsFrom(commonLibrariesConfiguration)
             }
 
@@ -498,6 +499,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {
+        if (compilation.isTest) {
+            return
+        }
+
         val modId = project.extension<ClocheExtension>().metadata.modId
 
         val task = project.tasks.register(
@@ -549,11 +554,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-        project.configurations.named(sourceSet.compileOnlyConfigurationName) {
-            it.extendsFrom(clientLibrariesConfiguration)
-        }
-
-        project.configurations.named(sourceSet.localRuntimeConfigurationName) {
+        project.configurations.named(sourceSet.localImplementationConfigurationName) {
             it.extendsFrom(clientLibrariesConfiguration)
         }
 

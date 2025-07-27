@@ -107,24 +107,27 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
         project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.datagenDirectory)
+            it.mustRunAfter(data.runTask)
+        }
+
+        project.tasks.named(target.sourceSet.jarTaskName) {
+            it.dependsOn(data.runTask)
         }
 
         target.test.onConfigured {
             project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
                 it.from(target.datagenDirectory)
+                it.mustRunAfter(data.runTask)
             }
         }
 
-        // afterEvaluate needed because idea APIs are not lazy
-        project.afterEvaluate {
-            project.ideaModule(target.sourceSet) {
-                it.resourceDirs.add(target.datagenDirectory.get().asFile)
-            }
+        project.ideaModule(target.sourceSet) {
+            it.resourceDirs.add(target.datagenDirectory.get().asFile)
+        }
 
-            target.test.onConfigured {
-                project.ideaModule(it.sourceSet) {
-                    it.resourceDirs.add(target.datagenDirectory.get().asFile)
-                }
+        target.test.onConfigured {
+            project.ideaModule(it.sourceSet) {
+                it.resourceDirs.add(target.datagenDirectory.get().asFile)
             }
         }
 
@@ -165,27 +168,30 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
                 it.from(target.datagenDirectory)
                 it.from(target.datagenClientDirectory)
+                it.mustRunAfter(clientData.runTask)
+            }
+
+            project.tasks.named(it.sourceSet.jarTaskName) {
+                it.dependsOn(clientData.runTask)
             }
 
             it.test.onConfigured {
                 project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
                     it.from(target.datagenDirectory)
                     it.from(target.datagenClientDirectory)
+                    it.mustRunAfter(clientData.runTask)
                 }
             }
 
-            // afterEvaluate needed because idea APIs are not lazy
-            project.afterEvaluate { _ ->
+            project.ideaModule(it.sourceSet) {
+                it.resourceDirs.add(target.datagenDirectory.get().asFile)
+                it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
+            }
+
+            it.test.onConfigured {
                 project.ideaModule(it.sourceSet) {
                     it.resourceDirs.add(target.datagenDirectory.get().asFile)
                     it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
-                }
-
-                it.test.onConfigured {
-                    project.ideaModule(it.sourceSet) {
-                        it.resourceDirs.add(target.datagenDirectory.get().asFile)
-                        it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
-                    }
                 }
             }
         }
@@ -193,24 +199,27 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         target.onClientIncluded {
             project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
                 it.from(target.datagenClientDirectory)
+                it.mustRunAfter(clientData.runTask)
+            }
+
+            project.tasks.named(target.sourceSet.jarTaskName) {
+                it.dependsOn(clientData.runTask)
             }
 
             target.test.onConfigured {
                 project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
                     it.from(target.datagenClientDirectory)
+                    it.mustRunAfter(clientData.runTask)
                 }
             }
 
-            // afterEvaluate needed because idea APIs are not lazy
-            project.afterEvaluate {
-                project.ideaModule(target.sourceSet) {
-                    it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
-                }
+            project.ideaModule(target.sourceSet) {
+                it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
+            }
 
-                target.test.onConfigured {
-                    project.ideaModule(it.sourceSet) {
-                        it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
-                    }
+            target.test.onConfigured {
+                project.ideaModule(it.sourceSet) {
+                    it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
                 }
             }
         }

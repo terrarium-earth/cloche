@@ -5,8 +5,10 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.target.configureSourceSet
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
+import earth.terrarium.cloche.target.sourceSetName
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
@@ -31,9 +33,12 @@ import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Copy
+import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
+import org.gradle.language.jvm.tasks.ProcessResources
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -81,6 +86,7 @@ private fun TargetCompilation.addDependencies() {
     addModDependencies(sourceSet.runtimeOnlyConfigurationName, dependencyHandler.runtimeOnly, dependencyHandler.modRuntimeOnly)
     addModDependencies(sourceSet.compileOnlyConfigurationName, dependencyHandler.compileOnly, dependencyHandler.modCompileOnly)
     addModDependencies(sourceSet.localRuntimeConfigurationName, dependencyHandler.localRuntime, dependencyHandler.modLocalRuntime)
+    addModDependencies(sourceSet.localImplementationConfigurationName, dependencyHandler.localImplementation, dependencyHandler.modLocalImplementation)
 
     if (!isTest) {
         addModDependencies(
@@ -96,10 +102,13 @@ private fun TargetCompilation.addDependencies() {
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
+        it.isTransitive = false
+
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
 
         if (!isTest) {
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
@@ -108,6 +117,8 @@ private fun TargetCompilation.addDependencies() {
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
+        it.isTransitive = false
+
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
@@ -115,20 +126,26 @@ private fun TargetCompilation.addDependencies() {
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
+        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
 
         if (!isTest) {
             it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
         }
     }
 
+    project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+        it.extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
+    }
+
     project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+        it.extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
         it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
     }
 }
 
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
-    fun addCompilation(compilation: TargetCompilation) {
+    fun addCompilation(compilation: TargetCompilation, testName: String? = null) {
         val sourceSet = compilation.sourceSet
 
         if (!compilation.isTest) {
@@ -148,10 +165,19 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             it.destinationDir = layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
         }
 
-        sourceSet.resources.srcDir(copyMixins.map(Copy::getDestinationDir))
+        project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
+            it.from(copyMixins.map(Copy::getDestinationDir))
+        }
+
+        project.ideaModule(sourceSet) {
+            it.resourceDirs.add(copyMixins.get().destinationDir)
+        }
 
         target.registerAccessWidenerMergeTask(compilation)
-        target.addJarInjects(compilation)
+
+        if (!compilation.isTest) {
+            target.addJarInjects(compilation)
+        }
 
         val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
             val capabilitySuffix = compilation.capabilityName?.let { "$it-" }.orEmpty() + "mod-outputs"
@@ -241,13 +267,25 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         for (name in configurationNames) {
             configurations.findByName(name)?.attributes(compilation::attributes)
         }
+
+        if (testName != null) {
+            val sourceSetName = sourceSetName(target, testName, singleTarget)
+
+            project.extension<SourceSetContainer>().named { it == sourceSetName }.configureEach {
+                for (name in listOf(it.compileClasspathConfigurationName, it.runtimeClasspathConfigurationName)) {
+                    project.configurations.named(name) {
+                        it.attributes(compilation::attributes)
+                    }
+                }
+            }
+        }
     }
 
-    addCompilation(target.main)
+    addCompilation(target.main, SourceSet.TEST_SOURCE_SET_NAME)
 
     target.data.onConfigured {
         addCompilation(it)
-        it.addClasspathDependency(target.main)
+        it.addDataClasspathDependency(target.main)
     }
 
     target.test.onConfigured {
@@ -257,16 +295,16 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
-            addCompilation(client)
+            addCompilation(client, "${ClochePlugin.CLIENT_COMPILATION_NAME}:${SourceSet.TEST_SOURCE_SET_NAME}")
             client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->
                 addCompilation(data)
-                data.addClasspathDependency(client)
-                data.addClasspathDependency(target.main)
+                data.addDataClasspathDependency(client)
+                data.addDataClasspathDependency(target.main)
 
                 target.data.onConfigured {
-                    data.addClasspathDependency(it)
+                    data.addDataClasspathDependency(it)
                 }
             }
 

@@ -24,7 +24,6 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
-import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -43,7 +42,6 @@ internal object States {
 
 internal fun Project.getModFiles(
     configurationName: String,
-    isTransitive: Boolean = true,
     configure: Action<ArtifactView.ViewConfiguration>? = null,
 ): FileCollection {
     val classpath = project.configurations.named(configurationName)
@@ -53,11 +51,7 @@ internal fun Project.getModFiles(
     return project.files(classpath.zip(modDependencies) { classpath, modDependencies ->
         val resolutionResult = modDependencies.incoming.resolutionResult
 
-        val componentIdentifiers = if (isTransitive) {
-            resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
-        } else {
-            resolutionResult.root.dependencies.filterIsInstance<ResolvedDependencyResult>().map { it.selected.id }
-        }
+        val componentIdentifiers = resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
 
         val filteredIdentifiers = componentIdentifiers.filter { it !is ProjectComponentIdentifier }
 
@@ -124,16 +118,14 @@ internal fun registerCompilationTransformations(
 }
 
 internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String, isSingleTarget: Boolean): SourceSet {
-    val name = if (isSingleTarget) {
-        name
-    } else {
-        sourceSetName(name, target)
-    }
-
-    val sourceSet = target.project.extension<SourceSetContainer>().maybeCreate(name)
+    val sourceSet = target.project.extension<SourceSetContainer>().maybeCreate(sourceSetName(target, name, isSingleTarget))
 
     if (sourceSet.localRuntimeConfigurationName !in target.project.configurations.names) {
         target.project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
+    }
+
+    if (sourceSet.localImplementationConfigurationName !in target.project.configurations.names) {
+        target.project.configurations.dependencyScope(sourceSet.localImplementationConfigurationName)
     }
 
     return sourceSet

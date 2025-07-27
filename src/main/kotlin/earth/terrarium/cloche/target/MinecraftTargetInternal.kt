@@ -2,6 +2,7 @@
 
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.DATA_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
@@ -20,6 +21,7 @@ import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
+import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.DependencyCollector
@@ -94,6 +96,24 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     @Suppress("UNCHECKED_CAST")
     private val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
+
+    init {
+        datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
+            it.dir("resources").dir(target.featureName)
+        })
+
+        datagenClientDirectory.convention(project.layout.buildDirectory.dir("generated").map {
+            it.dir("resources").dir(lowerCamelCaseGradleName(target.featureName, ClochePlugin.CLIENT_COMPILATION_NAME))
+        })
+
+        withMixinAgent.convention(false)
+
+        project.afterEvaluate {
+            if (!loaderVersion.isPresent) {
+                throw InvalidUserCodeException("loaderVersion not set for target '$name'")
+            }
+        }
+    }
 
     override fun withJavadocJar() = main.withJavadocJar()
     override fun withSourcesJar() = main.withSourcesJar()
