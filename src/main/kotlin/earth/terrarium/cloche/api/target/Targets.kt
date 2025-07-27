@@ -8,6 +8,7 @@ import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import org.gradle.api.Action
+import org.gradle.api.Incubating
 import org.gradle.api.artifacts.dsl.DependencyCollector
 
 @JvmDefaultWithoutCompatibility
@@ -27,10 +28,16 @@ interface FabricTarget : MinecraftTarget {
 @JvmDefaultWithoutCompatibility
 interface ForgeLikeTarget : MinecraftTarget {
     val dataInclude: DependencyCollector
+        @Incubating get
 
     val legacyClasspath: DependencyCollector
+        @Incubating get
+
     val dataLegacyClasspath: DependencyCollector
+        @Incubating get
+
     val testLegacyClasspath: DependencyCollector
+        @Incubating get
 
     val metadata: ForgeMetadata
 
