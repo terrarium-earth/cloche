@@ -28,6 +28,10 @@ interface FabricTarget : MinecraftTarget {
 interface ForgeLikeTarget : MinecraftTarget {
     val dataInclude: DependencyCollector
 
+    val legacyClasspath: DependencyCollector
+    val dataLegacyClasspath: DependencyCollector
+    val testLegacyClasspath: DependencyCollector
+
     val metadata: ForgeMetadata
 
     fun metadata(configure: Action<ForgeMetadata>) = configure.execute(metadata)

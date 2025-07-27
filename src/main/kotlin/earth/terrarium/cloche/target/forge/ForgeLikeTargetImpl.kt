@@ -17,6 +17,7 @@ import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.addCollectedDependencies
+import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
@@ -69,19 +70,61 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             )
         }
 
-    val dataIncludeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
-        it.addCollectedDependencies(include)
-        it.addCollectedDependencies(dataInclude)
+    val dataIncludeConfiguration: NamedDomainObjectProvider<Configuration> =
+        project.configurations.register(lowerCamelCaseGradleName(target.featureName, "dataInclude")) {
+            it.extendsFrom(includeConfiguration.get())
+
+            it.addCollectedDependencies(dataInclude)
+
+            attributes(it.attributes)
+
+            it.attributes
+                .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+                .attribute(DATA_ATTRIBUTE, true)
+
+            it.isCanBeConsumed = false
+            it.isTransitive = false
+        }
+
+    private val legacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "legacyClasspath")) {
+        it.addCollectedDependencies(legacyClasspath)
 
         attributes(it.attributes)
 
         it.attributes
-            .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
             .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
             .attribute(DATA_ATTRIBUTE, false)
 
         it.isCanBeConsumed = false
-        it.isTransitive = false
+    }
+
+    private val dataLegacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "dataLegacyClasspath")) {
+        it.extendsFrom(legacyClasspathConfiguration.get())
+
+        it.addCollectedDependencies(dataLegacyClasspath)
+
+        attributes(it.attributes)
+
+        it.attributes
+            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+            .attribute(DATA_ATTRIBUTE, true)
+
+        it.isCanBeConsumed = false
+    }
+
+    private val testLegacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "testLegacyClasspath")) {
+        it.extendsFrom(legacyClasspathConfiguration.get())
+
+        it.addCollectedDependencies(testLegacyClasspath)
+
+        attributes(it.attributes)
+
+        it.attributes
+            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+            .attribute(DATA_ATTRIBUTE, false)
+
+        it.isCanBeConsumed = false
     }
 
     private val universal = project.configurations.create(lowerCamelCaseGradleName(featureName, "forgeUniversal")) {
@@ -106,9 +149,30 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }))
     }
 
-    internal abstract val writeLegacyClasspath: TaskProvider<WriteClasspathFile>
-    internal abstract val writeLegacyDataClasspath: TaskProvider<WriteClasspathFile>
-    internal abstract val writeLegacyTestClasspath: TaskProvider<WriteClasspathFile>
+    internal val writeLegacyClasspath = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "legacyClasspath"),
+        WriteClasspathFile::class.java,
+    ) { task ->
+        configureLegacyClasspath(task, main, legacyClasspathConfiguration)
+    }
+
+    internal val writeLegacyDataClasspath: TaskProvider<WriteClasspathFile> = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "dataLegacyClasspath"),
+        WriteClasspathFile::class.java,
+    ) { task ->
+        data.onConfigured { data ->
+            configureLegacyClasspath(task, data, dataLegacyClasspathConfiguration)
+        }
+    }
+
+    internal val writeLegacyTestClasspath: TaskProvider<WriteClasspathFile> = project.tasks.register(
+        lowerCamelCaseGradleName("write", featureName, "testLegacyClasspath"),
+        WriteClasspathFile::class.java,
+    ) { task ->
+        test.onConfigured { test ->
+            configureLegacyClasspath(task, test, testLegacyClasspathConfiguration)
+        }
+    }
 
     final override lateinit var main: TargetCompilation
 
@@ -170,7 +234,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     protected abstract val providerFactory: ProviderFactory
         @Inject get
 
-    override val runs: ForgeRunConfigurations<out ForgeLikeTargetImpl> = project.objects.newInstance(ForgeRunConfigurations::class.java, this)
+    override val runs: ForgeRunConfigurations<out ForgeLikeTargetImpl> =
+        project.objects.newInstance(ForgeRunConfigurations::class.java, this)
 
     abstract val group: String
     abstract val artifact: String
@@ -230,15 +295,26 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         project.dependencies.add(universal.name, forgeDependency {})
     }
 
+    private fun configureLegacyClasspath(task: WriteClasspathFile, compilation: TargetCompilation, configuration: Provider<Configuration>) {
+        task.classpath.from(minecraftLibrariesConfiguration)
+        task.classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
+        task.classpath.from(configuration)
+
+        if (this is ForgeTargetImpl) {
+            task.classpath.from(compilation.finalMinecraftFile)
+        }
+    }
+
     private fun output(suffix: Provider<String>) = suffix.flatMap { suffix ->
         outputDirectory.zip(minecraftVersion.zip(loaderVersion) { a, b -> "$a-$b" }) { dir, version ->
             dir.file("$loaderName-$version-$suffix.jar")
         }
     }
 
-    protected fun loaderVersionRange(version: String): ModMetadata.VersionRange = objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
-        start.set(version)
-    }
+    protected fun loaderVersionRange(version: String): ModMetadata.VersionRange =
+        objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
+            start.set(version)
+        }
 
     private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<ExternalModuleDependency> =
         minecraftVersion.flatMap { minecraftVersion ->
@@ -272,6 +348,22 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             ),
         )
 
+        legacyClasspathConfiguration.configure {
+            it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+        }
+
+        dataLegacyClasspathConfiguration.configure {
+            data.onConfigured { data ->
+                it.shouldResolveConsistentlyWith(project.configurations.getByName(data.sourceSet.runtimeClasspathConfigurationName))
+            }
+        }
+
+        testLegacyClasspathConfiguration.configure {
+            test.onConfigured { test ->
+                it.shouldResolveConsistentlyWith(project.configurations.getByName(test.sourceSet.runtimeClasspathConfigurationName))
+            }
+        }
+
         includeJarTask = project.tasks.register(
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarJar"),
             JarJar::class.java,
@@ -299,7 +391,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
 
         dataIncludeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarJar"),
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "dataJarJar"),
             JarJar::class.java,
         ) {
             val jar = data.value.flatMap {

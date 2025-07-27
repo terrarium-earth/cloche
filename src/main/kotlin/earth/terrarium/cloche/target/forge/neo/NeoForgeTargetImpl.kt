@@ -4,16 +4,11 @@ import earth.terrarium.cloche.NEOFORGE
 import earth.terrarium.cloche.api.target.NeoforgeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
-import earth.terrarium.cloche.target.getModFiles
 import net.msrandom.minecraftcodev.core.operatingSystemName
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
-import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
-import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
 
 private val NEOFORGE_DISTRIBUTION_ATTRIBUTE = Attribute.of("net.neoforged.distribution", String::class.java)
@@ -46,31 +41,6 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             }
         }
 
-    override val writeLegacyClasspath = project.tasks.register(
-        lowerCamelCaseGradleName("write", featureName, "legacyClasspath"),
-        WriteClasspathFile::class.java,
-    ) { task ->
-        configureLegacyClasspath(task, sourceSet)
-    }
-
-    override val writeLegacyDataClasspath = project.tasks.register(
-        lowerCamelCaseGradleName("write", featureName, "dataLegacyClasspath"),
-        WriteClasspathFile::class.java,
-    ) { task ->
-        data.onConfigured { data ->
-            configureLegacyClasspath(task, data.sourceSet)
-        }
-    }
-
-    override val writeLegacyTestClasspath = project.tasks.register(
-        lowerCamelCaseGradleName("write", featureName, "testLegacyClasspath"),
-        WriteClasspathFile::class.java,
-    ) { task ->
-        test.onConfigured { test ->
-            configureLegacyClasspath(task, test.sourceSet)
-        }
-    }
-
     init {
         minecraftLibrariesConfiguration.attributes {
             it.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
@@ -94,16 +64,6 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         resolvePatchedMinecraft.configure {
             it.neoforge.set(true)
         }
-    }
-
-    private fun configureLegacyClasspath(task: WriteClasspathFile, sourceSet: SourceSet) {
-        val classpath = project.files()
-
-        classpath.from(minecraftLibrariesConfiguration)
-        classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
-        classpath.from(project.configurations.named(sourceSet.runtimeClasspathConfigurationName))
-
-        task.classpath.from(classpath - project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
     }
 
     private fun addAttributes(attributeContainer: AttributeContainer) {
