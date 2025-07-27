@@ -87,6 +87,4 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
     final override fun version(minecraftVersion: String, loaderVersion: String) =
         loaderVersion
-
-    override fun addJarInjects(compilation: CompilationInternal) {}
 }

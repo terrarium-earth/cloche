@@ -496,8 +496,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         // TODO Add forge mixin arguments
     }
 
-    override fun addJarInjects(compilation: CompilationInternal) {}
-
     override fun onClientIncluded(action: () -> Unit) {
         action()
     }

@@ -174,7 +174,10 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
 
         target.registerAccessWidenerMergeTask(compilation)
-        target.addJarInjects(compilation)
+
+        if (!compilation.isTest) {
+            target.addJarInjects(compilation)
+        }
 
         val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
             val capabilitySuffix = compilation.capabilityName?.let { "$it-" }.orEmpty() + "mod-outputs"
