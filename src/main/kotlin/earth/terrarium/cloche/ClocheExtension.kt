@@ -138,7 +138,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         }
     }
 
-    val rootMetadata: Metadata = objects.newInstance(Metadata::class.java)
+    var rootMetadataAction: Action<Metadata>? = null
 
     val intermediateOutputsDirectory: DirectoryProperty = objects.directoryProperty()
     val finalOutputsDirectory: DirectoryProperty = objects.directoryProperty()
@@ -241,6 +241,6 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }
 
     fun metadata(action: Action<Metadata>) {
-        action.execute(rootMetadata)
+        rootMetadataAction = action
     }
 }

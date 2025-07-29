@@ -64,6 +64,10 @@ internal abstract class CommonTargetInternal @Inject constructor(
     // Not lazy as it has to happen once at configuration time
     var publish = false
 
+    @Suppress("UNCHECKED_CAST")
+    override val metadataActions: DomainObjectCollection<Action<Metadata>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<Metadata>>
+
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
 
@@ -74,9 +78,15 @@ internal abstract class CommonTargetInternal @Inject constructor(
             // Evaluate targets
             cloche.targets.toList()
         }.map {
-            it.filter {
+            val dependents = it.filter {
                 this@CommonTargetInternal in collectTargetDependencies(it)
             }
+            for (dependent in dependents) {
+                metadataActions.forEach { metadataAction ->
+                    metadataAction.execute(dependent.metadata)
+                }
+            }
+            dependents
         }
     }
 
@@ -97,8 +107,6 @@ internal abstract class CommonTargetInternal @Inject constructor(
     override val minecraftVersion: Provider<String> = minecraftVersions.map { versions ->
         versions.onlyValue()
     }
-
-    override val metadata: Metadata = project.objects.newInstance(Metadata::class.java)
 
     val commonType: Provider<String> = dependents.map { dependants ->
         dependants.map { (it as MinecraftTargetInternal).commonType }.onlyValue()

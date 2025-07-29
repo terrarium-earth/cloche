@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.api.target
 
 import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import groovy.lang.Closure
@@ -26,6 +27,8 @@ interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencie
 
     val loaderVersion: Property<String>
         @Input get
+
+    val metadata: Metadata
 
     val metadataDirectory: Provider<Directory>
         @Internal
