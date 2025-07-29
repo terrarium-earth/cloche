@@ -20,7 +20,6 @@ import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.util.fromJars
-import earth.terrarium.cloche.util.mergeMetadata
 import earth.terrarium.cloche.util.validateMetadata
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -343,14 +342,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.requireCapability("net.msrandom:$clientTargetMinecraftName")
             }
         })
-
-        val metadata = mutableListOf(project.extension<ClocheExtension>().rootMetadata)
-        metadata.addAll(dependsOn.map { it.metadata })
-        metadata.add(this.metadata)
-
-        val mergedMetadata = mergeMetadata<FabricMetadata>(project.objects, metadata)
-        validateMetadata(mergedMetadata)
-        this.metadata = mergedMetadata
     }
 
     private fun output(suffix: String) = outputDirectory.zip(minecraftVersion) { dir, version ->
@@ -429,6 +420,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun initialize(isSingleTarget: Boolean) {
+        super.initialize(isSingleTarget)
+
         this.isSingleTarget = isSingleTarget
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
@@ -525,6 +518,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             mappings.fabricIntermediary()
 
+            validateMetadata(metadata)
             registerMappings()
 
             // afterEvaluate needed because of the component rules using providers
@@ -553,19 +547,17 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             return
         }
 
-        val modId = project.extension<ClocheExtension>().rootMetadata.modId
-
+        val modId = metadata.modId
         val task = project.tasks.register(
             lowerCamelCaseGradleName("merge", name, compilation.featureName, "accessWideners"),
             MergeAccessWideners::class.java
         ) {
             it.input.from(accessWideners)
-            it.accessWidenerName.set(project.extension<ClocheExtension>().rootMetadata.modId)
+            it.accessWidenerName.set(modId)
 
             val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
                 directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
             }
-
             it.output.set(output)
         }
 

@@ -20,7 +20,6 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
-import earth.terrarium.cloche.util.mergeMetadata
 import earth.terrarium.cloche.util.validateMetadata
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
@@ -281,14 +280,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         })
 
         project.dependencies.add(universal.name, forgeDependency {})
-
-        val metadata = mutableListOf(project.extension<ClocheExtension>().rootMetadata)
-        metadata.addAll(dependsOn.map { it.metadata })
-        metadata.add(this.metadata)
-
-        val mergedMetadata = mergeMetadata<ForgeMetadata>(project.objects, metadata)
-        validateMetadata(mergedMetadata)
-        this.metadata = mergedMetadata
     }
 
     private fun configureLegacyClasspath(task: WriteClasspathFile, compilation: TargetCompilation, configuration: Provider<Configuration>) {
@@ -326,6 +317,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
 
     override fun initialize(isSingleTarget: Boolean) {
+        metadata.modLoader.set("javafml")
+
+        super.initialize(isSingleTarget)
+
         this.isSingleTarget = isSingleTarget
 
         main = project.objects.newInstance(
@@ -399,6 +394,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         project.dependencies.addProvider(sourceSet.mappingsConfigurationName, userdev)
 
+        validateMetadata(metadata)
         registerMappings()
     }
 

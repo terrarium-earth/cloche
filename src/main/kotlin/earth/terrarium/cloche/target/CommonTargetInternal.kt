@@ -65,6 +65,9 @@ internal abstract class CommonTargetInternal @Inject constructor(
     var publish = false
 
     override val hasSeparateClient = client.isConfigured
+    @Suppress("UNCHECKED_CAST")
+    override val metadataActions: DomainObjectCollection<Action<Metadata>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<Metadata>>
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
@@ -76,9 +79,15 @@ internal abstract class CommonTargetInternal @Inject constructor(
             // Evaluate targets
             cloche.targets.toList()
         }.map {
-            it.filter {
+            val dependents = it.filter {
                 this@CommonTargetInternal in collectTargetDependencies(it)
             }
+            for (dependent in dependents) {
+                metadataActions.forEach { metadataAction ->
+                    metadataAction.execute(dependent.metadata)
+                }
+            }
+            dependents
         }
     }
 
@@ -100,8 +109,6 @@ internal abstract class CommonTargetInternal @Inject constructor(
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         versions.onlyValue()
     }
-
-    override val metadata: Metadata = project.objects.newInstance(Metadata::class.java)
 
     val commonType: Provider<String> = dependents.map { dependants ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
