@@ -93,7 +93,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(project.extension<ClocheExtension>().rootMetadata.modId)
+                it.modId.set(target.metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenDirectory)
                 it.downloadAssetsTask.set(
@@ -150,7 +150,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(project.extension<ClocheExtension>().rootMetadata.modId)
+                it.modId.set(target.metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenClientDirectory)
                 it.downloadAssetsTask.set(
