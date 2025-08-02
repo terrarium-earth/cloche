@@ -17,6 +17,7 @@ import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
+import earth.terrarium.cloche.util.validateMetadata
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
@@ -198,8 +199,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.file("fabric.mod.json")
         })
 
-        it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
-        it.targetMetadata.set(metadata)
+        it.metadata.set(metadata)
+
         it.mixinConfigs.from(mixins)
     }
 
@@ -284,7 +285,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         registerCommonCompilation(SourceSet.TEST_SOURCE_SET_NAME)
     }
 
-    override val metadata: FabricMetadata = project.objects.newInstance(FabricMetadata::class.java)
+    override var metadata: FabricMetadata = project.objects.newInstance(FabricMetadata::class.java)
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get
@@ -399,6 +400,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     override fun initialize(isSingleTarget: Boolean) {
+        super.initialize(isSingleTarget)
+
         this.isSingleTarget = isSingleTarget
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
@@ -475,6 +478,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             mappings.fabricIntermediary()
 
+            validateMetadata(metadata)
             registerMappings()
 
             // afterEvaluate needed because of the component rules using providers
@@ -503,19 +507,17 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             return
         }
 
-        val modId = project.extension<ClocheExtension>().metadata.modId
-
+        val modId = metadata.modId
         val task = project.tasks.register(
             lowerCamelCaseGradleName("merge", name, compilation.featureName, "accessWideners"),
             MergeAccessWideners::class.java
         ) {
             it.input.from(accessWideners)
-            it.accessWidenerName.set(project.extension<ClocheExtension>().metadata.modId)
+            it.accessWidenerName.set(modId)
 
             val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
                 directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
             }
-
             it.output.set(output)
         }
 
@@ -530,7 +532,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         compilation.dependencyHandler.annotationProcessor.add(module("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
 
         project.tasks.named(compilation.sourceSet.compileJavaTaskName, JavaCompile::class.java) {
-            val inMapFile = lowerCamelCaseGradleName("inMapFile", MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE, MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE)
+            val inMapFile = lowerCamelCaseGradleName(
+                "inMapFile",
+                MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE,
+                MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE
+            )
 
             val inMapFileArgument = loadMappingsTask.flatMap(LoadMappings::output).map {
                 "-A$inMapFile=${it}"

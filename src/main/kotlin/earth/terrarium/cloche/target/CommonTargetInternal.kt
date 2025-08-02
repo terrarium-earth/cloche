@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
@@ -11,7 +12,6 @@ import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
@@ -64,6 +64,10 @@ internal abstract class CommonTargetInternal @Inject constructor(
     // Not lazy as it has to happen once at configuration time
     var publish = false
 
+    @Suppress("UNCHECKED_CAST")
+    override val metadataActions: DomainObjectCollection<Action<Metadata>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<Metadata>>
+
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
 
@@ -74,9 +78,15 @@ internal abstract class CommonTargetInternal @Inject constructor(
             // Evaluate targets
             cloche.targets.toList()
         }.map {
-            it.filter {
+            val dependents = it.filter {
                 this@CommonTargetInternal in collectTargetDependencies(it)
             }
+            for (dependent in dependents) {
+                metadataActions.forEach { metadataAction ->
+                    metadataAction.execute(dependent.metadata)
+                }
+            }
+            dependents
         }
     }
 

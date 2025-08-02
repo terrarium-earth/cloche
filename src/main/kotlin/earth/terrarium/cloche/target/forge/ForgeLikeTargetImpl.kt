@@ -9,7 +9,7 @@ import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.SIDE_ATTRIBUTE
 import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
-import earth.terrarium.cloche.api.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
@@ -21,6 +21,7 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
+import earth.terrarium.cloche.util.validateMetadata
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -242,7 +243,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     override val commonType get() = FORGE
 
-    override val metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
+    override var metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
 
     private val remapTask = project.tasks.register(
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
@@ -269,8 +270,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.dir("META-INF").file("mods.toml")
         })
 
-        it.commonMetadata.set(project.extension<ClocheExtension>().metadata)
-        it.targetMetadata.set(metadata)
+        it.metadata.set(metadata)
 
         it.loaderName.set(loaderName)
     }
@@ -311,8 +311,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
     }
 
-    protected fun loaderVersionRange(version: String): ModMetadata.VersionRange =
-        objectFactory.newInstance(ModMetadata.VersionRange::class.java).apply {
+    protected fun loaderVersionRange(version: String): Metadata.VersionRange =
+        objectFactory.newInstance(Metadata.VersionRange::class.java).apply {
             start.set(version)
         }
 
@@ -330,6 +330,10 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
 
     override fun initialize(isSingleTarget: Boolean) {
+        metadata.modLoader.set("javafml")
+
+        super.initialize(isSingleTarget)
+
         this.isSingleTarget = isSingleTarget
 
         main = project.objects.newInstance(
@@ -457,6 +461,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         project.dependencies.addProvider(sourceSet.mappingsConfigurationName, userdev)
 
+        validateMetadata(metadata)
         registerMappings()
     }
 

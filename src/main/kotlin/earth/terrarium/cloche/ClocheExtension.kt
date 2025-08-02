@@ -1,7 +1,7 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.MappingsBuilder
-import earth.terrarium.cloche.api.metadata.ModMetadata
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.ForgeTarget
@@ -136,7 +136,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         }
     }
 
-    val metadata: ModMetadata = objects.newInstance(ModMetadata::class.java)
+    var rootMetadataAction: Action<Metadata>? = null
 
     val intermediateOutputsDirectory: DirectoryProperty = objects.directoryProperty()
     val finalOutputsDirectory: DirectoryProperty = objects.directoryProperty()
@@ -238,7 +238,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         mappingActions.add(action)
     }
 
-    fun metadata(action: Action<ModMetadata>) {
-        action.execute(metadata)
+    fun metadata(action: Action<Metadata>) {
+        rootMetadataAction = action
     }
 }
