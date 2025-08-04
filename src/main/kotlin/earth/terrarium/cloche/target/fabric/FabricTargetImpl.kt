@@ -505,6 +505,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         val modId = project.extension<ClocheExtension>().metadata.modId
 
+        generateModJson.configure {
+            if (accessWideners.isEmpty) return@configure
+            it.accessWidener.set(modId.map { "$it.accessWidener" })
+        }
+
         val task = project.tasks.register(
             lowerCamelCaseGradleName("merge", name, compilation.featureName, "accessWideners"),
             MergeAccessWideners::class.java
@@ -514,10 +519,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
                 directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
-            }
-
-            generateModJson.configure { modJson ->
-                modJson.accessWidener.set("$modId.accessWidener")
             }
 
             it.output.set(output)

@@ -102,8 +102,6 @@ private fun TargetCompilation.addDependencies() {
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
-        it.isTransitive = false
-
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
@@ -117,8 +115,6 @@ private fun TargetCompilation.addDependencies() {
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
-        it.isTransitive = false
-
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
