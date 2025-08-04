@@ -516,6 +516,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
             }
 
+            generateModJson.configure { modJson ->
+                modJson.accessWidener.set("$modId.accessWidener")
+            }
+
             it.output.set(output)
         }
 
