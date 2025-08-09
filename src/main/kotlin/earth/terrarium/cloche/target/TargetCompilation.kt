@@ -252,12 +252,15 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
     ) {
         it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
 
-        it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
+        val jarTask = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
+        it.input.set(jarTask.flatMap(Jar::getArchiveFile))
         it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.targetNamespace.set(target.modRemapNamespace)
         it.classpath.from(sourceSet.compileClasspath)
 
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+
+        it.manifest.from(jarTask.map(Jar::getManifest).get())
     }
 
     init {

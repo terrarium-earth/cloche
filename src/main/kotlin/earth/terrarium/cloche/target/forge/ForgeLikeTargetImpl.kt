@@ -377,15 +377,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
-            it.input.set(modRemapNamespace.flatMap {
-                val jarTask = if (it.isEmpty()) {
+            val actualJarTask  = modRemapNamespace.flatMap {
+                if (it.isEmpty()) {
                     jar
                 } else {
                     remapJar
                 }
+            }
 
-                jarTask.flatMap(Jar::getArchiveFile)
-            })
+            it.input.set(actualJarTask.flatMap(Jar::getArchiveFile))
+
+            it.manifest.from(actualJarTask.map(Jar::getManifest).get())
 
             it.fromResolutionResults(includeConfiguration)
         }
@@ -406,15 +408,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
-            it.input.set(modRemapNamespace.flatMap {
-                val jarTask = if (it.isEmpty()) {
+            val actualJarTask  = modRemapNamespace.flatMap {
+                if (it.isEmpty()) {
                     jar
                 } else {
                     remapJar
                 }
+            }
 
-                jarTask.flatMap(Jar::getArchiveFile)
-            })
+            it.input.set(actualJarTask.flatMap(Jar::getArchiveFile))
+
+            it.manifest.from(actualJarTask.map(Jar::getManifest).get())
 
             it.fromResolutionResults(dataIncludeConfiguration)
         }

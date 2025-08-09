@@ -87,11 +87,5 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
                 it.attributes["MixinConfigs"] = configs
             }
         }
-
-        includeJarTask.configure {
-            it.manifest {
-                it.attributes["MixinConfigs"] = configs
-            }
-        }
     }
 }
