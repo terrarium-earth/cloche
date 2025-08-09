@@ -428,8 +428,18 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
 
             it.manifest.from(
-                main.remapJarTask.map(Jar::getManifest).get(),
-                client.value.flatMap(TargetCompilation::remapJarTask).map(Jar::getManifest).get()
+                main.remapJarTask.flatMap(Jar::getArchiveFile).map {
+                    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+                    project.zipTree(it).matching {
+                        it.include("META-INF/MANIFEST.MF")
+                    }.singleOrNull()
+                },
+                client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile).map {
+                    @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+                    project.zipTree(it).matching {
+                        it.include("META-INF/MANIFEST.MF")
+                    }.singleOrNull()
+                }
             )
         }
 
@@ -453,7 +463,11 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             it.input.set(actualJarTask.flatMap(Jar::getArchiveFile))
 
-            it.manifest.from(actualJarTask.map(Jar::getManifest).get())
+            it.manifest.from(actualJarTask.flatMap(Jar::getArchiveFile).map {
+                project.zipTree(it).matching {
+                    it.include("META-INF/MANIFEST.MF")
+                }.single()
+            })
 
             it.fromResolutionResults(includeConfiguration)
         }
