@@ -3,6 +3,7 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.target.CommonCompilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import earth.terrarium.cloche.util.isIdeDetected
@@ -43,6 +44,7 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
 
     project.extend(runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
     project.extend(localRuntimeConfigurationName, dependency.localRuntimeConfigurationName)
+    project.extend(localImplementationConfigurationName, dependency.localImplementationConfigurationName)
 
     project.extend(
         modConfigurationName(implementationConfigurationName),
@@ -72,6 +74,11 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
     project.extend(
         modConfigurationName(localRuntimeConfigurationName),
         modConfigurationName(dependency.localRuntimeConfigurationName),
+    )
+
+    project.extend(
+        modConfigurationName(localImplementationConfigurationName),
+        modConfigurationName(dependency.localImplementationConfigurationName),
     )
 }
 
