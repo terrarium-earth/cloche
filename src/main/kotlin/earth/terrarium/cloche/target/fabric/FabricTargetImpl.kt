@@ -302,7 +302,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         registerCommonCompilation(SourceSet.TEST_SOURCE_SET_NAME)
     }
 
-    override var metadata: FabricMetadata = project.objects.newInstance(FabricMetadata::class.java)
+    override val metadata: FabricMetadata = project.objects.newInstance(FabricMetadata::class.java)
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get

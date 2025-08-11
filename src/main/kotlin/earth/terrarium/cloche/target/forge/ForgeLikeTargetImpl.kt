@@ -230,7 +230,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     override val commonType get() = FORGE
 
-    override var metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
+    override val metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
 
     private val remapTask = project.tasks.register(
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
