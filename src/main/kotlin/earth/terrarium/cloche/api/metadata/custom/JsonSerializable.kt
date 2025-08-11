@@ -117,36 +117,4 @@ interface JsonSerializable {
     val floatValue: Property<Double>
         @Optional
         @Input get
-
-    val objects: ObjectFactory
-        @Inject get
-
-    operator fun plus(rightHandSide: JsonSerializable): JsonSerializable {
-        val type = type.get()
-        if (type != rightHandSide.type.get()) {
-            throw UnsupportedOperationException("The left-hand side's type should be equal to the right-hand side's type.")
-        }
-
-        when (type) {
-            JsonType.Object -> {
-                val mergedJsonSerializable = objects.serializable(type)
-                val mergedObjectValues = objectValues.get().toMutableMap()
-                rightHandSide.objectValues.get().forEach { (key, value) ->
-                    mergedObjectValues.merge(key, value) { oldValue, newValue -> oldValue + newValue }
-                }
-                mergedJsonSerializable.objectValues.set(mergedObjectValues)
-                return mergedJsonSerializable
-            }
-
-            JsonType.List -> {
-                val mergedJsonSerializable = objects.serializable(type)
-                mergedJsonSerializable.listValues.set(listValues.get() + rightHandSide.listValues.get())
-                return mergedJsonSerializable
-            }
-
-            else -> {
-                return rightHandSide
-            }
-        }
-    }
 }
