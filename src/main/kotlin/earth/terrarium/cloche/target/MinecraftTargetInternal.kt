@@ -104,6 +104,12 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
     private val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
+        dependsOn.configureEach { dependency ->
+            dependency.metadataActions.forEach { metadataAction ->
+                metadataAction.execute(metadata)
+            }
+        }
+
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
             it.dir("resources").dir(target.featureName)
         })
