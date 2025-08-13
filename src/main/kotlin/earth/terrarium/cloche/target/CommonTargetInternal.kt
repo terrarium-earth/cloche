@@ -79,15 +79,9 @@ internal abstract class CommonTargetInternal @Inject constructor(
             // Evaluate targets
             cloche.targets.toList()
         }.map {
-            val dependents = it.filter {
+            it.filter {
                 this@CommonTargetInternal in collectTargetDependencies(it)
             }
-            for (dependent in dependents) {
-                metadataActions.forEach { metadataAction ->
-                    metadataAction.execute(dependent.metadata)
-                }
-            }
-            dependents
         }
     }
 
@@ -113,6 +107,14 @@ internal abstract class CommonTargetInternal @Inject constructor(
     val commonType: Provider<String> = dependents.map { dependants ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         dependants.map { (it as MinecraftTargetInternal).commonType }.onlyValue()
+    }
+
+    init {
+        dependsOn.configureEach { dependency ->
+            dependency.metadataActions.forEach { metadataAction ->
+                metadataActions.add(metadataAction)
+            }
+        }
     }
 
     override fun getName() = name
