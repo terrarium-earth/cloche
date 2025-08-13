@@ -1,6 +1,11 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.*
+import earth.terrarium.cloche.ClocheExtension
+import earth.terrarium.cloche.DATA_ATTRIBUTE
+import earth.terrarium.cloche.IncludeTransformationState
+import earth.terrarium.cloche.ModTransformationStateAttribute
+import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.SIDE_ATTRIBUTE
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -43,8 +48,7 @@ internal fun Project.getModFiles(
     return project.files(classpath.zip(modDependencies) { classpath, modDependencies ->
         val resolutionResult = modDependencies.incoming.resolutionResult
 
-        val componentIdentifiers =
-            resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
+        val componentIdentifiers = resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
 
         val filteredIdentifiers = componentIdentifiers.filter { it !is ProjectComponentIdentifier }
 
