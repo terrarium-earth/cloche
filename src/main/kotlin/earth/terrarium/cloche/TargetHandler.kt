@@ -1,14 +1,7 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.configureSourceSet
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.modConfigurationName
-import earth.terrarium.cloche.target.sourceSetName
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
@@ -102,6 +95,8 @@ private fun TargetCompilation.addDependencies() {
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
+        it.isTransitive = false
+
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
@@ -115,6 +110,8 @@ private fun TargetCompilation.addDependencies() {
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
+        it.isTransitive = false
+
         it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))

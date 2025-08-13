@@ -1,11 +1,6 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.ClocheExtension
-import earth.terrarium.cloche.DATA_ATTRIBUTE
-import earth.terrarium.cloche.IncludeTransformationState
-import earth.terrarium.cloche.ModTransformationStateAttribute
-import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.*
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -20,8 +15,6 @@ import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
-import org.gradle.api.artifacts.result.ComponentSelectionCause
-import org.gradle.api.artifacts.result.ComponentSelectionDescriptor
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.FileCollection
@@ -41,7 +34,6 @@ internal object States {
 
 internal fun Project.getModFiles(
     configurationName: String,
-    isTransitive: Boolean = false,
     configure: Action<ArtifactView.ViewConfiguration>? = null,
 ): FileCollection {
     val classpath = project.configurations.named(configurationName)
@@ -51,15 +43,8 @@ internal fun Project.getModFiles(
     return project.files(classpath.zip(modDependencies) { classpath, modDependencies ->
         val resolutionResult = modDependencies.incoming.resolutionResult
 
-        val componentIdentifiers = if (!isTransitive) {
-            resolutionResult.allComponents.filter {
-                ComponentSelectionCause.REQUESTED in it.selectionReason.descriptions.map(
-                    ComponentSelectionDescriptor::getCause
-                )
-            }
-        } else {
-            resolutionResult.allComponents
-        }.map(ResolvedComponentResult::getId) - resolutionResult.root.id
+        val componentIdentifiers =
+            resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
 
         val filteredIdentifiers = componentIdentifiers.filter { it !is ProjectComponentIdentifier }
 
@@ -98,7 +83,7 @@ internal fun registerCompilationTransformations(
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName, isTransitive = true))
+        it.accessWideners.from(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         it.outputFile.set(outputDirectory.zip(namedMinecraftFile) { dir, file ->
             dir.file(file.asFile.name)
