@@ -16,9 +16,7 @@ import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
-import org.gradle.api.Action
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.AttributeContainer
@@ -37,10 +35,7 @@ internal object States {
     const val REMAPPED = "remapped"
 }
 
-internal fun Project.getModFiles(
-    configurationName: String,
-    configure: Action<ArtifactView.ViewConfiguration>? = null,
-): FileCollection {
+private fun Project.getUnmappedModFiles(configurationName: String): FileCollection {
     val classpath = project.configurations.named(configurationName)
 
     val modDependencies = project.configurations.named(modConfigurationName(configurationName))
@@ -55,7 +50,27 @@ internal fun Project.getModFiles(
         classpath.incoming.artifactView {
             it.componentFilter(filteredIdentifiers::contains)
 
-            configure?.execute(it)
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.INITIAL,
+                )
+            }
+        }.files
+    })
+}
+
+private fun Project.getUnmappedClasspath(configurationName: String): FileCollection {
+    val classpath = project.configurations.named(configurationName)
+
+    return project.files(classpath.map { classpath ->
+        classpath.incoming.artifactView {
+            it.attributes {
+                it.attribute(
+                    ModTransformationStateAttribute.ATTRIBUTE,
+                    ModTransformationStateAttribute.INITIAL,
+                )
+            }
         }.files
     })
 }
@@ -152,31 +167,20 @@ private fun setupModTransformationPipeline(
             )
 
             it.parameters {
+                val compileClasspath = project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
+                val runtimeClasspath = project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
+                val modCompileClasspath = project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
+                val modRuntimeClasspath = project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
+
                 it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
                 it.sourceNamespace.set(target.modRemapNamespace.get())
 
                 it.extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
+                it.extraClasspath.from(compileClasspath)
+                it.extraClasspath.from(runtimeClasspath)
 
                 it.cacheDirectory.set(getGlobalCacheDirectory(project))
-
-                val modCompileClasspath = project.getModFiles(compilation.sourceSet.compileClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
-                    }
-                }
-
-                val modRuntimeClasspath = project.getModFiles(compilation.sourceSet.runtimeClasspathConfigurationName) {
-                    it.attributes {
-                        it.attribute(
-                            ModTransformationStateAttribute.ATTRIBUTE,
-                            ModTransformationStateAttribute.INITIAL,
-                        )
-                    }
-                }
 
                 it.modFiles.from(modCompileClasspath)
                 it.modFiles.from(modRuntimeClasspath)
