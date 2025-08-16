@@ -25,6 +25,7 @@ import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ConfigurationPublications
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.Category
@@ -180,17 +181,37 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
 
         val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
-            val capabilitySuffix = compilation.capabilityName?.let { "$it-" }.orEmpty() + "mod-outputs"
-
             requireGroup()
 
-            modOutputs.outgoing.capability("$group:$name:$version")
+            val outgoing = modOutputs.outgoing
 
-            compilation.capabilityName?.let {
-                modOutputs.outgoing.capability("$group:$name-$it:$version")
+            fun ConfigurationPublications.capability(group: String, name: String, version: String) =
+                capability("$group:$name:$version")
+
+            outgoing.capability(group.toString(), "$name-mod-outputs", version.toString())
+
+            // TODO This logic is duplicated from CompilationVariantCreator. Should probably be consolidated
+            outgoing.capability(group.toString(), name, version.toString())
+
+            if (compilation.capabilitySuffix == null) {
+                outgoing.capability(
+                    project.group.toString(),
+                    "${project.name}-${compilation.target.capabilitySuffix}",
+                    project.version.toString(),
+                )
+            } else {
+                outgoing.capability(
+                    project.group.toString(),
+                    "${project.name}-${compilation.capabilitySuffix}",
+                    project.version.toString(),
+                )
+
+                outgoing.capability(
+                    project.group.toString(),
+                    "${project.name}-${compilation.target.capabilitySuffix}-${compilation.capabilitySuffix}",
+                    project.version.toString(),
+                )
             }
-
-            modOutputs.outgoing.capability("$group:$name-$capabilitySuffix:$version")
 
             modOutputs.attributes
                 .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))

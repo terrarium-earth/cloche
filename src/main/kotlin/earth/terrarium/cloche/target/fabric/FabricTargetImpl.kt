@@ -415,7 +415,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             if (isSingleTarget) {
                 it.archiveClassifier.set("merged")
             } else {
-                it.archiveClassifier.set("$classifierName-merged")
+                it.archiveClassifier.set("$capabilitySuffix-merged")
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
@@ -434,7 +434,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             JarInJar::class.java,
         ) {
             if (!isSingleTarget) {
-                it.archiveClassifier.set(classifierName)
+                it.archiveClassifier.set(capabilitySuffix)
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)

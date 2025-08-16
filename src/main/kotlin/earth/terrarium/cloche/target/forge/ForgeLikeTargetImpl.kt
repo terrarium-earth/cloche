@@ -372,7 +372,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             val remapJar = main.remapJarTask
 
             if (!isSingleTarget) {
-                it.archiveClassifier.set(classifierName)
+                it.archiveClassifier.set(capabilitySuffix)
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
@@ -401,7 +401,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             val remapJar = data.value.flatMap(TargetCompilation::remapJarTask)
 
             if (!isSingleTarget) {
-                it.archiveClassifier.set(classifierName)
+                it.archiveClassifier.set(capabilitySuffix)
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
