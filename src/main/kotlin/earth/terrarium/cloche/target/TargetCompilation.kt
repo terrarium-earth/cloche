@@ -87,7 +87,7 @@ internal fun registerCompilationTransformations(
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.accessWideners.from(project.getModFiles(sourceSet.runtimeClasspathConfigurationName))
+        it.accessWideners.from(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         it.outputFile.set(outputDirectory.zip(namedMinecraftFile) { dir, file ->
             dir.file(file.asFile.name)
