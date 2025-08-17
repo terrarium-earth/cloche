@@ -4,9 +4,9 @@ import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.NoopAction
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.RemapNamespaceAttribute
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.RemapNamespaceAttribute
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory

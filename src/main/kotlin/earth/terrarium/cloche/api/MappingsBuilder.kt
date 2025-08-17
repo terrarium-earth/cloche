@@ -1,6 +1,6 @@
 package earth.terrarium.cloche.api
 
-import earth.terrarium.cloche.RemapNamespaceAttribute
+import earth.terrarium.cloche.api.attributes.RemapNamespaceAttribute
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.maybeRegister
 import earth.terrarium.cloche.target.MinecraftTargetInternal
