@@ -68,7 +68,7 @@ internal abstract class CompilationInternal : Compilation {
     val featureName
         get() = collapsedName?.let { lowerCamelCaseGradleName(it) }
 
-    val capabilityName
+    val capabilitySuffix
         get() = collapsedName?.replace(TARGET_NAME_PATH_SEPARATOR, '-')
 
     val namePath
@@ -175,10 +175,10 @@ internal fun Project.configureSourceSet(
     val prefix = if (singleTarget || target.name == COMMON) {
         null
     } else {
-        target.classifierName
+        target.capabilitySuffix
     }
 
-    val suffix = compilation.capabilityName
+    val suffix = compilation.capabilitySuffix
 
     val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
 

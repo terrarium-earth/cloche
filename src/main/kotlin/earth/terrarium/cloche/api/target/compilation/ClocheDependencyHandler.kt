@@ -1,6 +1,10 @@
 package earth.terrarium.cloche.api.target.compilation
 
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
+import org.gradle.api.artifacts.dsl.DependencyFactory
+import org.gradle.api.artifacts.dsl.DependencyModifier
 import org.gradle.api.plugins.jvm.JvmComponentDependencies
 import org.gradle.api.provider.Provider
 import javax.inject.Inject
@@ -20,6 +24,10 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
     abstract val modCompileOnly: DependencyCollector
     abstract val modLocalRuntime: DependencyCollector
     abstract val modLocalImplementation: DependencyCollector
+
+    val skipIncludeTransformation: SkipIncludeTransformationDependencyModifier = objectFactory.newInstance(SkipIncludeTransformationDependencyModifier::class.java)
+    val extractIncludes: ExtractIncludesDependencyModifier = objectFactory.newInstance(ExtractIncludesDependencyModifier::class.java)
+    val stripIncludes: StripIncludesDependencyModifier = objectFactory.newInstance(StripIncludesDependencyModifier::class.java)
 
     fun fabricApi(apiVersion: String) {
         modImplementation.add(minecraftVersion.map {
@@ -62,4 +70,25 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
 
     private fun fabricApiDependency(apiVersion: String, minecraftVersion: String) =
         module("net.fabricmc.fabric-api", "fabric-api", "$apiVersion+$minecraftVersion")
+
+    abstract class SkipIncludeTransformationDependencyModifier : DependencyModifier() {
+        override fun modifyImplementation(dependency: ModuleDependency) {
+            dependency.attributes
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+        }
+    }
+
+    abstract class ExtractIncludesDependencyModifier : DependencyModifier() {
+        override fun modifyImplementation(dependency: ModuleDependency) {
+            dependency.attributes
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
+        }
+    }
+
+    abstract class StripIncludesDependencyModifier : DependencyModifier() {
+        override fun modifyImplementation(dependency: ModuleDependency) {
+            dependency.attributes
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
+        }
+    }
 }

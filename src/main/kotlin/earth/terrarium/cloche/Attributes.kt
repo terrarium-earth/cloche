@@ -10,12 +10,6 @@ import org.gradle.api.attributes.CompatibilityCheckDetails
 import org.gradle.api.attributes.MultipleCandidatesDetails
 
 @JvmField
-val SIDE_ATTRIBUTE: Attribute<PublicationSide> = Attribute.of("earth.terrarium.cloche.side", PublicationSide::class.java)
-
-@JvmField
-val DATA_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.data", Boolean::class.javaObjectType)
-
-@JvmField
 val TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.transformedOutput", Boolean::class.javaObjectType)
 
 @JvmField
@@ -28,14 +22,6 @@ object TargetAttributes {
 
     @JvmField
     val MOD_LOADER: Attribute<String> = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
-}
-
-object CommonTargetAttributes {
-    @JvmField
-    val TYPE: Attribute<String> = Attribute.of("earth.terrarium.cloche.commonType", String::class.java)
-
-    @JvmField
-    val NAME: Attribute<String> = Attribute.of("earth.terrarium.cloche.commonName", String::class.java)
 }
 
 class SideCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
@@ -95,16 +81,4 @@ internal object ModTransformationStateAttribute {
 
     fun of(target: MinecraftTarget, compilation: TargetCompilation, state: String) =
         lowerCamelCaseName(target.featureName, compilation.featureName, state)
-}
-
-enum class IncludeTransformationState {
-    None,
-    Stripped,
-    Extracted;
-
-    companion object {
-        @JvmField
-        val ATTRIBUTE: Attribute<IncludeTransformationState> =
-            Attribute.of("earth.terrarium.cloche.includeState", IncludeTransformationState::class.java)
-    }
 }
