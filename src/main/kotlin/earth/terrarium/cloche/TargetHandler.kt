@@ -1,5 +1,6 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.addCollectedDependencies
@@ -353,7 +354,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         val variant = configuration.outgoing.variants.create("transformed") {
             it.attributes
                 .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+                .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
 
             it.artifact(target.finalJar)
         }

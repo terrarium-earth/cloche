@@ -1,8 +1,8 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import earth.terrarium.cloche.target.LazyConfigurableInternal
@@ -26,7 +26,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 data = true,
                 test = false,
                 isSingleTarget = info.isSingleTarget,
-                includeState = IncludeTransformationState.Stripped,
+                includeState = IncludeTransformationStateAttribute.Stripped,
             ),
         )
     }
@@ -44,7 +44,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 data = false,
                 test = true,
                 isSingleTarget = info.isSingleTarget,
-                includeState = IncludeTransformationState.Stripped,
+                includeState = IncludeTransformationStateAttribute.Stripped,
             ),
         )
     }

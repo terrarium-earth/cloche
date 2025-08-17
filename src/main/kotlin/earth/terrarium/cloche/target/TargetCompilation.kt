@@ -1,11 +1,10 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
-import earth.terrarium.cloche.DATA_ATTRIBUTE
-import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.SIDE_ATTRIBUTE
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -211,7 +210,7 @@ internal data class TargetCompilationInfo(
     val data: Boolean,
     val test: Boolean,
     val isSingleTarget: Boolean,
-    val includeState: IncludeTransformationState,
+    val includeState: IncludeTransformationStateAttribute,
 )
 
 internal abstract class TargetCompilation @Inject constructor(val info: TargetCompilationInfo) : CompilationInternal() {
@@ -277,14 +276,14 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
-            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, info.includeState)
+            it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attributeProvider(ModTransformationStateAttribute.ATTRIBUTE, state)
-            it.attributes.attribute(IncludeTransformationState.ATTRIBUTE, info.includeState)
+            it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
         }
@@ -310,7 +309,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         target.attributes(attributes)
 
         attributes
-            .attribute(SIDE_ATTRIBUTE, info.variant)
-            .attribute(DATA_ATTRIBUTE, info.data)
+            .attribute(CompilationAttributes.SIDE, info.variant)
+            .attribute(CompilationAttributes.DATA, info.data)
     }
 }

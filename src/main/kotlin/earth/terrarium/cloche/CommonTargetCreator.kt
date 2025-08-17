@@ -3,6 +3,8 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
+import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -229,8 +231,8 @@ internal fun createCommonTarget(
         )
 
         compilation.attributes {
-            it.attribute(SIDE_ATTRIBUTE, variant)
-            it.attribute(DATA_ATTRIBUTE, data)
+            it.attribute(CompilationAttributes.SIDE, variant)
+            it.attribute(CompilationAttributes.DATA, data)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
             afterEvaluate { project ->

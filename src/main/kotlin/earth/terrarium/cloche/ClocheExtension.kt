@@ -1,6 +1,8 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.FabricTarget
@@ -168,13 +170,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     init {
         project.dependencies.registerTransform(ExtractIncludes::class.java) {
-            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Extracted)
+            it.from.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+            it.to.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
         }
 
         project.dependencies.registerTransform(StripIncludes::class.java) {
-            it.from.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
-            it.to.attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.Stripped)
+            it.from.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+            it.to.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
         }
 
         project.plugins.withType(BasePlugin::class.java) {
@@ -187,7 +189,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         onTargetTypeConfigured(FabricTarget::class.java) {
             project.dependencies.components {
                 it.withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class.java) {
-                    it.params(SIDE_ATTRIBUTE, PublicationSide.Common, PublicationSide.Client, false)
+                    it.params(CompilationAttributes.SIDE, PublicationSide.Common, PublicationSide.Client, false)
                 }
             }
         }
