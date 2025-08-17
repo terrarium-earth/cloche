@@ -5,9 +5,9 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.TargetAttributes
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
