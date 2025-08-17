@@ -2,12 +2,11 @@ package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.DATA_ATTRIBUTE
 import earth.terrarium.cloche.FORGE
-import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.SIDE_ATTRIBUTE
 import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.ModMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
@@ -80,8 +79,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
             it.attributes
                 .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
-                .attribute(DATA_ATTRIBUTE, true)
+                .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
+                .attribute(CompilationAttributes.DATA, true)
 
             it.isCanBeConsumed = false
             it.isTransitive = false
@@ -93,8 +92,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         attributes(it.attributes)
 
         it.attributes
-            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
-            .attribute(DATA_ATTRIBUTE, false)
+            .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
+            .attribute(CompilationAttributes.DATA, false)
 
         it.isCanBeConsumed = false
     }
@@ -107,8 +106,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         attributes(it.attributes)
 
         it.attributes
-            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
-            .attribute(DATA_ATTRIBUTE, true)
+            .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
+            .attribute(CompilationAttributes.DATA, true)
 
         it.isCanBeConsumed = false
     }
@@ -121,8 +120,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         attributes(it.attributes)
 
         it.attributes
-            .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
-            .attribute(DATA_ATTRIBUTE, false)
+            .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
+            .attribute(CompilationAttributes.DATA, false)
 
         it.isCanBeConsumed = false
     }
@@ -188,7 +187,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     data = true,
                     test = false,
                     isSingleTarget = isSingleTarget,
-                    includeState = IncludeTransformationState.None,
+                    includeState = IncludeTransformationStateAttribute.None,
                 ),
             )
         }
@@ -214,7 +213,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     data = false,
                     test = true,
                     isSingleTarget = isSingleTarget,
-                    includeState = IncludeTransformationState.None,
+                    includeState = IncludeTransformationStateAttribute.None,
                 ),
             )
         }
@@ -342,7 +341,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 data = false,
                 test = false,
                 isSingleTarget = isSingleTarget,
-                includeState = IncludeTransformationState.None,
+                includeState = IncludeTransformationStateAttribute.None,
             ),
         )
 
@@ -370,7 +369,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             val remapJar = main.remapJarTask
 
             if (!isSingleTarget) {
-                it.archiveClassifier.set(classifierName)
+                it.archiveClassifier.set(capabilitySuffix)
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
@@ -399,7 +398,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             val remapJar = data.value.flatMap(TargetCompilation::remapJarTask)
 
             if (!isSingleTarget) {
-                it.archiveClassifier.set(classifierName)
+                it.archiveClassifier.set(capabilitySuffix)
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)

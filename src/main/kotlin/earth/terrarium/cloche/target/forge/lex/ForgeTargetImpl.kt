@@ -3,6 +3,7 @@ package earth.terrarium.cloche.target.forge.lex
 import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.NO_NAME_MAPPING_ATTRIBUTE
 import earth.terrarium.cloche.api.target.ForgeTarget
+import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -49,18 +50,25 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         }
     }
 
+    private fun removeNameMappingService(compilation: Compilation) {
+        project.configurations.named(compilation.sourceSet.compileClasspathConfigurationName) {
+            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+        }
+
+        project.configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+        }
+    }
+
     override fun initialize(isSingleTarget: Boolean) {
         super.initialize(isSingleTarget)
 
         project.dependencies.add(minecraftLibrariesConfiguration.name, "net.msrandom:codev-forge-runtime:0.1.1")
 
-        project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-        }
+        removeNameMappingService(main)
 
-        project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-        }
+        data.onConfigured(::removeNameMappingService)
+        test.onConfigured(::removeNameMappingService)
 
         minecraftLibrariesConfiguration.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
     }

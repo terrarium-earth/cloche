@@ -13,7 +13,7 @@ sealed interface ClocheTarget : TargetTreeElement {
     val featureName
         get() = lowerCamelCaseGradleName(name)
 
-    val classifierName
+    val capabilitySuffix
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '-')
 
     val namePath

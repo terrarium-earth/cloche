@@ -2,6 +2,8 @@ package earth.terrarium.cloche
 
 import com.google.devtools.ksp.gradle.KspGradleSubplugin
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -76,12 +78,12 @@ fun applyToProject(project: Project) {
     ClocheRepositoriesExtension.register(project.repositories)
 
     project.dependencies.attributesSchema { schema ->
-        schema.attribute(SIDE_ATTRIBUTE) {
+        schema.attribute(CompilationAttributes.SIDE) {
             it.compatibilityRules.add(SideCompatibilityRule::class.java)
             it.disambiguationRules.add(SideDisambiguationRule::class.java)
         }
 
-        schema.attribute(DATA_ATTRIBUTE) {
+        schema.attribute(CompilationAttributes.DATA) {
             it.compatibilityRules.add(DataCompatibilityRule::class.java)
             it.disambiguationRules.add(DataDisambiguationRule::class.java)
         }
@@ -92,7 +94,7 @@ fun applyToProject(project: Project) {
             jar.attributes
                 .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-                .attribute(IncludeTransformationState.ATTRIBUTE, IncludeTransformationState.None)
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
                 .attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
         }
 

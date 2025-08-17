@@ -29,10 +29,22 @@ internal fun Project.createCompilationVariants(
 
             spec.capability(project.group.toString(), project.name, project.version.toString())
 
-            compilation.capabilityName?.let {
+            if (compilation.capabilitySuffix == null) {
                 spec.capability(
                     project.group.toString(),
-                    "${project.name}-$it",
+                    "${project.name}-${compilation.target.capabilitySuffix}",
+                    project.version.toString(),
+                )
+            } else {
+                spec.capability(
+                    project.group.toString(),
+                    "${project.name}-${compilation.capabilitySuffix}",
+                    project.version.toString(),
+                )
+
+                spec.capability(
+                    project.group.toString(),
+                    "${project.name}-${compilation.target.capabilitySuffix}-${compilation.capabilitySuffix}",
                     project.version.toString(),
                 )
             }

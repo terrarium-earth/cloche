@@ -3,8 +3,8 @@ package earth.terrarium.cloche.target.fabric
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
-import earth.terrarium.cloche.IncludeTransformationState
 import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.target.CompilationInternal
@@ -259,7 +259,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     data = false,
                     test = false,
                     isSingleTarget = isSingleTarget,
-                    includeState = IncludeTransformationState.Stripped,
+                    includeState = IncludeTransformationStateAttribute.Stripped,
                 ),
             )
 
@@ -393,7 +393,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 name == ClochePlugin.DATA_COMPILATION_NAME,
                 name == SourceSet.TEST_SOURCE_SET_NAME,
                 isSingleTarget,
-                IncludeTransformationState.Stripped,
+                IncludeTransformationStateAttribute.Stripped,
             ),
         )
     }
@@ -415,7 +415,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             if (isSingleTarget) {
                 it.archiveClassifier.set("merged")
             } else {
-                it.archiveClassifier.set("$classifierName-merged")
+                it.archiveClassifier.set("$capabilitySuffix-merged")
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
@@ -434,7 +434,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             JarInJar::class.java,
         ) {
             if (!isSingleTarget) {
-                it.archiveClassifier.set(classifierName)
+                it.archiveClassifier.set(capabilitySuffix)
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
