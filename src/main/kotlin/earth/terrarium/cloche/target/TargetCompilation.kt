@@ -261,10 +261,9 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
         it.manifest.from(jarTask.flatMap(Jar::getArchiveFile).map {
-            @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
             project.zipTree(it).matching {
                 it.include("META-INF/MANIFEST.MF")
-            }.singleOrNull()
+            }
         })
     }
 

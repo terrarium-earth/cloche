@@ -390,7 +390,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.manifest.from(actualJarTask.flatMap(Jar::getArchiveFile).map {
                 project.zipTree(it).matching {
                     it.include("META-INF/MANIFEST.MF")
-                }.single()
+                }
             })
 
             it.fromResolutionResults(includeConfiguration)
@@ -423,10 +423,9 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             it.input.set(actualJarTask.flatMap(Jar::getArchiveFile))
 
             it.manifest.from(actualJarTask.flatMap(Jar::getArchiveFile).map {
-                @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
                 project.zipTree(it).matching {
                     it.include("META-INF/MANIFEST.MF")
-                }.singleOrNull()
+                }
             })
 
             it.fromResolutionResults(dataIncludeConfiguration)
