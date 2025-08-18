@@ -157,8 +157,8 @@ internal abstract class MinecraftTargetInternal(
     abstract fun onClientIncluded(action: () -> Unit)
 
     open fun initialize(isSingleTarget: Boolean) {
-        metadata.license.set("ARR")
-        metadata.environment.set(Metadata.Environment.BOTH)
+        metadata.license.convention("ARR")
+        metadata.environment.convention(Metadata.Environment.BOTH)
         project.extension<ClocheExtension>().rootMetadataAction?.execute(metadata)
     }
 
