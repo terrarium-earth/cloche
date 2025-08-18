@@ -274,6 +274,26 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
 
+        for (name in libraryConsumableConfigurationNames) {
+            configurations.named(name) { configuration ->
+                val variant = configuration.outgoing.variants.create("remapped") {
+                    it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
+
+                    it.artifact(tasks.named(sourceSet.jarTaskName))
+                }
+
+                components.named("java") {
+                    it as AdhocComponentWithVariants
+
+                    it.withVariantsFromConfiguration(configuration) {
+                        if (it.configurationVariant.name == variant.name) {
+                            it.skip()
+                        }
+                    }
+                }
+            }
+        }
+
         for (name in resolvableConfigurationNames) {
             configurations.named(name) { configuration ->
                 configuration.attributes.attribute(
@@ -351,9 +371,9 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     }
 
     configurations.named(target.sourceSet.runtimeElementsConfigurationName) { configuration ->
-        val variant = configuration.outgoing.variants.create("transformed") {
+        val variant = configuration.outgoing.variants.create("includeTransformed") {
             it.attributes
-                .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
                 .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
 
             it.artifact(target.finalJar)

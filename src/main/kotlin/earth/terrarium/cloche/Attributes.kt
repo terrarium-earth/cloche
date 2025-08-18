@@ -1,8 +1,5 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.api.target.MinecraftTarget
-import earth.terrarium.cloche.target.TargetCompilation
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseName
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeDisambiguationRule
@@ -10,7 +7,10 @@ import org.gradle.api.attributes.CompatibilityCheckDetails
 import org.gradle.api.attributes.MultipleCandidatesDetails
 
 @JvmField
-val TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.transformedOutput", Boolean::class.javaObjectType)
+val REMAPPED_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.remapped", Boolean::class.javaObjectType)
+
+@JvmField
+val INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.includeTransformedOutput", Boolean::class.javaObjectType)
 
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
@@ -62,14 +62,4 @@ class DataDisambiguationRule : AttributeDisambiguationRule<Boolean> {
             details.closestMatch(false)
         }
     }
-}
-
-internal object ModTransformationStateAttribute {
-    @JvmField
-    val ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.modState", String::class.java)
-
-    const val INITIAL = "none"
-
-    fun of(target: MinecraftTarget, compilation: TargetCompilation, state: String) =
-        lowerCamelCaseName(target.featureName, compilation.featureName, state)
 }

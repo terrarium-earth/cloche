@@ -4,7 +4,7 @@ import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
@@ -78,7 +78,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             attributes(it.attributes)
 
             it.attributes
-                .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
                 .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
                 .attribute(CompilationAttributes.DATA, true)
 

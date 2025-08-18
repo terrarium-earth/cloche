@@ -5,6 +5,7 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
