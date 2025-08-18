@@ -4,10 +4,10 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.TargetAttributes
+import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
@@ -72,7 +72,7 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
         attributes(it.attributes)
 
         it.attributes
-            .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+            .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
             .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
             .attribute(CompilationAttributes.DATA, false)
 

@@ -1,9 +1,9 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
-import earth.terrarium.cloche.ModTransformationStateAttribute
 import earth.terrarium.cloche.NoopAction
 import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.attributes.RemapNamespaceAttribute
@@ -30,12 +30,6 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
 import javax.inject.Inject
 
-internal object States {
-    const val INCLUDES_EXTRACTED = "includesExtracted"
-    const val MIXINS_STRIPPED = "mixinsStripped"
-    const val REMAPPED = "remapped"
-}
-
 private fun Project.getUnmappedModFiles(configurationName: String): FileCollection {
     val classpath = project.configurations.named(configurationName)
 
@@ -52,10 +46,7 @@ private fun Project.getUnmappedModFiles(configurationName: String): FileCollecti
             it.componentFilter(filteredIdentifiers::contains)
 
             it.attributes {
-                it.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.INITIAL,
-                )
+                it.attribute(REMAPPED_ATTRIBUTE, false)
             }
         }.files
     })
@@ -67,10 +58,7 @@ private fun Project.getUnmappedClasspath(configurationName: String): FileCollect
     return project.files(classpath.map { classpath ->
         classpath.incoming.artifactView {
             it.attributes {
-                it.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.INITIAL,
-                )
+                it.attribute(REMAPPED_ATTRIBUTE, false)
             }
         }.files
     })
@@ -158,29 +146,21 @@ private fun setupModTransformationPipeline(
 
             if (namespace.isEmpty()) {
                 project.dependencies.registerTransform(NoopAction::class.java) {
-                    it.from.attribute(
-                        ModTransformationStateAttribute.ATTRIBUTE,
-                        ModTransformationStateAttribute.INITIAL,
-                    )
+                    it.from.attribute(REMAPPED_ATTRIBUTE, false)
+                    it.to.attribute(REMAPPED_ATTRIBUTE, true)
 
-                    it.to.attribute(
-                        ModTransformationStateAttribute.ATTRIBUTE,
-                        ModTransformationStateAttribute.of(target, compilation, States.REMAPPED)
-                    )
+                    compilation.attributes(it.from)
+                    compilation.attributes(it.to)
                 }
                 continue
             }
 
-            project.dependencies.registerTransform(RemapAction::class.java) {
-                it.from.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.INITIAL,
-                )
+        project.dependencies.registerTransform(RemapAction::class.java) {
+            it.from.attribute(REMAPPED_ATTRIBUTE, false)
+            it.to.attribute(REMAPPED_ATTRIBUTE, true)
 
-                it.to.attribute(
-                    ModTransformationStateAttribute.ATTRIBUTE,
-                    ModTransformationStateAttribute.of(target, compilation, States.REMAPPED),
-                )
+            compilation.attributes(it.from)
+            compilation.attributes(it.to)
 
                 it.parameters {
                     val compileClasspath = project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
@@ -284,10 +264,8 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
     init {
         setupModTransformationPipeline(project, target, this)
 
-        val state = ModTransformationStateAttribute.of(target, this, States.REMAPPED)
-
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
             it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
             it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
@@ -295,7 +273,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attribute(ModTransformationStateAttribute.ATTRIBUTE, state)
+            it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
             it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
             it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 

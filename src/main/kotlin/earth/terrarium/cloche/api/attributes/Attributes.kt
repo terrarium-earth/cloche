@@ -20,6 +20,15 @@ object CommonTargetAttributes {
     val NAME: Attribute<String> = Attribute.of("earth.terrarium.cloche.commonName", String::class.java)
 }
 
+// Edge target attributes
+object TargetAttributes {
+    @JvmField
+    val MINECRAFT_VERSION: Attribute<String> = Attribute.of("earth.terrarium.cloche.minecraftVersion", String::class.java)
+
+    @JvmField
+    val MOD_LOADER: Attribute<String> = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
+}
+
 enum class IncludeTransformationStateAttribute {
     None,
     Stripped,
