@@ -431,12 +431,12 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 main.remapJarTask.flatMap(Jar::getArchiveFile).map {
                     project.zipTree(it).matching {
                         it.include("META-INF/MANIFEST.MF")
-                    }
+                    }.singleFile
                 },
                 client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile).map {
                     project.zipTree(it).matching {
                         it.include("META-INF/MANIFEST.MF")
-                    }
+                    }.singleFile
                 }
             )
         }
@@ -464,7 +464,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.manifest.from(actualJarTask.flatMap(Jar::getArchiveFile).map {
                 project.zipTree(it).matching {
                     it.include("META-INF/MANIFEST.MF")
-                }
+                }.singleFile
             })
 
             it.fromResolutionResults(includeConfiguration)
