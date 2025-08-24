@@ -2,18 +2,21 @@
 
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.javaExecutableFor
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.TargetAttributes
+import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
-import earth.terrarium.cloche.javaExecutableFor
+import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.includes.IncludesJar
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
@@ -55,30 +58,32 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     abstract val runs: RunConfigurations
 
-    val loadMappingsTask: TaskProvider<LoadMappings> = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
-        it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
+    val loadMappingsTask: TaskProvider<LoadMappings> =
+        project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+            it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
 
-        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
-    }
+            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+        }
 
     abstract val includeJarTask: TaskProvider<out IncludesJar>
 
     override val finalJar: Provider<RegularFile>
         get() = includeJarTask.flatMap(Jar::getArchiveFile)
 
-    val includeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
-        it.addCollectedDependencies(include)
+    val includeConfiguration: NamedDomainObjectProvider<Configuration> =
+        project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
+            it.addCollectedDependencies(include)
 
-        attributes(it.attributes)
+            attributes(it.attributes)
 
         it.attributes
             .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
             .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
             .attribute(CompilationAttributes.DATA, false)
 
-        it.isCanBeConsumed = false
-        it.isTransitive = false
-    }
+            it.isCanBeConsumed = false
+            it.isTransitive = false
+        }
 
     val mappingsBuildDependenciesHolder: Configuration =
         project.configurations.detachedConfiguration(project.dependencies.create(project.files().builtBy(loadMappingsTask)))
@@ -91,12 +96,20 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(capabilitySuffix) }
 
+    override val metadata: Metadata = project.objects.newInstance(Metadata::class.java)
+
     protected val mappings = MappingsBuilder(this, project)
 
     @Suppress("UNCHECKED_CAST")
     private val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
+        dependsOn.configureEach { dependency ->
+            dependency.metadataActions.forEach { metadataAction ->
+                metadataAction.execute(metadata)
+            }
+        }
+
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
             it.dir("resources").dir(target.featureName)
         })
@@ -157,7 +170,13 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     abstract fun onClientIncluded(action: () -> Unit)
 
-    abstract fun initialize(isSingleTarget: Boolean)
+    open fun initialize(isSingleTarget: Boolean) {
+        metadata.license.convention("ARR")
+        metadata.environment.convention(Metadata.Environment.BOTH)
+        project.extension<ClocheExtension>().rootMetadataActions.forEach() {
+            it.execute(metadata)
+        }
+    }
 
     override fun runs(action: Action<RunConfigurations>) {
         action.execute(runs)
