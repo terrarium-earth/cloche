@@ -258,6 +258,7 @@ internal fun createCommonTarget(
             it.extendsFrom(intersectionResults.get())
 
             it.attributes(compilation::attributes)
+            it.attributes(compilation::resolvableAttributes)
         }
 
         for (name in listOf(

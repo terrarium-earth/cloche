@@ -296,6 +296,8 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         for (name in resolvableConfigurationNames) {
             configurations.named(name) { configuration ->
+                configuration.attributes(compilation::resolvableAttributes)
+
                 configuration.attributes.attribute(
                     MinecraftOperatingSystemAttribute.attribute,
                     objects.named(

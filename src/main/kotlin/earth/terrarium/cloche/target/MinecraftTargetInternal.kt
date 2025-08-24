@@ -120,6 +120,8 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
     override fun dependencies(action: Action<ClocheDependencyHandler>) = main.dependencies(action)
     override fun attributes(action: Action<AttributeContainer>) = main.attributes(action)
 
+    fun resolvableAttributes(action: Action<AttributeContainer>) = main.resolvableAttributes(action)
+
     abstract fun registerAccessWidenerMergeTask(compilation: CompilationInternal)
 
     // TODO This is temporarily unused

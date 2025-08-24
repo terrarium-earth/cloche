@@ -62,6 +62,10 @@ internal abstract class CompilationInternal : Compilation {
     val attributeActions: DomainObjectCollection<Action<AttributeContainer>> =
         project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
 
+    @Suppress("UNCHECKED_CAST")
+    val resolvableAttributeActions: DomainObjectCollection<Action<AttributeContainer>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
+
     var withJavadoc: Boolean = false
     var withSources: Boolean = false
 
@@ -94,6 +98,16 @@ internal abstract class CompilationInternal : Compilation {
 
     open fun attributes(attributes: AttributeContainer) {
         attributeActions.all {
+            it.execute(attributes)
+        }
+    }
+
+    fun resolvableAttributes(action: Action<AttributeContainer>) {
+        resolvableAttributeActions.add(action)
+    }
+
+    fun resolvableAttributes(attributes: AttributeContainer) {
+        resolvableAttributeActions.all {
             it.execute(attributes)
         }
     }
