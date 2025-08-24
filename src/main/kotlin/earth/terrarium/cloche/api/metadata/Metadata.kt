@@ -12,6 +12,7 @@ import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
+// TODO: Single-value metadata properties, e.g. `modId`, should only be allowed to be set once, instead of being overwritten when set multiple times
 @JvmDefaultWithoutCompatibility
 interface Metadata {
     val modId: Property<String>
