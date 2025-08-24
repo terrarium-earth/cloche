@@ -171,7 +171,9 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
     open fun initialize(isSingleTarget: Boolean) {
         metadata.license.convention("ARR")
         metadata.environment.convention(Metadata.Environment.BOTH)
-        project.extension<ClocheExtension>().rootMetadataAction?.execute(metadata)
+        project.extension<ClocheExtension>().rootMetadataActions.forEach() {
+            it.execute(metadata)
+        }
     }
 
     override fun runs(action: Action<RunConfigurations>) {
