@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
+import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
@@ -289,5 +290,11 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         attributes
             .attribute(CompilationAttributes.SIDE, info.variant)
             .attribute(CompilationAttributes.DATA, info.data)
+    }
+
+    override fun resolvableAttributes(attributes: AttributeContainer) {
+        super.resolvableAttributes(attributes)
+
+        attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
     }
 }

@@ -106,7 +106,7 @@ internal abstract class CompilationInternal : Compilation {
         resolvableAttributeActions.add(action)
     }
 
-    fun resolvableAttributes(attributes: AttributeContainer) {
+    open fun resolvableAttributes(attributes: AttributeContainer) {
         resolvableAttributeActions.all {
             it.execute(attributes)
         }
