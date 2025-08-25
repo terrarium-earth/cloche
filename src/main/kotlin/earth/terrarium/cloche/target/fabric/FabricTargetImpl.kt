@@ -459,9 +459,21 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             it.from(project.zipTree(client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile))) {
                 // Needed cause otherwise manifest will be duplicated
-                //  TODO Merge manifests
                 it.exclude("META-INF/MANIFEST.MF")
             }
+
+            it.manifest.from(
+                main.remapJarTask.flatMap(Jar::getArchiveFile).map {
+                    project.zipTree(it).matching {
+                        it.include("META-INF/MANIFEST.MF")
+                    }.singleFile
+                },
+                client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile).map {
+                    project.zipTree(it).matching {
+                        it.include("META-INF/MANIFEST.MF")
+                    }.singleFile
+                }
+            )
         }
 
         mergeIncludeJarTask = project.tasks.register(
@@ -475,6 +487,12 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
             it.input.set(mergeJarTask.flatMap(Jar::getArchiveFile))
+
+            it.manifest.from(mergeJarTask.flatMap(Jar::getArchiveFile).map {
+                project.zipTree(it).matching {
+                    it.include("META-INF/MANIFEST.MF")
+                }.singleFile
+            })
 
             it.fromResolutionResults(mergeIncludeResolvableConfiguration)
         }
