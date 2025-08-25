@@ -182,6 +182,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             target.addJarInjects(compilation)
         }
 
+        // TODO Remove modOutputs and export a variant with only the mod ID. The rest should be discoverable via an artifact view
         val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
             requireGroup()
 
@@ -195,25 +196,13 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             // TODO This logic is duplicated from CompilationVariantCreator. Should probably be consolidated
             outgoing.capability(group.toString(), name, version.toString())
 
-            if (compilation.capabilitySuffix == null) {
-                outgoing.capability(
-                    project.group.toString(),
-                    "${project.name}-${compilation.target.capabilitySuffix}",
-                    project.version.toString(),
-                )
-            } else {
-                outgoing.capability(
-                    project.group.toString(),
-                    "${project.name}-${compilation.capabilitySuffix}",
-                    project.version.toString(),
-                )
+            val baseCapabilityName = "${project.name}-${compilation.target.capabilitySuffix}"
 
-                outgoing.capability(
-                    project.group.toString(),
-                    "${project.name}-${compilation.target.capabilitySuffix}-${compilation.capabilitySuffix}",
-                    project.version.toString(),
-                )
-            }
+            val compilationCapability = compilation.capabilitySuffix.map {
+                "${project.group}:$baseCapabilityName-$it:${project.version}"
+            }.orElse("${project.group}:$baseCapabilityName:${project.version}")
+
+            outgoing.capability(compilationCapability)
 
             modOutputs.attributes
                 .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
