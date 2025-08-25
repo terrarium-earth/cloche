@@ -6,17 +6,17 @@ import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import org.gradle.api.Action
+import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.dsl.Dependencies
-import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.file.RegularFile
 import org.gradle.api.plugins.jvm.PlatformDependencyModifiers
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.bundling.Jar
 
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
@@ -41,9 +41,7 @@ interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencie
         @Input
         get
 
-    val finalJar: Provider<RegularFile>
-
-    val include: DependencyCollector
+    val finalJar: Provider<out Jar>
 
     val withMixinAgent: Property<Boolean>
         @Optional

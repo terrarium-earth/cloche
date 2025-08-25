@@ -42,7 +42,7 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.jvm.tasks.Jar
+import org.gradle.api.tasks.bundling.Jar
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -67,23 +67,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     Usage.JAVA_RUNTIME,
                 )
             )
-        }
-
-    val dataIncludeConfiguration: NamedDomainObjectProvider<Configuration> =
-        project.configurations.register(lowerCamelCaseGradleName(target.featureName, "dataInclude")) {
-            it.extendsFrom(includeConfiguration.get())
-
-            it.addCollectedDependencies(dataInclude)
-
-            attributes(it.attributes)
-
-            it.attributes
-                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-                .attribute(CompilationAttributes.DATA, true)
-
-            it.isCanBeConsumed = false
-            it.isTransitive = false
         }
 
     private val legacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "legacyClasspath")) {
@@ -171,6 +154,9 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
     }
 
+    override val finalJar
+        get() = main.includeJarTask
+
     final override lateinit var main: TargetCompilation
 
     final override val data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
@@ -188,6 +174,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     test = false,
                     isSingleTarget = isSingleTarget,
                     includeState = IncludeTransformationStateAttribute.None,
+                    includeJarType = JarJar::class.java,
                 ),
             )
         }
@@ -214,6 +201,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     test = true,
                     isSingleTarget = isSingleTarget,
                     includeState = IncludeTransformationStateAttribute.None,
+                    includeJarType = JarJar::class.java,
                 ),
             )
         }
@@ -225,11 +213,11 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         data
     }
 
-    override lateinit var includeJarTask: TaskProvider<JarJar>
-    lateinit var dataIncludeJarTask: TaskProvider<JarJar>
-
     protected abstract val providerFactory: ProviderFactory
         @Inject get
+
+    override val hasSeparateClient: Provider<Boolean> =
+        providerFactory.provider { false }
 
     override val runs: ForgeRunConfigurations<out ForgeLikeTargetImpl> =
         project.objects.newInstance(ForgeRunConfigurations::class.java, this)
@@ -342,6 +330,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 test = false,
                 isSingleTarget = isSingleTarget,
                 includeState = IncludeTransformationStateAttribute.None,
+                includeJarType = JarJar::class.java,
             ),
         )
 
@@ -359,61 +348,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             test.onConfigured { test ->
                 it.shouldResolveConsistentlyWith(project.configurations.getByName(test.sourceSet.runtimeClasspathConfigurationName))
             }
-        }
-
-        includeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarJar"),
-            JarJar::class.java,
-        ) {
-            val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
-            val remapJar = main.remapJarTask
-
-            if (!isSingleTarget) {
-                it.archiveClassifier.set(capabilitySuffix)
-            }
-
-            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
-
-            it.input.set(modRemapNamespace.flatMap {
-                val jarTask = if (it.isEmpty()) {
-                    jar
-                } else {
-                    remapJar
-                }
-
-                jarTask.flatMap(Jar::getArchiveFile)
-            })
-
-            it.fromResolutionResults(includeConfiguration)
-        }
-
-        dataIncludeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "dataJarJar"),
-            JarJar::class.java,
-        ) {
-            val jar = data.value.flatMap {
-                project.tasks.named(it.sourceSet.jarTaskName, Jar::class.java)
-            }
-
-            val remapJar = data.value.flatMap(TargetCompilation::remapJarTask)
-
-            if (!isSingleTarget) {
-                it.archiveClassifier.set(capabilitySuffix)
-            }
-
-            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
-
-            it.input.set(modRemapNamespace.flatMap {
-                val jarTask = if (it.isEmpty()) {
-                    jar
-                } else {
-                    remapJar
-                }
-
-                jarTask.flatMap(Jar::getArchiveFile)
-            })
-
-            it.fromResolutionResults(dataIncludeConfiguration)
         }
 
         sourceSet.resources.srcDir(metadataDirectory)

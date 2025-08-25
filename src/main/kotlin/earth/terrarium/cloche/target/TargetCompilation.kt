@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.NoopAction
+import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
@@ -12,12 +13,15 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
+import net.msrandom.minecraftcodev.includes.IncludesJar
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
+import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.Project
+import org.gradle.api.artifacts.DependencyScopeConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.AttributeContainer
@@ -27,7 +31,7 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.jvm.tasks.Jar
+import org.gradle.api.tasks.bundling.Jar
 import javax.inject.Inject
 
 private fun Project.getUnmappedModFiles(configurationName: String): FileCollection {
@@ -38,7 +42,8 @@ private fun Project.getUnmappedModFiles(configurationName: String): FileCollecti
     return project.files(classpath.zip(modDependencies) { classpath, modDependencies ->
         val resolutionResult = modDependencies.incoming.resolutionResult
 
-        val componentIdentifiers = resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
+        val componentIdentifiers =
+            resolutionResult.allComponents.map(ResolvedComponentResult::getId) - resolutionResult.root.id
 
         val filteredIdentifiers = componentIdentifiers.filter { it !is ProjectComponentIdentifier }
 
@@ -119,7 +124,8 @@ internal fun registerCompilationTransformations(
 }
 
 internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String, isSingleTarget: Boolean): SourceSet {
-    val sourceSet = target.project.extension<SourceSetContainer>().maybeCreate(sourceSetName(target, name, isSingleTarget))
+    val sourceSet =
+        target.project.extension<SourceSetContainer>().maybeCreate(sourceSetName(target, name, isSingleTarget))
 
     if (sourceSet.localRuntimeConfigurationName !in target.project.configurations.names) {
         target.project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
@@ -162,11 +168,15 @@ private fun setupModTransformationPipeline(
             compilation.attributes(it.from)
             compilation.attributes(it.to)
 
-                it.parameters {
-                    val compileClasspath = project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
-                    val runtimeClasspath = project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
-                    val modCompileClasspath = project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
-                    val modRuntimeClasspath = project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
+            it.parameters {
+                val compileClasspath =
+                    project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
+                val runtimeClasspath =
+                    project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
+                val modCompileClasspath =
+                    project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
+                val modRuntimeClasspath =
+                    project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
 
                     it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
@@ -204,13 +214,15 @@ internal data class TargetCompilationInfo(
     val intermediaryMinecraftClasspath: FileCollection,
     val namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
-    val variant: PublicationSide,
+    val side: PublicationSide,
     val data: Boolean,
     val test: Boolean,
     val isSingleTarget: Boolean,
     val includeState: IncludeTransformationStateAttribute,
+    val includeJarType: Class<out IncludesJar>,
 )
 
+@Suppress("UnstableApiUsage")
 internal abstract class TargetCompilation @Inject constructor(val info: TargetCompilationInfo) : CompilationInternal() {
     override val target get() = info.target
 
@@ -247,6 +259,29 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)
     val sources = setupFiles.second
 
+    val includeBucketConfiguration: NamedDomainObjectProvider<DependencyScopeConfiguration?> =
+        project.configurations.dependencyScope(lowerCamelCaseGradleName(target.featureName, featureName, "include")) {
+            it.addCollectedDependencies(dependencyHandler.include)
+        }
+
+    private val includeResolvableConfiguration =
+        project.configurations.resolvable(
+            lowerCamelCaseGradleName(
+                target.featureName,
+                featureName,
+                "includeFiles"
+            )
+        ) {
+            it.extendsFrom(includeBucketConfiguration.get())
+
+            attributes(it.attributes)
+
+            it.attributes
+                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                .attribute(CompilationAttributes.SIDE, info.side)
+                .attribute(CompilationAttributes.DATA, info.data)
+        }
+
     val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(
         lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
         RemapJar::class.java
@@ -261,11 +296,34 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
     }
 
+    val includeJarTask: TaskProvider<out IncludesJar> = project.tasks.register(
+        lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "includeJar"),
+        info.includeJarType,
+    ) {
+        it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
+
+        val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
+        val remapped = target.modRemapNamespace.map(String::isNotEmpty)
+
+        it.input.set(remapped.flatMap {
+            val jarTask = if (it) {
+                remapJarTask
+            } else {
+                jar
+            }
+
+            jarTask.flatMap(Jar::getArchiveFile)
+        })
+
+        it.fromResolutionResults(includeResolvableConfiguration)
+    }
+
     init {
         setupModTransformationPipeline(project, target, this)
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
+            it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
             it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
@@ -274,6 +332,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
+            it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
             it.attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
@@ -301,7 +360,13 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         target.attributes(attributes)
 
         attributes
-            .attribute(CompilationAttributes.SIDE, info.variant)
+            .attribute(CompilationAttributes.SIDE, info.side)
             .attribute(CompilationAttributes.DATA, info.data)
+    }
+
+    override fun resolvableAttributes(attributes: AttributeContainer) {
+        super.resolvableAttributes(attributes)
+
+        attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
     }
 }

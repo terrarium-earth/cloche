@@ -27,9 +27,6 @@ interface FabricTarget : MinecraftTarget {
 
 @JvmDefaultWithoutCompatibility
 interface ForgeLikeTarget : MinecraftTarget {
-    val dataInclude: DependencyCollector
-        @Incubating get
-
     val legacyClasspath: DependencyCollector
         @Incubating get
 

@@ -13,7 +13,7 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.jvm.tasks.Jar
+import org.gradle.api.tasks.bundling.Jar
 import java.io.File
 import javax.inject.Inject
 

@@ -41,7 +41,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
     private val name: String,
     private val project: Project,
 ) : CommonTarget,
-    CommonSecondarySourceSetsInternal {
+    CommonSecondarySourceSetsInternal, ClocheTargetInternal {
     val main: CommonTopLevelCompilation = run {
         project.objects.newInstance(CommonTopLevelCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME, this)
     }
@@ -63,6 +63,8 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     // Not lazy as it has to happen once at configuration time
     var publish = false
+
+    override val hasSeparateClient = client.isConfigured
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
@@ -95,10 +97,12 @@ internal abstract class CommonTargetInternal @Inject constructor(
     }
 
     override val minecraftVersion: Provider<String> = minecraftVersions.map { versions ->
+        @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         versions.onlyValue()
     }
 
     val commonType: Provider<String> = dependents.map { dependants ->
+        @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         dependants.map { (it as MinecraftTargetInternal).commonType }.onlyValue()
     }
 

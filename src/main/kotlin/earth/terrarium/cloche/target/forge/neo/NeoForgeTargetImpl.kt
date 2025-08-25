@@ -78,10 +78,10 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
     override fun initialize(isSingleTarget: Boolean) {
         super.initialize(isSingleTarget)
 
-        attributes(::addAttributes)
+        resolvableAttributes(::addAttributes)
 
         data.onConfigured {
-            it.attributes(::addAttributes)
+            it.resolvableAttributes(::addAttributes)
         }
     }
 
