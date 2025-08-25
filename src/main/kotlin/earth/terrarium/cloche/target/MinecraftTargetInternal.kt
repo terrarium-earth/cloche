@@ -3,10 +3,7 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.api.MappingsBuilder
-import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
@@ -21,7 +18,6 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.InvalidUserCodeException
-import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
@@ -30,14 +26,15 @@ import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.jvm.tasks.Jar
 
 internal fun Configuration.addCollectedDependencies(collector: DependencyCollector) {
     dependencies.addAllLater(collector.dependencies)
     dependencyConstraints.addAllLater(collector.dependencyConstraints)
 }
 
-internal abstract class MinecraftTargetInternal(private val name: String) : MinecraftTarget {
+internal abstract class MinecraftTargetInternal(
+    private val name: String,
+) : MinecraftTarget, ClocheTargetInternal {
     abstract val main: TargetCompilation
     abstract override val data: LazyConfigurableInternal<TargetCompilation>
     abstract override val test: LazyConfigurableInternal<TargetCompilation>
@@ -55,33 +52,19 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     abstract val runs: RunConfigurations
 
-    val loadMappingsTask: TaskProvider<LoadMappings> = project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
-        it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
+    val loadMappingsTask: TaskProvider<LoadMappings> =
+        project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+            it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
 
-        it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
-    }
-
-    abstract val includeJarTask: TaskProvider<out IncludesJar>
-
-    override val finalJar: Provider<RegularFile>
-        get() = includeJarTask.flatMap(Jar::getArchiveFile)
-
-    val includeConfiguration: NamedDomainObjectProvider<Configuration> = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "include")) {
-        it.addCollectedDependencies(include)
-
-        attributes(it.attributes)
-
-        it.attributes
-            .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-            .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-            .attribute(CompilationAttributes.DATA, false)
-
-        it.isCanBeConsumed = false
-        it.isTransitive = false
-    }
+            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+        }
 
     val mappingsBuildDependenciesHolder: Configuration =
-        project.configurations.detachedConfiguration(project.dependencies.create(project.files().builtBy(loadMappingsTask)))
+        project.configurations.detachedConfiguration(
+            project.dependencies.create(
+                project.files().builtBy(loadMappingsTask)
+            )
+        )
 
     override val accessWideners get() = main.accessWideners
     override val mixins get() = main.mixins
@@ -89,12 +72,14 @@ internal abstract class MinecraftTargetInternal(private val name: String) : Mine
 
     override val target get() = this
 
-    val outputDirectory: Provider<Directory> = project.layout.buildDirectory.dir("minecraft").map { it.dir(capabilitySuffix) }
+    val outputDirectory: Provider<Directory> =
+        project.layout.buildDirectory.dir("minecraft").map { it.dir(capabilitySuffix) }
 
     protected val mappings = MappingsBuilder(this, project)
 
     @Suppress("UNCHECKED_CAST")
-    private val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
+    private val mappingActions =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {

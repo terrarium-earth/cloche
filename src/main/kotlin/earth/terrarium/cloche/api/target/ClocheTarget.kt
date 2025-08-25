@@ -7,7 +7,7 @@ import org.gradle.api.provider.Provider
 internal const val TARGET_NAME_PATH_SEPARATOR = ':'
 
 @JvmDefaultWithoutCompatibility
-sealed interface ClocheTarget : TargetTreeElement {
+interface ClocheTarget : TargetTreeElement {
     val dependsOn: DomainObjectCollection<CommonTarget>
 
     val featureName

@@ -19,8 +19,9 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
-import org.gradle.jvm.tasks.Jar
+import org.gradle.api.tasks.bundling.Jar
 import org.gradle.plugins.ide.idea.model.IdeaModel
 import javax.inject.Inject
 
@@ -50,6 +51,9 @@ internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Build
 internal abstract class CompilationInternal : Compilation {
     abstract val isTest: Boolean
 
+    abstract override val target: ClocheTargetInternal
+        @Internal get
+
     abstract val project: Project
         @Inject
         get
@@ -72,8 +76,17 @@ internal abstract class CompilationInternal : Compilation {
     val featureName
         get() = collapsedName?.let { lowerCamelCaseGradleName(it) }
 
-    val capabilitySuffix
-        get() = collapsedName?.replace(TARGET_NAME_PATH_SEPARATOR, '-')
+    val capabilitySuffix: Provider<String>
+        get() = target.hasSeparateClient.map {
+            val base = if (it) {
+                collapsedName ?: "common"
+            } else {
+                collapsedName
+            }
+
+            @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
+            base?.replace(TARGET_NAME_PATH_SEPARATOR, '-')
+        }
 
     val namePath
         get() = name.replace(TARGET_NAME_PATH_SEPARATOR, '/')
@@ -194,33 +207,41 @@ internal fun Project.configureSourceSet(
 
     val suffix = compilation.capabilitySuffix
 
-    val classifier = listOfNotNull(prefix, suffix).joinToString("-").takeUnless(String::isEmpty)
+    val classifier = if (prefix == null) {
+        suffix
+    } else {
+        suffix.map {
+            "$prefix-$it"
+        }.orElse(prefix)
+    }
+
+    val devClassifier = if (target is MinecraftTargetInternal) {
+        classifier.orElse("").zip(target.modRemapNamespace) { classifier, namespace ->
+            if (namespace.isEmpty()) {
+                classifier.ifEmpty { null }
+            } else if (classifier.isNotEmpty()) {
+                "$classifier-dev"
+            } else {
+                "dev"
+            }
+        }
+    } else {
+        classifier
+    }
 
     tasks.named(sourceSet.jarTaskName, Jar::class.java) {
         it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
 
-        if (target is MinecraftTargetInternal) {
-            val archiveClassifier = target.modRemapNamespace.map {
-                if (it.isEmpty()) {
-                    classifier
-                } else if (classifier != null) {
-                    "$classifier-dev"
-                } else {
-                    "dev"
-                }
-            }
-
-            it.archiveClassifier.set(archiveClassifier)
-        } else if (classifier != null) {
-            it.archiveClassifier.set(classifier)
-        }
+        it.archiveClassifier.set(devClassifier)
     }
 
     if (compilation is TargetCompilation) {
+        compilation.includeJarTask.configure {
+            it.archiveClassifier.set(classifier)
+        }
+
         compilation.remapJarTask.configure {
-            if (classifier != null) {
-                it.archiveClassifier.set(classifier)
-            }
+            it.archiveClassifier.set(classifier)
         }
     }
 }

@@ -74,9 +74,9 @@ internal fun createCommonTarget(
         val generateStub = tasks.register(name, GenerateStubApi::class.java) {
             it.group = "minecraft-stubs"
 
-            val jarName = compilation.capabilitySuffix?.let {
+            val jarName = compilation.capabilitySuffix.map {
                 "${commonTarget.capabilitySuffix}-$it"
-            } ?: commonTarget.capabilitySuffix
+            }.orElse(commonTarget.capabilitySuffix)
 
             it.apiFileName.set("$jarName-api-stub.jar")
 

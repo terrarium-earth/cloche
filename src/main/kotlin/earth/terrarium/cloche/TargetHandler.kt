@@ -46,6 +46,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 internal const val JSON_ARTIFACT_TYPE = "json"
 internal const val MOD_OUTPUTS_CATEGORY = "mod-outputs"
+internal const val REMAPPED_SUBVARIANT = "remapped"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -276,7 +277,13 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         for (name in libraryConsumableConfigurationNames) {
             configurations.named(name) { configuration ->
-                val variant = configuration.outgoing.variants.create("remapped") {
+                // TODO Can this be avoided? maybe publishing remapped Jars in a separate variant if our named namespace is stable(like mojang mappings)?
+                //  Alternatively could we find the exact artifact by checking if the files match? or via the build dependencies?
+                configuration.artifacts.clear()
+
+                project.artifacts.add(name, compilation.includeJarTask)
+
+                val variant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT) {
                     it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
 
                     it.artifact(tasks.named(sourceSet.jarTaskName))
@@ -290,6 +297,10 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
                             it.skip()
                         }
                     }
+                }
+
+                configuration.outgoing.variants.named { it == "classes" || it == "resources" }.configureEach {
+                    it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
                 }
             }
         }
@@ -392,5 +403,5 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
     }
 
-    artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)
+    artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.finalJar)
 }

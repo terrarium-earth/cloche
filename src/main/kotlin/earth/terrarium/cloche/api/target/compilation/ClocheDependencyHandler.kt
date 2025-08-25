@@ -3,7 +3,6 @@ package earth.terrarium.cloche.api.target.compilation
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
-import org.gradle.api.artifacts.dsl.DependencyFactory
 import org.gradle.api.artifacts.dsl.DependencyModifier
 import org.gradle.api.plugins.jvm.JvmComponentDependencies
 import org.gradle.api.provider.Provider
@@ -12,6 +11,8 @@ import javax.inject.Inject
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
 abstract class ClocheDependencyHandler @Inject constructor(private val minecraftVersion: Provider<String>) : JvmComponentDependencies {
+    abstract val include: DependencyCollector
+
     abstract val api: DependencyCollector
     abstract val compileOnlyApi: DependencyCollector
     abstract val localRuntime: DependencyCollector
