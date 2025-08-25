@@ -405,7 +405,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 intermediateClasspath,
                 remappedFile,
                 extraClasspath,
-                PublicationSide.Common,
+                PublicationSide.Common, // TODO This can be incorrect. Should be dependant on hasIncludedClientProvider
                 name == ClochePlugin.DATA_COMPILATION_NAME,
                 name == SourceSet.TEST_SOURCE_SET_NAME,
                 isSingleTarget,
