@@ -274,6 +274,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
                 val variant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT) {
                     it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
+                    it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
 
                     it.artifact(tasks.named(sourceSet.jarTaskName))
                 }
@@ -290,6 +291,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
                 configuration.outgoing.variants.named { it == "classes" || it == "resources" }.configureEach {
                     it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
+                    it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 }
             }
         }

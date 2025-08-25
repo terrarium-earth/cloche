@@ -311,6 +311,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             it.attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
@@ -318,6 +319,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             it.attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             it.attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
             it.extendsFrom(target.mappingsBuildDependenciesHolder)
