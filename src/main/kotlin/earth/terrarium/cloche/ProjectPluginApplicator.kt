@@ -92,7 +92,7 @@ fun applyToProject(project: Project) {
     project.dependencies.artifactTypes {
         it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
             jar.attributes
-                .attribute(ModTransformationStateAttribute.ATTRIBUTE, ModTransformationStateAttribute.INITIAL)
+                .attribute(REMAPPED_ATTRIBUTE, false)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
         }

@@ -9,6 +9,7 @@ import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.lazyConfigurable
+import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
 
@@ -27,6 +28,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 test = false,
                 isSingleTarget = info.isSingleTarget,
                 includeState = IncludeTransformationStateAttribute.Stripped,
+                includeJarType = JarInJar::class.java,
             ),
         )
     }
@@ -45,6 +47,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 test = true,
                 isSingleTarget = info.isSingleTarget,
                 includeState = IncludeTransformationStateAttribute.Stripped,
+                includeJarType = JarInJar::class.java,
             ),
         )
     }

@@ -103,6 +103,32 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
     mixins.from(dependency.mixins)
 }
 
+context(Project)
+private fun TargetCompilation.extendFromDependency(dependency: TargetCompilation) {
+    if (!isTest && !dependency.isTest) {
+        artifacts {
+            it.add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask)
+            it.add(sourceSet.runtimeElementsConfigurationName, dependency.includeJarTask)
+        }
+
+        for (name in listOf(
+            sourceSet.apiElementsConfigurationName,
+            sourceSet.runtimeElementsConfigurationName
+        )) {
+            configurations.named(name) {
+                it.outgoing.variants.named(REMAPPED_SUBVARIANT) {
+                    it.artifact(tasks.named(dependency.sourceSet.jarTaskName))
+                }
+            }
+        }
+    }
+
+    sourceSet.extendConfigurations(dependency.sourceSet, false)
+
+    accessWideners.from(dependency.accessWideners)
+    mixins.from(dependency.mixins)
+}
+
 /**
  * Depend on the variant of [dependency]
  */
@@ -113,18 +139,7 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
     sourceSet.compileClasspath += dependency.sourceSet.output
     sourceSet.runtimeClasspath += dependency.sourceSet.output
 
-    if (!isTest && !dependency.isTest) {
-        artifacts {
-            it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
-
-            it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
-        }
-    }
-
-    sourceSet.extendConfigurations(dependency.sourceSet, false)
-
-    accessWideners.from(dependency.accessWideners)
-    mixins.from(dependency.mixins)
+    extendFromDependency(dependency)
 }
 
 context(Project)
@@ -141,18 +156,7 @@ internal fun TargetCompilation.addDataClasspathDependency(dependency: TargetComp
         sourceSet.compileClasspath += dependency.sourceSet.output
     }
 
-    if (!isTest && !dependency.isTest) {
-        artifacts {
-            it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
-
-            it.add(sourceSet.runtimeElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
-        }
-    }
-
-    sourceSet.extendConfigurations(dependency.sourceSet, false)
-
-    accessWideners.from(dependency.accessWideners)
-    mixins.from(dependency.mixins)
+    extendFromDependency(dependency)
 }
 
 /**
