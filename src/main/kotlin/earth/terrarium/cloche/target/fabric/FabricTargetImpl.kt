@@ -436,6 +436,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
                     .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
                     .attribute(CompilationAttributes.DATA, false)
+
+                configuration.isTransitive = false
             }
 
         project.dependencies.add(

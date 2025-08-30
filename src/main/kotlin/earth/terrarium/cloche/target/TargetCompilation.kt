@@ -257,15 +257,17 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
                 featureName,
                 "includeFiles"
             )
-        ) {
-            it.extendsFrom(includeBucketConfiguration.get())
+        ) { configuration ->
+            configuration.extendsFrom(includeBucketConfiguration.get())
 
-            attributes(it.attributes)
+            attributes(configuration.attributes)
 
-            it.attributes
+            configuration.attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
                 .attribute(CompilationAttributes.SIDE, info.side)
                 .attribute(CompilationAttributes.DATA, info.data)
+
+            configuration.isTransitive = false
         }
 
     val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(
