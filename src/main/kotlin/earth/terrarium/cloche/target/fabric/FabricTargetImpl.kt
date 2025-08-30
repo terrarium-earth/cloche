@@ -564,6 +564,14 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
     }
 
+    override fun addJarInjects(compilation: CompilationInternal) {
+        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
+            it.manifest {
+                it.attributes["Fabric-Loom-Mixin-Remap-Type"] = "static"
+            }
+        }
+    }
+
     override fun addAnnotationProcessors(compilation: CompilationInternal) {
         compilation.dependencyHandler.annotationProcessor.add(fabricLoader)
         compilation.dependencyHandler.annotationProcessor.add(project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
