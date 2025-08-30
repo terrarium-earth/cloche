@@ -78,7 +78,7 @@ internal fun createCommonTarget(
                 "${commonTarget.capabilitySuffix}-$it"
             }.orElse(commonTarget.capabilitySuffix)
 
-            it.apiFileName.set("$jarName-api-stub.jar")
+            it.apiFileName.set(jarName.map { "$it-api-stub.jar" } )
 
             val objects = objects
             val configurations = configurations
