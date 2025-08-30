@@ -6,6 +6,7 @@ import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.util.fromJars
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -30,6 +31,7 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.internal.extensions.core.serviceOf
 import javax.inject.Inject
 
 private fun Project.getUnmappedModFiles(configurationName: String): FileCollection {
@@ -274,14 +276,18 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
         RemapJar::class.java
     ) {
-        it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+        val jarFile = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
+            .flatMap(Jar::getArchiveFile)
 
-        it.input.set(project.tasks.named(sourceSet.jarTaskName, Jar::class.java).flatMap(Jar::getArchiveFile))
+        it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+        it.input.set(jarFile)
         it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.targetNamespace.set(target.modRemapNamespace)
         it.classpath.from(sourceSet.compileClasspath)
 
         it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+
+        it.manifest.fromJars(project.serviceOf(), jarFile)
     }
 
     val includeJarTask: TaskProvider<out IncludesJar> = project.tasks.register(
@@ -293,7 +299,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
         val remapped = target.modRemapNamespace.map(String::isNotEmpty)
 
-        it.input.set(remapped.flatMap {
+        val jarFile = remapped.flatMap {
             val jarTask = if (it) {
                 remapJarTask
             } else {
@@ -301,7 +307,10 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
             }
 
             jarTask.flatMap(Jar::getArchiveFile)
-        })
+        }
+
+        it.input.set(jarFile)
+        it.manifest.fromJars(project.serviceOf(), jarFile)
 
         it.fromResolutionResults(includeResolvableConfiguration)
     }
