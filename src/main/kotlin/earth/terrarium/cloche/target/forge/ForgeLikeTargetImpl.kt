@@ -352,61 +352,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             }
         }
 
-        includeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "jarJar"),
-            JarJar::class.java,
-        ) {
-            val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
-            val remapJar = main.remapJarTask
-
-            if (!isSingleTarget) {
-                it.archiveClassifier.set(capabilitySuffix)
-            }
-
-            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
-
-            it.input.set(modRemapNamespace.flatMap {
-                val jarTask = if (it.isEmpty()) {
-                    jar
-                } else {
-                    remapJar
-                }
-
-                jarTask.flatMap(Jar::getArchiveFile)
-            })
-
-            it.fromResolutionResults(includeConfiguration)
-        }
-
-        dataIncludeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "dataJarJar"),
-            JarJar::class.java,
-        ) {
-            val jar = data.value.flatMap {
-                project.tasks.named(it.sourceSet.jarTaskName, Jar::class.java)
-            }
-
-            val remapJar = data.value.flatMap(TargetCompilation::remapJarTask)
-
-            if (!isSingleTarget) {
-                it.archiveClassifier.set(capabilitySuffix)
-            }
-
-            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
-
-            it.input.set(modRemapNamespace.flatMap {
-                val jarTask = if (it.isEmpty()) {
-                    jar
-                } else {
-                    remapJar
-                }
-
-                jarTask.flatMap(Jar::getArchiveFile)
-            })
-
-            it.fromResolutionResults(dataIncludeConfiguration)
-        }
-
         sourceSet.resources.srcDir(metadataDirectory)
 
         project.tasks.named(sourceSet.processResourcesTaskName) {

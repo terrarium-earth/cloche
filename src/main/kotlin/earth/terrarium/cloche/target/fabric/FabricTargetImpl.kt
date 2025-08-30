@@ -19,6 +19,7 @@ import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
+import earth.terrarium.cloche.util.fromJars
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
@@ -48,8 +49,10 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.internal.extensions.core.serviceOf
 import org.gradle.process.CommandLineArgumentProvider
 import java.io.File
+import java.util.jar.JarFile
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -457,44 +460,34 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
 
-            it.from(project.zipTree(main.remapJarTask.flatMap(Jar::getArchiveFile)))
+            val mainJar = main.remapJarTask.flatMap(Jar::getArchiveFile)
+            val clientJar = client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile)
 
-            it.from(project.zipTree(client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile))) {
-                // Needed cause otherwise manifest will be duplicated
-                it.exclude("META-INF/MANIFEST.MF")
+            it.from(project.zipTree(mainJar)) {
+                it.exclude(JarFile.MANIFEST_NAME)
             }
 
-            it.manifest.from(
-                main.remapJarTask.flatMap(Jar::getArchiveFile).map {
-                    project.zipTree(it).matching {
-                        it.include("META-INF/MANIFEST.MF")
-                    }.singleFile
-                },
-                client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile).map {
-                    project.zipTree(it).matching {
-                        it.include("META-INF/MANIFEST.MF")
-                    }.singleFile
-                }
-            )
+            it.from(project.zipTree(clientJar)) {
+                it.exclude(JarFile.MANIFEST_NAME)
+            }
+
+            it.manifest.fromJars(project.serviceOf(), mainJar, clientJar)
         }
 
         mergeIncludeJarTask = project.tasks.register(
             lowerCamelCaseGradleName(target.name, "mergeIncludeJar"),
             JarInJar::class.java,
         ) {
+            val jarFile = mergeJarTask.flatMap(Jar::getArchiveFile)
+
             if (!isSingleTarget) {
                 it.archiveClassifier.set(capabilitySuffix)
             }
 
             it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
 
-            it.input.set(mergeJarTask.flatMap(Jar::getArchiveFile))
-
-            it.manifest.from(mergeJarTask.flatMap(Jar::getArchiveFile).map {
-                project.zipTree(it).matching {
-                    it.include("META-INF/MANIFEST.MF")
-                }.singleFile
-            })
+            it.input.set(jarFile)
+            it.manifest.fromJars(project.serviceOf(), jarFile)
 
             it.fromResolutionResults(mergeIncludeResolvableConfiguration)
         }
