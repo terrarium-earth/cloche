@@ -1,8 +1,8 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
-import earth.terrarium.cloche.NoopAction
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.NoopAction
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
@@ -164,6 +164,9 @@ private fun setupModTransformationPipeline(
         project.dependencies.registerTransform(RemapAction::class.java) {
             it.from.attribute(REMAPPED_ATTRIBUTE, false)
             it.to.attribute(REMAPPED_ATTRIBUTE, true)
+
+            it.from.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
+            it.to.attribute(RemapNamespaceAttribute.ATTRIBUTE, remapNamespace)
 
             compilation.attributes(it.from)
             compilation.attributes(it.to)
