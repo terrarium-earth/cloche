@@ -47,7 +47,6 @@ import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.NamedDomainObjectProvider
-import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ResolvableConfiguration
 import org.gradle.api.file.RegularFile
@@ -500,7 +499,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             it.input.set(jarFile)
             it.manifest.fromJars(project.serviceOf(), jarFile)
 
-            it.fromResolutionResults(mergeIncludeResolvableConfiguration as Provider<Configuration>)
+            it.fromResolutionResults(mergeIncludeResolvableConfiguration)
         }
 
         sourceSet.resources.srcDir(metadataDirectory)
