@@ -1,35 +1,23 @@
 package earth.terrarium.cloche.target.fabric
 
-import earth.terrarium.cloche.ClocheExtension
-import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.FABRIC
-import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.*
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.CompilationInternal
-import earth.terrarium.cloche.target.LazyConfigurableInternal
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.TargetCompilationInfo
-import earth.terrarium.cloche.target.compilationSourceSet
-import earth.terrarium.cloche.target.lazyConfigurable
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.registerCompilationTransformations
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.util.fromJars
+import kotlinx.serialization.json.*
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
+import net.msrandom.minecraftcodev.core.MinecraftCodevPlugin.Companion.json
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
-import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.core.utils.*
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
@@ -54,6 +42,8 @@ import org.gradle.process.CommandLineArgumentProvider
 import java.io.File
 import java.util.jar.JarFile
 import javax.inject.Inject
+import kotlin.io.path.inputStream
+import kotlin.io.path.outputStream
 
 @Suppress("UnstableApiUsage")
 internal abstract class FabricTargetImpl @Inject constructor(name: String) :
@@ -504,6 +494,34 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
+        project.afterEvaluate {
+            project.tasks.named(sourceSet.jarTaskName, Jar::class.java) {
+                it.doLast { _ ->
+                    zipFileSystem(it.archiveFile.get().toPath()).use { fileSystem ->
+
+                        val modJson = fileSystem.getPath("fabric.mod.json")
+
+                        val inputJson = modJson.inputStream().use {
+                            json.decodeFromStream<JsonObject>(it)
+                        }
+
+                        val updatedMetadata = buildJsonObject {
+                            inputJson.forEach { (key, value) -> put(key, value) }
+
+                            put(
+                                "accessWidener",
+                                project.extension<ClocheExtension>().metadata.modId.map { "$it.accessWidener" }.get()
+                            )
+                        }
+
+                        modJson.outputStream().use {
+                            json.encodeToStream(updatedMetadata, it)
+                        }
+                    }
+                }
+            }
+        }
+
         main.dependencies { dependencies ->
             commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
@@ -544,12 +562,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         val modId = project.extension<ClocheExtension>().metadata.modId
-
-        generateModJson.configure {
-            if (accessWideners.isEmpty) return@configure
-            it.accessWidener.set(modId.map { "$it.accessWidener" })
-        }
-
         val task = project.tasks.register(
             lowerCamelCaseGradleName("merge", name, compilation.featureName, "accessWideners"),
             MergeAccessWideners::class.java
