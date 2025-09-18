@@ -1,5 +1,6 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.addCollectedDependencies
@@ -25,6 +26,7 @@ import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ConfigurationPublications
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.Category
@@ -44,6 +46,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 internal const val JSON_ARTIFACT_TYPE = "json"
 internal const val MOD_OUTPUTS_CATEGORY = "mod-outputs"
+internal const val REMAPPED_SUBVARIANT = "remapped"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -179,18 +182,27 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             target.addJarInjects(compilation)
         }
 
+        // TODO Remove modOutputs and export a variant with only the mod ID. The rest should be discoverable via an artifact view
         val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
-            val capabilitySuffix = compilation.capabilityName?.let { "$it-" }.orEmpty() + "mod-outputs"
-
             requireGroup()
 
-            modOutputs.outgoing.capability("$group:$name:$version")
+            val outgoing = modOutputs.outgoing
 
-            compilation.capabilityName?.let {
-                modOutputs.outgoing.capability("$group:$name-$it:$version")
-            }
+            fun ConfigurationPublications.capability(group: String, name: String, version: String) =
+                capability("$group:$name:$version")
 
-            modOutputs.outgoing.capability("$group:$name-$capabilitySuffix:$version")
+            outgoing.capability(group.toString(), "$name-mod-outputs", version.toString())
+
+            // TODO This logic is duplicated from CompilationVariantCreator. Should probably be consolidated
+            outgoing.capability(group.toString(), name, version.toString())
+
+            val baseCapabilityName = "${project.name}-${compilation.target.capabilitySuffix}"
+
+            val compilationCapability = compilation.capabilitySuffix.map {
+                "${project.group}:$baseCapabilityName-$it:${project.version}"
+            }.orElse("${project.group}:$baseCapabilityName:${project.version}")
+
+            outgoing.capability(compilationCapability)
 
             modOutputs.attributes
                 .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
@@ -252,8 +264,42 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
 
         val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
 
+        for (name in libraryConsumableConfigurationNames) {
+            configurations.named(name) { configuration ->
+                // TODO Can this be avoided? maybe publishing remapped Jars in a separate variant if our named namespace is stable(like mojang mappings)?
+                //  Alternatively could we find the exact artifact by checking if the files match? or via the build dependencies?
+                configuration.artifacts.clear()
+
+                project.artifacts.add(name, compilation.includeJarTask)
+
+                val variant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT) {
+                    it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
+                    it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+
+                    it.artifact(tasks.named(sourceSet.jarTaskName))
+                }
+
+                components.named("java") {
+                    it as AdhocComponentWithVariants
+
+                    it.withVariantsFromConfiguration(configuration) {
+                        if (it.configurationVariant.name == variant.name) {
+                            it.skip()
+                        }
+                    }
+                }
+
+                configuration.outgoing.variants.named { it == "classes" || it == "resources" }.configureEach {
+                    it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
+                    it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                }
+            }
+        }
+
         for (name in resolvableConfigurationNames) {
             configurations.named(name) { configuration ->
+                configuration.attributes(compilation::resolvableAttributes)
+
                 configuration.attributes.attribute(
                     MinecraftOperatingSystemAttribute.attribute,
                     objects.named(
@@ -329,10 +375,10 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
     }
 
     configurations.named(target.sourceSet.runtimeElementsConfigurationName) { configuration ->
-        val variant = configuration.outgoing.variants.create("transformed") {
+        val variant = configuration.outgoing.variants.create("includeTransformed") {
             it.attributes
-                .attribute(TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(SIDE_ATTRIBUTE, PublicationSide.Joined)
+                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
 
             it.artifact(target.finalJar)
         }
@@ -348,5 +394,5 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
     }
 
-    artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.includeJarTask)
+    artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.finalJar)
 }

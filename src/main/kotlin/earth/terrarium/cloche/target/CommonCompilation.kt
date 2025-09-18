@@ -2,7 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.TargetAttributes
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import net.msrandom.minecraftcodev.core.utils.extension

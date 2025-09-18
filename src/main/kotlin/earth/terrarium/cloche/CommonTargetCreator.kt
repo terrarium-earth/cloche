@@ -3,6 +3,9 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
+import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
+import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -71,11 +74,11 @@ internal fun createCommonTarget(
         val generateStub = tasks.register(name, GenerateStubApi::class.java) {
             it.group = "minecraft-stubs"
 
-            val jarName = compilation.capabilityName?.let {
-                "${commonTarget.classifierName}-$it"
-            } ?: commonTarget.classifierName
+            val jarName = compilation.capabilitySuffix.map {
+                "${commonTarget.capabilitySuffix}-$it"
+            }.orElse(commonTarget.capabilitySuffix)
 
-            it.apiFileName.set("$jarName-api-stub.jar")
+            it.apiFileName.set(jarName.map { "$it-api-stub.jar" } )
 
             val objects = objects
             val configurations = configurations
@@ -229,8 +232,8 @@ internal fun createCommonTarget(
         )
 
         compilation.attributes {
-            it.attribute(SIDE_ATTRIBUTE, variant)
-            it.attribute(DATA_ATTRIBUTE, data)
+            it.attribute(CompilationAttributes.SIDE, variant)
+            it.attribute(CompilationAttributes.DATA, data)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
             afterEvaluate { project ->
@@ -255,6 +258,7 @@ internal fun createCommonTarget(
             it.extendsFrom(intersectionResults.get())
 
             it.attributes(compilation::attributes)
+            it.attributes(compilation::resolvableAttributes)
         }
 
         for (name in listOf(
