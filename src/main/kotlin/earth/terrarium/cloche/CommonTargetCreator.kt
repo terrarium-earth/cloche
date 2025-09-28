@@ -21,6 +21,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
+import org.jetbrains.kotlin.gradle.plugin.PLUGIN_CLASSPATH_CONFIGURATION_NAME
 
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
@@ -280,27 +281,16 @@ internal fun createCommonTarget(
             JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
         )
 
-        plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
-            val kspConfigurationName = if (SourceSet.isMain(sourceSet)) {
-                "ksp"
-            } else {
-                lowerCamelCaseGradleName("ksp", sourceSet.name)
-            }
-
-            dependencies.add(
-                kspConfigurationName,
-                KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR,
-            )
-        }
-
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
         }
 
-        plugins.withId("org.jetbrains.kotlin.jvm") {
-            project.dependencies.add(
-                commonCompileOnly.name,
-                "net.msrandom:kmp-stub-annotations:1.0.0",
+        plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
+            val pluginClasspathConfigurationName = lowerCamelCaseGradleName(PLUGIN_CLASSPATH_CONFIGURATION_NAME, sourceSet.name)
+
+            dependencies.add(
+                pluginClasspathConfigurationName,
+                KOTLIN_MULTIPLATFORM_STUB_PLUGIN,
             )
         }
     }

@@ -50,8 +50,6 @@ dependencies {
     implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.3")
     implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.9")
 
-    implementation(group = "com.google.devtools.ksp", name = "com.google.devtools.ksp.gradle.plugin", version = "2.1.21-2.0.2")
-
     implementation(group = "com.moandjiezana.toml", name = "toml4j", version = "0.7.2")
 
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")

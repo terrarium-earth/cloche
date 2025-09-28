@@ -1,6 +1,5 @@
 package earth.terrarium.cloche
 
-import com.google.devtools.ksp.gradle.KspGradleSubplugin
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
@@ -51,10 +50,6 @@ fun applyToProject(project: Project) {
     }
 
     project.plugins.apply(JavaLibraryPlugin::class.java)
-
-    project.plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
-        project.plugins.apply(KspGradleSubplugin::class.java)
-    }
 
     project.plugins.withType(MavenPublishPlugin::class.java) {
         project.extension<PublishingExtension>().publications.configureEach { publication ->
