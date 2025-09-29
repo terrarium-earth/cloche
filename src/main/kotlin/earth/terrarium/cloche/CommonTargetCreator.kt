@@ -292,6 +292,11 @@ internal fun createCommonTarget(
                 pluginClasspathConfigurationName,
                 KOTLIN_MULTIPLATFORM_STUB_PLUGIN,
             )
+
+            project.dependencies.add(
+                sourceSet.compileOnlyConfigurationName,
+                "net.msrandom:kmp-stub-annotations:1.0.0",
+            )
         }
     }
 
