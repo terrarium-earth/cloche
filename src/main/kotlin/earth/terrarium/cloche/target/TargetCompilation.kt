@@ -6,6 +6,8 @@ import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.util.fromJars
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -230,7 +232,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         lowerCamelCaseGradleName("generate", sourceSet.takeUnless(SourceSet::isMain)?.name, "modOutputs"),
         GenerateModOutputs::class.java,
     ) {
-        it.modId.set(target.metadata.modId)
+        it.modId.set(project.modId)
 
         // TODO Make this logic a bit better;
         //   The way it should go is as follows:
@@ -279,7 +281,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         val jarFile = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
             .flatMap(Jar::getArchiveFile)
 
-        it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+        it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
         it.input.set(jarFile)
         it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
         it.targetNamespace.set(target.modRemapNamespace)
@@ -294,7 +296,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "includeJar"),
         info.includeJarType,
     ) {
-        it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
+        it.destinationDirectory.set(project.cloche.finalOutputsDirectory)
 
         val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
         val remapped = target.modRemapNamespace.map(String::isNotEmpty)

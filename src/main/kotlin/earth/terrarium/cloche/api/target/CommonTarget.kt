@@ -2,7 +2,7 @@ package earth.terrarium.cloche.api.target
 
 import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.api.LazyConfigurable
-import earth.terrarium.cloche.api.metadata.Metadata
+import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
@@ -21,7 +21,7 @@ interface CommonTarget : ClocheTarget, CommonSecondarySourceSets {
 
     val minecraftVersions: Provider<Set<String>>
 
-    val metadataActions: DomainObjectCollection<Action<Metadata>>
+    val metadataActions: DomainObjectCollection<Action<CommonMetadata>>
 
     // Might be not set if there is not a common minecraft version
     override val minecraftVersion: Provider<String>
@@ -29,7 +29,7 @@ interface CommonTarget : ClocheTarget, CommonSecondarySourceSets {
 
     fun withPublication()
 
-    fun metadata(action: Action<Metadata>) {
+    fun metadata(action: Action<CommonMetadata>) {
         metadataActions.add(action)
     }
 }

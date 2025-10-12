@@ -1,13 +1,13 @@
 package earth.terrarium.cloche.api.target
 
 import earth.terrarium.cloche.api.MappingsBuilder
-import earth.terrarium.cloche.api.metadata.Metadata
+import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
+import earth.terrarium.cloche.loaderName
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import org.gradle.api.Action
-import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
@@ -28,7 +28,10 @@ interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencie
     val loaderVersion: Property<String>
         @Input get
 
-    val metadata: Metadata
+    override val loaderName
+        get() = loaderName(javaClass)
+
+    val metadata: CommonMetadata
 
     val metadataDirectory: Provider<Directory>
         @Internal

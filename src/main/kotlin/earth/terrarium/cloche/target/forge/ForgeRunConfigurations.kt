@@ -8,7 +8,9 @@ import earth.terrarium.cloche.api.run.quotedDescription
 import earth.terrarium.cloche.api.run.withCompilation
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
+import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
@@ -90,7 +92,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             it.data {
                 it.modOutputs.from(project.modOutputs(compilation))
 
-                it.modId.set(target.metadata.modId)
+                it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.mainResources.set(target.sourceSet.output.resourcesDir)
@@ -159,7 +161,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             it.clientData {
                 it.modOutputs.from(project.modOutputs(compilation))
 
-                it.modId.set(target.metadata.modId)
+                it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.outputDirectory.set(target.datagenClientDirectory)

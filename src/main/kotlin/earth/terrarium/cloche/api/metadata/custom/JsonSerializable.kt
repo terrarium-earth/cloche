@@ -1,6 +1,11 @@
 package earth.terrarium.cloche.api.metadata.custom
 
 import kotlinx.serialization.json.*
+import net.peanuuutz.tomlkt.TomlArray
+import net.peanuuutz.tomlkt.TomlElement
+import net.peanuuutz.tomlkt.TomlLiteral
+import net.peanuuutz.tomlkt.TomlNull
+import net.peanuuutz.tomlkt.TomlTable
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
@@ -69,14 +74,14 @@ internal fun convertToJsonFromSerializable(value: JsonSerializable): JsonElement
     JsonType.Float -> JsonPrimitive(value.floatValue.get())
 }
 
-internal fun convertToObjectFromSerializable(value: JsonSerializable): Any? = when (value.type.get()) {
-    JsonType.Null -> null
-    JsonType.Object -> value.objectValues.get().mapValues { (_, value) -> convertToObjectFromSerializable(value) }
-    JsonType.List -> value.listValues.get().map(::convertToObjectFromSerializable)
-    JsonType.String -> value.stringValue.get()
-    JsonType.Boolean -> value.booleanValue.get()
-    JsonType.Int -> value.intValue.get()
-    JsonType.Float -> value.floatValue.get()
+internal fun convertToTomlFromSerializable(value: JsonSerializable): TomlElement = when (value.type.get()) {
+    JsonType.Null -> TomlNull
+    JsonType.Object -> TomlTable(value.objectValues.get().mapValues { (_, value) -> convertToTomlFromSerializable(value) })
+    JsonType.List -> TomlArray(value.listValues.get().map(::convertToTomlFromSerializable))
+    JsonType.String -> TomlLiteral(value.stringValue.get())
+    JsonType.Boolean -> TomlLiteral(value.booleanValue.get())
+    JsonType.Int -> TomlLiteral(value.intValue.get())
+    JsonType.Float -> TomlLiteral(value.floatValue.get())
 }
 
 enum class JsonType {

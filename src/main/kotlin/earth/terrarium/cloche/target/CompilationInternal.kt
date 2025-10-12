@@ -1,12 +1,12 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.COMMON
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.compilation.Compilation
+import earth.terrarium.cloche.cloche
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
@@ -230,7 +230,7 @@ internal fun Project.configureSourceSet(
     }
 
     tasks.named(sourceSet.jarTaskName, Jar::class.java) {
-        it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+        it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
 
         it.archiveClassifier.set(devClassifier)
     }

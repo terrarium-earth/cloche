@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "2.1.0"
+    kotlin("plugin.serialization") version "2.1.0"
     `java-gradle-plugin`
     `maven-publish`
     idea
@@ -50,9 +51,10 @@ dependencies {
     implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.3")
     implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.9")
 
-    implementation(group = "com.moandjiezana.toml", name = "toml4j", version = "0.7.2")
+    implementation(group = "net.peanuuutz.tomlkt", name = "tomlkt", version = "0.5.0")
+    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.6.2")
 
-    implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")
+    implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.18.0")
 
     implementation(kotlin("gradle-plugin"))
 
@@ -87,5 +89,5 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(17)
 }

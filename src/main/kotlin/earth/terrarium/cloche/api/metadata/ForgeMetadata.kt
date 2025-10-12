@@ -1,6 +1,6 @@
 package earth.terrarium.cloche.api.metadata
 
-import earth.terrarium.cloche.api.metadata.Metadata.VersionRange
+import earth.terrarium.cloche.api.metadata.CommonMetadata.VersionRange
 import earth.terrarium.cloche.api.metadata.custom.JsonSerializable
 import earth.terrarium.cloche.api.metadata.custom.convertToSerializable
 import org.gradle.api.Action
@@ -12,7 +12,7 @@ import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 
 @JvmDefaultWithoutCompatibility
-interface ForgeMetadata : Metadata {
+interface ForgeMetadata : CommonMetadata {
     val modLoader: Property<String>
         @Optional
         @Input

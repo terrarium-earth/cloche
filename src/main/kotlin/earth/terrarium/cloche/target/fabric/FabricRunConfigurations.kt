@@ -11,6 +11,7 @@ import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.modOutputs
@@ -93,7 +94,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(target.metadata.modId)
+                it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenDirectory)
                 it.downloadAssetsTask.set(
@@ -150,7 +151,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(target.metadata.modId)
+                it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenClientDirectory)
                 it.downloadAssetsTask.set(

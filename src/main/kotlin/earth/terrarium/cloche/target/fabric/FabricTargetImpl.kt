@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target.fabric
 
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
@@ -9,6 +8,8 @@ import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
+import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
@@ -18,19 +19,22 @@ import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
+import earth.terrarium.cloche.tasks.data.FabricMod
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.util.fromJars
-import earth.terrarium.cloche.util.validateMetadata
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
+import net.msrandom.minecraftcodev.core.MinecraftCodevPlugin.Companion.json
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
-import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
@@ -55,6 +59,10 @@ import org.gradle.process.CommandLineArgumentProvider
 import java.io.File
 import java.util.jar.JarFile
 import javax.inject.Inject
+import kotlin.collections.plus
+import kotlin.io.path.exists
+import kotlin.io.path.inputStream
+import kotlin.io.path.outputStream
 
 @Suppress("UnstableApiUsage")
 internal abstract class FabricTargetImpl @Inject constructor(name: String) :
@@ -203,10 +211,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         })
 
         it.output.set(metadataDirectory.map {
-            it.file("fabric.mod.json")
+            it.file(MinecraftCodevFabricPlugin.MOD_JSON)
         })
 
-        it.metadata.set(metadata)
+        it.targetMetadata.set(metadata)
 
         it.mixinConfigs.from(mixins)
     }
@@ -461,7 +469,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set("$capabilitySuffix-merged")
             }
 
-            it.destinationDirectory.set(project.extension<ClocheExtension>().intermediateOutputsDirectory)
+            it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
 
             val mainJar = main.remapJarTask.flatMap(Jar::getArchiveFile)
             val clientJar = client.value.flatMap(TargetCompilation::remapJarTask).flatMap(Jar::getArchiveFile)
@@ -487,7 +495,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.archiveClassifier.set(capabilitySuffix)
             }
 
-            it.destinationDirectory.set(project.extension<ClocheExtension>().finalOutputsDirectory)
+            it.destinationDirectory.set(project.cloche.finalOutputsDirectory)
 
             it.input.set(jarFile)
             it.manifest.fromJars(project.serviceOf(), jarFile)
@@ -507,38 +515,37 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
-        main.dependencies { dependencies ->
-            commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+        commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-            project.configurations.named(sourceSet.localImplementationConfigurationName) {
-                it.extendsFrom(commonLibrariesConfiguration)
-            }
+        project.configurations.named(sourceSet.localImplementationConfigurationName) {
+            it.extendsFrom(commonLibrariesConfiguration)
+        }
 
-            dependencies.implementation.add(fabricLoader)
+        mappings.fabricIntermediary()
 
-            mappings.fabricIntermediary()
+        registerMappings()
 
-            validateMetadata(metadata)
-            registerMappings()
-
-            // afterEvaluate needed because of the component rules using providers
-            project.afterEvaluate { project ->
-                project.dependencies.components { components ->
-                    components.withModule(
-                        ClochePlugin.STUB_MODULE,
-                        MinecraftComponentMetadataRule::class.java,
-                    ) {
-                        it.params(
-                            getGlobalCacheDirectory(project),
-                            minecraftVersion.get(),
-                            VERSION_MANIFEST_URL,
-                            project.gradle.startParameter.isOffline,
-                            featureName,
-                            clientTargetMinecraftName,
-                        )
-                    }
+        // afterEvaluate needed because of the component rules using providers
+        project.afterEvaluate { project ->
+            project.dependencies.components { components ->
+                components.withModule(
+                    ClochePlugin.STUB_MODULE,
+                    MinecraftComponentMetadataRule::class.java,
+                ) {
+                    it.params(
+                        getGlobalCacheDirectory(project),
+                        minecraftVersion.get(),
+                        VERSION_MANIFEST_URL,
+                        project.gradle.startParameter.isOffline,
+                        featureName,
+                        clientTargetMinecraftName,
+                    )
                 }
             }
+        }
+
+        main.dependencies { dependencies ->
+            dependencies.implementation.add(fabricLoader)
         }
     }
 
@@ -547,7 +554,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             return
         }
 
-        val modId = metadata.modId
+        val modId = project.modId
         val task = project.tasks.register(
             lowerCamelCaseGradleName("merge", name, compilation.featureName, "accessWideners"),
             MergeAccessWideners::class.java
@@ -558,6 +565,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
                 directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
             }
+
             it.output.set(output)
         }
 
@@ -570,6 +578,34 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
             it.manifest {
                 it.attributes["Fabric-Loom-Mixin-Remap-Type"] = "static"
+            }
+
+            if (compilation != main) {
+                return@named
+            }
+
+            val modId = project.modId
+
+            it.doLast {
+                it as Jar
+
+                zipFileSystem(it.archiveFile.get().asFile.toPath()).use {
+                    val accessWidenerFileName = "${modId.get()}.accessWidener"
+                    val accessWidenerPath = it.getPath(accessWidenerFileName)
+                    val modJsonPath = it.getPath(MinecraftCodevFabricPlugin.MOD_JSON)
+
+                    if (!accessWidenerPath.exists() || !modJsonPath.exists()) {
+                        return@use
+                    }
+
+                    val metadata: FabricMod = modJsonPath.inputStream().use(json::decodeFromStream)
+
+                    if (metadata.accessWidener != null) return@use
+
+                    modJsonPath.outputStream().use {
+                        json.encodeToStream(metadata.copy(accessWidener = accessWidenerFileName), it)
+                    }
+                }
             }
         }
     }

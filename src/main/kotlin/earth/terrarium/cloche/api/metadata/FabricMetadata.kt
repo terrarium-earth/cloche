@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.api.metadata
 
+import earth.terrarium.cloche.api.metadata.CommonMetadata.Environment
 import org.gradle.api.Action
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
@@ -8,7 +9,12 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 
 @JvmDefaultWithoutCompatibility
-interface FabricMetadata : Metadata {
+interface FabricMetadata : CommonMetadata {
+    val environment: Property<Environment>
+        @Optional
+        @Input
+        get
+
     var entrypoints: MutableMap<String, ListProperty<Entrypoint>>?
         @Input
         @Optional

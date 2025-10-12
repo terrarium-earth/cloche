@@ -1,16 +1,25 @@
 package earth.terrarium.cloche.tasks
 
+import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.FabricMetadata
-import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.metadata.custom.convertToJsonFromSerializable
+import earth.terrarium.cloche.modId
+import earth.terrarium.cloche.tasks.data.FabricMod
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.encodeToStream
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.*
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Nested
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 import java.io.File
 import kotlin.io.path.outputStream
 
@@ -22,13 +31,11 @@ abstract class GenerateFabricModJson : DefaultTask() {
     abstract val output: RegularFileProperty
         @OutputFile get
 
-    abstract val metadata: Property<FabricMetadata>
-        @Nested get
+    abstract val modId: Property<String>
+        @Input get
 
-    abstract val accessWidener: Property<String>
-        @Optional
-        @Input
-        get
+    abstract val targetMetadata: Property<FabricMetadata>
+        @Nested get
 
     abstract val modVersion: Property<String>
         @Input get
@@ -48,26 +55,11 @@ abstract class GenerateFabricModJson : DefaultTask() {
     }
 
     init {
+        modId.convention(project.modId)
         modVersion.convention(project.provider { project.version.toString() })
     }
 
-    private fun Metadata.Environment.toFabricString(): String {
-        return when (this) {
-            Metadata.Environment.CLIENT -> {
-                "client"
-            }
-
-            Metadata.Environment.SERVER -> {
-                "server"
-            }
-
-            Metadata.Environment.BOTH -> {
-                "*"
-            }
-        }
-    }
-
-    private fun buildVersionRange(range: Metadata.VersionRange): String? {
+    private fun buildVersionRange(range: CommonMetadata.VersionRange): String? {
         if (!range.start.isPresent && !range.end.isPresent) {
             return null
         }
@@ -105,168 +97,107 @@ abstract class GenerateFabricModJson : DefaultTask() {
         }
     }
 
-    private fun convertPerson(person: Metadata.Person) = buildMap {
-        put("name", JsonPrimitive(person.name.get()))
-
-        if (person.contact.isPresent) {
-            put("contact", JsonPrimitive(person.contact.get()))
-        }
-    }.let(::JsonObject)
+    private fun convertPerson(person: CommonMetadata.Person) = FabricMod.Person(
+        person.name.get(),
+        person.contact.orNull?.let {
+            FabricMod.Contact(email = it)
+        },
+    )
 
     @TaskAction
     fun makeJson() {
-        val json = buildMap {
-            val metadata = metadata.get()
-            put("schemaVersion", JsonPrimitive(1))
-            put("id", JsonPrimitive(metadata.modId.get()))
-            put("version", JsonPrimitive(modVersion.get()))
+        val modId = modId.get()
+        val metadata = targetMetadata.get()
 
-            if (metadata.name.isPresent) put("name", JsonPrimitive(metadata.name.get()))
-            if (metadata.description.isPresent) put(
-                "description",
-                JsonPrimitive(metadata.description.get())
+        val authors = metadata.authors.get().map(::convertPerson)
+        val contributors = metadata.contributors.get().map(::convertPerson)
+
+        val contact = if (metadata.url.isPresent || metadata.issues.isPresent || metadata.sources.isPresent) {
+            FabricMod.Contact(
+                homepage = metadata.url.orNull,
+                issues = metadata.issues.orNull,
+                sources = metadata.sources.orNull,
             )
+        } else {
+            null
+        }
 
-            if (metadata.icon.isPresent) {
-                put("icon", JsonPrimitive(metadata.icon.get()))
-            }
+        val mixinNames = mixinConfigs.map(File::getName)
+        val clientMixinNames = clientMixinConfigs.map(File::getName) - mixinNames.toSet()
 
-            put("license", JsonPrimitive(metadata.license.get()))
+        val commonMixins = mixinNames.map(FabricMod::Mixin)
 
-            if (metadata.authors.get().isNotEmpty()) {
-                put(
-                    "authors",
-                    JsonArray(metadata.authors.get().map(::convertPerson))
+        val clientMixins = clientMixinNames.map {
+            FabricMod.Mixin(it, "client")
+        }
+
+        val entrypoints = metadata.entrypoints?.mapValues { (_, values) ->
+            values.get().map { entrypoint ->
+                FabricMod.Entrypoint(
+                    value = entrypoint.value.get(),
+                    adapter = entrypoint.adapter.orNull,
                 )
             }
+        } ?: emptyMap()
 
-            if (metadata.contributors.get().isNotEmpty()) {
-                put(
-                    "contributors",
-                    JsonArray(metadata.contributors.get().map(::convertPerson))
-                )
-            }
+        val dependencies = metadata.dependencies.get()
 
-            if (metadata.url.isPresent || metadata.sources.isPresent || metadata.issues.isPresent) {
-                val contact = mutableMapOf<String, JsonPrimitive>()
-                if (metadata.url.isPresent) {
-                    contact["homepage"] = JsonPrimitive(metadata.url.get())
-                }
-                if (metadata.sources.isPresent) {
-                    contact["sources"] = JsonPrimitive(metadata.sources.get())
-                }
-                if (metadata.issues.isPresent) {
-                    contact["issues"] = JsonPrimitive(metadata.issues.get())
-                }
+        val depends = mutableMapOf<String, String>()
+        val recommends = mutableMapOf<String, String>()
+        val suggests = mutableMapOf<String, String>()
+        val conflicts = mutableMapOf<String, String>()
+        val breaks = mutableMapOf<String, String>()
 
-                put(
-                    "contact",
-                    JsonObject(contact),
-                )
-            }
+        depends["fabricloader"] = ">=${loaderDependencyVersion.get()}"
 
-
-            put("environment", JsonPrimitive(metadata.environment.get().toFabricString()))
-
-            if (accessWidener.isPresent) {
-                put("accessWidener", JsonPrimitive(accessWidener.get()))
-            }
-
-            val mixinNames = mixinConfigs.map(File::getName)
-            val clientMixinNames = clientMixinConfigs.map(File::getName) - mixinNames.toSet()
-
-            val commonMixins = mixinNames.map(::JsonPrimitive)
-            val clientMixins = clientMixinNames.map {
-                JsonObject(
-                    mapOf(
-                        "config" to JsonPrimitive(it),
-                        "environment" to JsonPrimitive("client"),
-                    )
-                )
-            }
-            if (commonMixins.isNotEmpty() || clientMixins.isNotEmpty()) {
-                put("mixins", JsonArray(commonMixins + clientMixins))
-            }
-
-            val entrypoints = metadata.entrypoints
-            if (!entrypoints.isNullOrEmpty()) {
-                put("entrypoints", JsonObject(entrypoints.mapValues { (_, value) ->
-                    JsonArray(value.get().map { entrypoint ->
-                        JsonObject(buildMap {
-                            put("value", JsonPrimitive(entrypoint.value.get()))
-
-                            if (entrypoint.adapter.isPresent) {
-                                put("adapter", JsonPrimitive(entrypoint.adapter.get()))
-                            }
-                        })
-                    })
-                }))
-            }
-
-            val languageAdapters = metadata.languageAdapters.get()
-            if (languageAdapters.isNotEmpty()) {
-                put("languageAdapters", JsonObject(languageAdapters.mapValues { (_, value) -> JsonPrimitive(value) }))
-            }
-
-            val depends = mutableMapOf<String, String>()
-            depends["fabricloader"] = ">=${loaderDependencyVersion.get()}"
-
-            val dependencies = metadata.dependencies.get()
-            if (dependencies.isNotEmpty()) {
-                val recommends = mutableMapOf<String, String>()
-                val suggests = mutableMapOf<String, String>()
-                val conflicts = mutableMapOf<String, String>()
-                val breaks = mutableMapOf<String, String>()
-                for (dependency in dependencies) {
-                    val key = dependency.modId.get()
-                    val version = dependency.version.map { buildVersionRange(it) ?: "*" }.getOrElse("*")
-                    when (dependency.type.getOrElse(Metadata.Dependency.Type.REQUIRED)) {
-                        Metadata.Dependency.Type.REQUIRED -> {
-                            depends[key] = version
-                        }
-
-                        Metadata.Dependency.Type.RECOMMENDED -> {
-                            recommends[key] = version
-                        }
-
-                        Metadata.Dependency.Type.SUGGESTED -> {
-                            suggests[key] = version
-                        }
-
-                        Metadata.Dependency.Type.CONFLICTS -> {
-                            conflicts[key] = version
-                        }
-
-                        Metadata.Dependency.Type.BREAKS -> {
-                            breaks[key] = version
-                        }
-                    }
+        for (dependency in dependencies) {
+            val key = dependency.modId.get()
+            val version = dependency.version.map { buildVersionRange(it) ?: "*" }.getOrElse("*")
+            when (dependency.type.getOrElse(CommonMetadata.Dependency.Type.Required)) {
+                CommonMetadata.Dependency.Type.Required -> {
+                    depends[key] = version
                 }
 
-                if (recommends.isNotEmpty()) {
-                    put("recommends", JsonObject(recommends.mapValues { (_, value) -> JsonPrimitive(value) }))
+                CommonMetadata.Dependency.Type.Recommended -> {
+                    recommends[key] = version
                 }
-                if (suggests.isNotEmpty()) {
-                    put("suggests", JsonObject(suggests.mapValues { (_, value) -> JsonPrimitive(value) }))
-                }
-                if (conflicts.isNotEmpty()) {
-                    put("conflicts", JsonObject(conflicts.mapValues { (_, value) -> JsonPrimitive(value) }))
-                }
-                if (breaks.isNotEmpty()) {
-                    put("breaks", JsonObject(breaks.mapValues { (_, value) -> JsonPrimitive(value) }))
-                }
-            }
 
-            put("depends", JsonObject(depends.mapValues { (_, value) -> JsonPrimitive(value) }))
+                CommonMetadata.Dependency.Type.Suggested -> {
+                    suggests[key] = version
+                }
 
-            val custom = metadata.custom.get()
-            if (custom.isNotEmpty()) {
-                put("custom", JsonObject(custom.mapValues { (_, value) -> convertToJsonFromSerializable(value) }))
+                CommonMetadata.Dependency.Type.Conflicts -> {
+                    conflicts[key] = version
+                }
+
+                CommonMetadata.Dependency.Type.Breaks -> {
+                    breaks[key] = version
+                }
             }
         }
 
+        val modJson = FabricMod(
+            schemaVersion = 1,
+            id = modId,
+            version = modVersion.get(),
+            name = metadata.name.orNull,
+            environment = metadata.environment.getOrElse(CommonMetadata.Environment.Both),
+            description = metadata.description.orNull,
+            authors = authors,
+            contributors = contributors,
+            contact = contact,
+            license = metadata.license.orNull,
+            icon = metadata.icon.orNull,
+            mixins = commonMixins + clientMixins,
+            entrypoints = entrypoints,
+            languageAdapters = metadata.languageAdapters.get(),
+            depends = depends,
+            suggests = suggests,
+            custom = metadata.custom.get().mapValues { (_, value) -> convertToJsonFromSerializable(value) },
+        )
+
         output.getAsPath().outputStream().use {
-            jsonBuilder.encodeToStream(json, it)
+            jsonBuilder.encodeToStream(modJson, it)
         }
     }
 }

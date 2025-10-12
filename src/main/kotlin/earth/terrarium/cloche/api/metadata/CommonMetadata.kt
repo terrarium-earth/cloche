@@ -2,6 +2,8 @@ package earth.terrarium.cloche.api.metadata
 
 import earth.terrarium.cloche.api.metadata.custom.JsonSerializable
 import earth.terrarium.cloche.api.metadata.custom.convertToSerializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
@@ -12,13 +14,8 @@ import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
-// TODO: Single-value metadata properties, e.g. `modId`, should only be allowed to be set once, instead of being overwritten when set multiple times
 @JvmDefaultWithoutCompatibility
-interface Metadata {
-    val modId: Property<String>
-        @Optional
-        @Input get
-
+interface CommonMetadata {
     val name: Property<String>
         @Optional
         @Input
@@ -54,11 +51,6 @@ interface Metadata {
         @Input
         get
 
-    val environment: Property<Environment>
-        @Optional
-        @Input
-        get
-
     val authors: ListProperty<Person>
         @Nested
         get
@@ -77,6 +69,22 @@ interface Metadata {
 
     val objects: ObjectFactory
         @Inject get
+
+    fun useAsConventionFor(metadata: CommonMetadata) {
+        metadata.name.convention(name)
+        metadata.description.convention(description)
+        metadata.license.convention(license)
+        metadata.icon.convention(icon)
+        metadata.url.convention(url)
+        metadata.issues.convention(issues)
+        metadata.sources.convention(sources)
+
+        metadata.authors.addAll(authors)
+        metadata.contributors.addAll(contributors)
+        metadata.dependencies.addAll(dependencies)
+
+        metadata.custom.putAll(custom)
+    }
 
     fun contributor(name: String) = contributor {
         it.name.set(name)
@@ -106,59 +114,59 @@ interface Metadata {
         modId: String,
         version: String,
         reason: String? = null,
-        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
-        environment: Environment = Environment.BOTH
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
     ) {
-        dependency(modId, version, Dependency.Type.REQUIRED, reason, ordering, environment)
+        dependency(modId, version, Dependency.Type.Required, reason, ordering, environment)
     }
 
     fun recommend(
         modId: String,
         version: String,
         reason: String? = null,
-        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
-        environment: Environment = Environment.BOTH
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
     ) {
-        dependency(modId, version, Dependency.Type.RECOMMENDED, reason, ordering, environment)
+        dependency(modId, version, Dependency.Type.Recommended, reason, ordering, environment)
     }
 
     fun suggest(
         modId: String,
         version: String,
         reason: String? = null,
-        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
-        environment: Environment = Environment.BOTH
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
     ) {
-        dependency(modId, version, Dependency.Type.SUGGESTED, reason, ordering, environment)
+        dependency(modId, version, Dependency.Type.Suggested, reason, ordering, environment)
     }
 
     fun markConflict(
         modId: String,
         version: String,
         reason: String? = null,
-        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
-        environment: Environment = Environment.BOTH
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
     ) {
-        dependency(modId, version, Dependency.Type.CONFLICTS, reason, ordering, environment)
+        dependency(modId, version, Dependency.Type.Conflicts, reason, ordering, environment)
     }
 
     fun markIncompatible(
         modId: String,
         version: String,
         reason: String? = null,
-        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
-        environment: Environment = Environment.BOTH
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
     ) {
-        dependency(modId, version, Dependency.Type.BREAKS, reason, ordering, environment)
+        dependency(modId, version, Dependency.Type.Breaks, reason, ordering, environment)
     }
 
     fun dependency(
         modId: String,
         version: String,
-        type: Dependency.Type = Dependency.Type.REQUIRED,
+        type: Dependency.Type = Dependency.Type.Required,
         reason: String? = null,
-        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
-        environment: Environment = Environment.BOTH
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
     ) {
         dependency() {
             it.modId.set(modId)
@@ -258,23 +266,24 @@ interface Metadata {
             version.set(objects.newInstance(VersionRange::class.java).also(action::execute))
 
         enum class Type {
-            REQUIRED,
-            RECOMMENDED,
-            SUGGESTED,
-            CONFLICTS,
-            BREAKS
+            Required,
+            Recommended,
+            Suggested,
+            Conflicts,
+            Breaks,
         }
 
         enum class Ordering {
-            NONE,
-            BEFORE,
-            AFTER
+            @SerialName("NONE") None,
+            @SerialName("BEFORE") Before,
+            @SerialName("AFTER") After,
         }
     }
 
+    @Serializable
     enum class Environment {
-        CLIENT,
-        SERVER,
-        BOTH
+        @SerialName("client") Client,
+        @SerialName("server") Server,
+        @SerialName("*") Both,
     }
 }

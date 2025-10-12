@@ -5,12 +5,9 @@ package earth.terrarium.cloche.target
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.javaExecutableFor
-import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.MappingsBuilder
-import earth.terrarium.cloche.api.metadata.Metadata
+import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
@@ -18,7 +15,6 @@ import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.includes.IncludesJar
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
@@ -28,7 +24,6 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
-import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
@@ -81,7 +76,7 @@ internal abstract class MinecraftTargetInternal(
     val outputDirectory: Provider<Directory> =
         project.layout.buildDirectory.dir("minecraft").map { it.dir(capabilitySuffix) }
 
-    override val metadata: Metadata = project.objects.newInstance(Metadata::class.java)
+    override val metadata: CommonMetadata = project.objects.newInstance(CommonMetadata::class.java)
 
     protected val mappings = MappingsBuilder(this, project)
 
@@ -156,13 +151,7 @@ internal abstract class MinecraftTargetInternal(
 
     abstract fun onClientIncluded(action: () -> Unit)
 
-    open fun initialize(isSingleTarget: Boolean) {
-        metadata.license.convention("ARR")
-        metadata.environment.convention(Metadata.Environment.BOTH)
-        project.extension<ClocheExtension>().rootMetadataActions.forEach() {
-            it.execute(metadata)
-        }
-    }
+    open fun initialize(isSingleTarget: Boolean) {}
 
     override fun runs(action: Action<RunConfigurations>) {
         action.execute(runs)

@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target.forge.lex
 
-import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.NO_NAME_MAPPING_ATTRIBUTE
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.compilation.Compilation
@@ -28,8 +27,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         @Internal
         get() = "forge"
 
-    override val loaderName get() = FORGE
-
     override val minecraftRemapNamespace: Provider<String>
         get() = providerFactory.provider { MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE }
 
@@ -42,6 +39,8 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
 
     init {
         generateModsToml.configure {
+            it.neoforge.set(false)
+
             it.loaderDependencyVersion.set(
                 metadata.loaderVersion.orElse(loaderVersion.map {
                     loaderVersionRange(it.substringBefore('.'))

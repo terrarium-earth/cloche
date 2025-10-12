@@ -1,8 +1,6 @@
 package earth.terrarium.cloche.target.forge.neo
 
-import earth.terrarium.cloche.NEOFORGE
 import earth.terrarium.cloche.api.target.NeoforgeTarget
-import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
@@ -20,8 +18,6 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
     final override val artifact
         get() = "neoforge"
-
-    final override val loaderName get() = NEOFORGE
 
     override val minecraftRemapNamespace: Provider<String>
         get() = mappings.isDefault.map {
@@ -52,6 +48,8 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         }
 
         generateModsToml.configure {
+            it.neoforge.set(true)
+
             it.loaderDependencyVersion.set(metadata.loaderVersion.orElse(loaderVersionRange("1")))
 
             it.output.set(metadataDirectory.map {
