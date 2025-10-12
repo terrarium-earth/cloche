@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.metadata.Metadata
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
@@ -11,7 +12,6 @@ import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
@@ -65,6 +65,9 @@ internal abstract class CommonTargetInternal @Inject constructor(
     var publish = false
 
     override val hasSeparateClient = client.isConfigured
+    @Suppress("UNCHECKED_CAST")
+    override val metadataActions: DomainObjectCollection<Action<Metadata>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<Metadata>>
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
@@ -104,6 +107,14 @@ internal abstract class CommonTargetInternal @Inject constructor(
     val commonType: Provider<String> = dependents.map { dependants ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         dependants.map { (it as MinecraftTargetInternal).commonType }.onlyValue()
+    }
+
+    init {
+        dependsOn.configureEach { dependency ->
+            dependency.metadataActions.forEach { metadataAction ->
+                metadataActions.add(metadataAction)
+            }
+        }
     }
 
     override fun getName() = name

@@ -90,7 +90,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             it.data {
                 it.modOutputs.from(project.modOutputs(compilation))
 
-                it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                it.modId.set(target.metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.mainResources.set(target.sourceSet.output.resourcesDir)
@@ -159,7 +159,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             it.clientData {
                 it.modOutputs.from(project.modOutputs(compilation))
 
-                it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                it.modId.set(target.metadata.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.outputDirectory.set(target.datagenClientDirectory)

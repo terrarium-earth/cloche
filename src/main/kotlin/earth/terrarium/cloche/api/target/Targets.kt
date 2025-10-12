@@ -13,7 +13,7 @@ import org.gradle.api.artifacts.dsl.DependencyCollector
 
 @JvmDefaultWithoutCompatibility
 interface FabricTarget : MinecraftTarget {
-    val metadata: FabricMetadata
+    override val metadata: FabricMetadata
 
     override val loaderName: String
         get() = FABRIC
@@ -22,7 +22,7 @@ interface FabricTarget : MinecraftTarget {
 
     fun includedClient()
 
-    fun metadata(configure: Action<FabricMetadata>) = configure.execute(metadata)
+    fun metadata(action: Action<FabricMetadata>) = action.execute(metadata)
 }
 
 @JvmDefaultWithoutCompatibility
@@ -36,9 +36,9 @@ interface ForgeLikeTarget : MinecraftTarget {
     val testLegacyClasspath: DependencyCollector
         @Incubating get
 
-    val metadata: ForgeMetadata
+    override val metadata: ForgeMetadata
 
-    fun metadata(configure: Action<ForgeMetadata>) = configure.execute(metadata)
+    fun metadata(action: Action<ForgeMetadata>) = action.execute(metadata)
 }
 
 @JvmDefaultWithoutCompatibility

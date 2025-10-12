@@ -12,9 +12,11 @@ import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
+// TODO: Single-value metadata properties, e.g. `modId`, should only be allowed to be set once, instead of being overwritten when set multiple times
 @JvmDefaultWithoutCompatibility
-interface ModMetadata {
+interface Metadata {
     val modId: Property<String>
+        @Optional
         @Input get
 
     val name: Property<String>
@@ -52,7 +54,7 @@ interface ModMetadata {
         @Input
         get
 
-    val clientOnly: Property<Boolean>
+    val environment: Property<Environment>
         @Optional
         @Input
         get
@@ -99,6 +101,76 @@ interface ModMetadata {
 
     fun author(action: Action<Person>) =
         authors.add(objects.newInstance(Person::class.java).also(action::execute))
+
+    fun require(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.REQUIRED, reason, ordering, environment)
+    }
+
+    fun recommend(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.RECOMMENDED, reason, ordering, environment)
+    }
+
+    fun suggest(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.SUGGESTED, reason, ordering, environment)
+    }
+
+    fun markConflict(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.CONFLICTS, reason, ordering, environment)
+    }
+
+    fun markIncompatible(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency(modId, version, Dependency.Type.BREAKS, reason, ordering, environment)
+    }
+
+    fun dependency(
+        modId: String,
+        version: String,
+        type: Dependency.Type = Dependency.Type.REQUIRED,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.NONE,
+        environment: Environment = Environment.BOTH
+    ) {
+        dependency() {
+            it.modId.set(modId)
+            it.version(version)
+            it.type.set(type)
+            if (reason != null) {
+                it.reason.set(reason)
+            }
+            it.ordering.set(ordering)
+            it.environment.set(environment)
+        }
+    }
 
     fun dependency(action: Action<Dependency>) =
         dependencies.add(objects.newInstance(Dependency::class.java).also(action::execute))
@@ -155,7 +227,22 @@ interface ModMetadata {
             @Optional
             get
 
-        val required: Property<Boolean>
+        val type: Property<Type>
+            @Input
+            @Optional
+            get
+
+        val reason: Property<String>
+            @Input
+            @Optional
+            get
+
+        val ordering: Property<Ordering>
+            @Input
+            @Optional
+            get
+
+        val environment: Property<Environment>
             @Input
             @Optional
             get
@@ -169,5 +256,25 @@ interface ModMetadata {
 
         fun version(action: Action<VersionRange>) =
             version.set(objects.newInstance(VersionRange::class.java).also(action::execute))
+
+        enum class Type {
+            REQUIRED,
+            RECOMMENDED,
+            SUGGESTED,
+            CONFLICTS,
+            BREAKS
+        }
+
+        enum class Ordering {
+            NONE,
+            BEFORE,
+            AFTER
+        }
+    }
+
+    enum class Environment {
+        CLIENT,
+        SERVER,
+        BOTH
     }
 }
