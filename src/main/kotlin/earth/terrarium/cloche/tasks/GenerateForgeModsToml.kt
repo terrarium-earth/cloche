@@ -3,13 +3,17 @@ package earth.terrarium.cloche.tasks
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.custom.convertToTomlFromSerializable
+import earth.terrarium.cloche.metadata.forgeTomlMetadataAction
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.tasks.data.ForgeMod
 import earth.terrarium.cloche.tasks.data.ForgeMods
+import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.tasks.data.NeoForgeMods
 import earth.terrarium.cloche.tasks.data.encodeToStream
 import earth.terrarium.cloche.tasks.data.toml
 import net.msrandom.minecraftcodev.core.utils.getAsPath
+import net.peanuuutz.tomlkt.TomlTable
+import org.gradle.api.Action
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -53,6 +57,10 @@ abstract class GenerateForgeModsToml : DefaultTask() {
     init {
         modId.convention(project.modId)
         modVersion.convention(project.provider { project.version.toString() })
+    }
+
+    fun withToml(action: Action<MetadataFileProvider<TomlTable>>) {
+        doLast(forgeTomlMetadataAction(output, action))
     }
 
     private fun CommonMetadata.Dependency.Type.toNeoforgeType() = when (this) {

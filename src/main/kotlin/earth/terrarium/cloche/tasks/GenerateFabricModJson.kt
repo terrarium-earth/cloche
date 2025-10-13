@@ -3,12 +3,16 @@ package earth.terrarium.cloche.tasks
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.metadata.custom.convertToJsonFromSerializable
+import earth.terrarium.cloche.metadata.fabricJsonMetadataAction
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.tasks.data.FabricMod
+import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToStream
 import net.msrandom.minecraftcodev.core.utils.getAsPath
+import org.gradle.api.Action
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -57,6 +61,10 @@ abstract class GenerateFabricModJson : DefaultTask() {
     init {
         modId.convention(project.modId)
         modVersion.convention(project.provider { project.version.toString() })
+    }
+
+    fun withJson(action: Action<MetadataFileProvider<JsonObject>>) {
+        doLast(fabricJsonMetadataAction(output, action))
     }
 
     private fun buildVersionRange(range: CommonMetadata.VersionRange): String? {
