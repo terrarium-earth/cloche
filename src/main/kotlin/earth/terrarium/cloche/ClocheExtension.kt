@@ -103,7 +103,7 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
 
         extension.singleTargetSetCallback(type)
 
-        val instance = project.objects.newInstance(type, "")
+        val instance = project.objects.newInstance(type, loaderName)
 
         (instance as MinecraftTargetInternal).initialize(true)
 
@@ -218,8 +218,8 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
         // afterEvaluate needed as we are querying the configuration of a value
         project.afterEvaluate {
-            if (!metadata.modId.isPresent) {
-                throw InvalidUserCodeException("`cloche.metadata.modId` was not set.")
+            if ((targets.isNotEmpty() || singleTargetConfigurator.target != null) && !metadata.modId.isPresent) {
+                throw InvalidUserCodeException("`cloche.metadata.modId` was not set in $it.")
             }
         }
     }
