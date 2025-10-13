@@ -13,6 +13,10 @@ import net.peanuuutz.tomlkt.encodeToNativeWriter
 import java.io.InputStream
 import java.io.OutputStream
 
+internal val toml = Toml {
+    explicitNulls = false
+}
+
 @Serializable
 data class ForgeMods(
     val modLoader: String,

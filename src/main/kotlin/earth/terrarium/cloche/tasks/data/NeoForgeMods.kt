@@ -11,10 +11,16 @@ data class NeoForgeMods(
     val license: String,
     val dependencies: Map<String, List<Dependency>> = emptyMap(),
     val mixins: List<Mixin> = emptyList(),
+    val accessTransformers: List<AccessTransformer> = emptyList(),
     val issueTrackerURL: String? = null,
     val mods: List<ForgeMod>,
     val logoBlur: Boolean? = null,
 ) {
+    @Serializable
+    data class AccessTransformer(
+        val file: String,
+    )
+
     @Serializable
     data class Dependency(
         val modId: String,

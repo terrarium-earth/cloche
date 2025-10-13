@@ -8,8 +8,8 @@ import earth.terrarium.cloche.tasks.data.ForgeMod
 import earth.terrarium.cloche.tasks.data.ForgeMods
 import earth.terrarium.cloche.tasks.data.NeoForgeMods
 import earth.terrarium.cloche.tasks.data.encodeToStream
+import earth.terrarium.cloche.tasks.data.toml
 import net.msrandom.minecraftcodev.core.utils.getAsPath
-import net.peanuuutz.tomlkt.Toml
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -160,10 +160,6 @@ abstract class GenerateForgeModsToml : DefaultTask() {
             authors = authors,
             modproperties = modProperties,
         )
-
-        val toml = Toml {
-            explicitNulls = false
-        }
 
         if (neoforge.get()) {
             val dependencies = metadata.dependencies.get().map {

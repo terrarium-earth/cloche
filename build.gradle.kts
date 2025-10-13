@@ -1,13 +1,13 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.1.0"
-    kotlin("plugin.serialization") version "2.1.0"
+    // TODO Switch to kotlin-dsl
+    kotlin("plugin.serialization") version embeddedKotlinVersion
+    `embedded-kotlin`
+
     `java-gradle-plugin`
     `maven-publish`
     idea
-
-    id("com.google.devtools.ksp") version "2.1.0-1.0.29"
 }
 
 gradlePlugin {
@@ -48,11 +48,10 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.6.2")
 
     implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.11")
-    implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.3")
+    implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.4")
     implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.9")
 
-    implementation(group = "net.peanuuutz.tomlkt", name = "tomlkt", version = "0.5.0")
-    implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version = "1.6.2")
+    implementation(group = "net.peanuuutz.tomlkt", name = "tomlkt", version = "0.4.0")
 
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.18.0")
 

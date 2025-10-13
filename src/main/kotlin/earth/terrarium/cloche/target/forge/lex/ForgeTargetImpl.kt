@@ -6,6 +6,7 @@ import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.GenerateMcpToSrg
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -15,6 +16,7 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import java.io.File
 import javax.inject.Inject
+import kotlin.io.path.exists
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
     override val runs: LexForgeRunConfigurations = project.objects.newInstance(LexForgeRunConfigurations::class.java, this)
@@ -81,6 +83,18 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
                 it.attributes["MixinConfigs"] = object {
                     override fun toString(): String {
                         return compilation.mixins.joinToString(",", transform = File::getName)
+                    }
+                }
+            }
+
+            it.doFirst { jar ->
+                jar as Jar
+
+                val accessTransformerName = "accesstransformer.cfg"
+
+                zipFileSystem(jar.archiveFile.get().asFile.toPath()).use {
+                    if (it.getPath("META-INF", accessTransformerName).exists()) {
+                        jar.manifest.attributes["FMLAT"] = accessTransformerName
                     }
                 }
             }

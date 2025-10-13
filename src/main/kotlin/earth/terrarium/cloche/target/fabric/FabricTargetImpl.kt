@@ -19,8 +19,8 @@ import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
-import earth.terrarium.cloche.tasks.data.FabricMod
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
+import earth.terrarium.cloche.tasks.data.FabricMod
 import earth.terrarium.cloche.util.fromJars
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
@@ -59,7 +59,6 @@ import org.gradle.process.CommandLineArgumentProvider
 import java.io.File
 import java.util.jar.JarFile
 import javax.inject.Inject
-import kotlin.collections.plus
 import kotlin.io.path.exists
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
@@ -555,6 +554,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         val modId = project.modId
+
         val task = project.tasks.register(
             lowerCamelCaseGradleName("merge", name, compilation.featureName, "accessWideners"),
             MergeAccessWideners::class.java
@@ -571,20 +571,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
             it.from(task.flatMap(MergeAccessWideners::output))
-        }
-    }
-
-    override fun addJarInjects(compilation: CompilationInternal) {
-        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
-            it.manifest {
-                it.attributes["Fabric-Loom-Mixin-Remap-Type"] = "static"
-            }
-
-            if (compilation != main) {
-                return@named
-            }
-
-            val modId = project.modId
 
             it.doLast {
                 it as Jar
@@ -600,12 +586,22 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
                     val metadata: FabricMod = modJsonPath.inputStream().use(json::decodeFromStream)
 
-                    if (metadata.accessWidener != null) return@use
+                    if (metadata.accessWidener != null) {
+                        return@use
+                    }
 
                     modJsonPath.outputStream().use {
                         json.encodeToStream(metadata.copy(accessWidener = accessWidenerFileName), it)
                     }
                 }
+            }
+        }
+    }
+
+    override fun addJarInjects(compilation: CompilationInternal) {
+        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
+            it.manifest {
+                it.attributes["Fabric-Loom-Mixin-Remap-Type"] = "static"
             }
         }
     }
