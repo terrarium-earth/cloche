@@ -101,9 +101,9 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
             return it
         }
 
-        extension.singleTargetSetCallback(type)
-
         val instance = project.objects.newInstance(type, loaderName)
+
+        extension.singleTargetSetCallback(type, instance)
 
         (instance as MinecraftTargetInternal).initialize(true)
 
@@ -146,25 +146,36 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     @Suppress("UNCHECKED_CAST")
     internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
-    private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, () -> Unit>()
+    private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>?, (target: MinecraftTarget) -> Unit>()
 
-    private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: () -> Unit) {
+    private fun onSingleTargetConfigured(action: (target: MinecraftTarget) -> Unit) =
+        onTargetTypeConfigured(null, action)
+
+    private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>?, action: (target: MinecraftTarget) -> Unit) {
         var configured = false
 
-        targets.withType(type).whenObjectAdded {
+        val set = if (type != null) {
+            targets.withType(type)
+        } else {
+            targets
+        }
+
+        set.whenObjectAdded {
             if (!configured) {
                 configured = true
 
-                action()
+                action(it)
             }
         }
 
         singleTargetCallbacks[type] = action
     }
 
-    internal fun singleTargetSetCallback(type: Class<out MinecraftTarget>) = singleTargetCallbacks.entries.firstOrNull {
-        it.key.isAssignableFrom(type)
-    }?.value?.invoke()
+    internal fun singleTargetSetCallback(type: Class<out MinecraftTarget>, target: MinecraftTarget) = singleTargetCallbacks.entries.filter {
+        val key = it.key
+
+        key == null || key.isAssignableFrom(type)
+    }.forEach { it.value.invoke(target) }
 
     init {
         project.dependencies.registerTransform(ExtractIncludes::class.java) {
@@ -215,6 +226,10 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                     metadata.useAsConventionFor(commonMetadata)
                 }
             }
+
+        onSingleTargetConfigured {
+            metadata.useAsConventionFor(it.metadata)
+        }
 
         // afterEvaluate needed as we are querying the configuration of a value
         project.afterEvaluate {
