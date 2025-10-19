@@ -3,21 +3,17 @@ package earth.terrarium.cloche.target.forge
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FORGE
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
-import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.metadata.CommonMetadata
+import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
-import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.tasks.GenerateForgeModsToml
+import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -29,7 +25,8 @@ import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
-import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
+import net.peanuuutz.tomlkt.TomlTable
+import org.gradle.api.Action
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
@@ -44,13 +41,13 @@ import javax.inject.Inject
 @Suppress("UnstableApiUsage")
 internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     MinecraftTargetInternal(name), ForgeLikeTarget {
-    protected val minecraftLibrariesConfiguration: Configuration =
+    internal val minecraftLibrariesConfiguration: Configuration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
             it.isCanBeConsumed = false
 
             it.attributes.attribute(
                 MinecraftOperatingSystemAttribute.attribute,
-                project.objects.named(
+                objectFactory.named(
                     MinecraftOperatingSystemAttribute::class.java,
                     operatingSystemName(),
                 ),
@@ -58,58 +55,22 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
             it.attributes.attribute(
                 Usage.USAGE_ATTRIBUTE,
-                project.objects.named(
+                objectFactory.named(
                     Usage::class.java,
                     Usage.JAVA_RUNTIME,
                 )
             )
         }
 
-    private val legacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "legacyClasspath")) {
-        it.addCollectedDependencies(legacyClasspath)
-
-        attributes(it.attributes)
-
-        it.attributes
-            .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-            .attribute(CompilationAttributes.DATA, false)
-
-        it.isCanBeConsumed = false
-    }
-
-    private val dataLegacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "dataLegacyClasspath")) {
-        it.extendsFrom(legacyClasspathConfiguration.get())
-
-        it.addCollectedDependencies(dataLegacyClasspath)
-
-        attributes(it.attributes)
-
-        it.attributes
-            .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-            .attribute(CompilationAttributes.DATA, true)
-
-        it.isCanBeConsumed = false
-    }
-
-    private val testLegacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, "testLegacyClasspath")) {
-        it.extendsFrom(legacyClasspathConfiguration.get())
-
-        it.addCollectedDependencies(testLegacyClasspath)
-
-        attributes(it.attributes)
-
-        it.attributes
-            .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-            .attribute(CompilationAttributes.DATA, false)
-
-        it.isCanBeConsumed = false
-    }
-
     private val universal = project.configurations.create(lowerCamelCaseGradleName(featureName, "forgeUniversal")) {
         it.isCanBeConsumed = false
     }
 
-    protected val resolvePatchedMinecraft: TaskProvider<ResolvePatchedMinecraft> = project.tasks.register(
+    private val sideProvider = project.provider {
+        PublicationSide.Joined
+    }
+
+    internal val resolvePatchedMinecraft: TaskProvider<ResolvePatchedMinecraft> = project.tasks.register(
         lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft"),
         ResolvePatchedMinecraft::class.java
     ) {
@@ -119,55 +80,28 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.universal.from(universal)
 
         it.output.set(output(minecraftRemapNamespace.map {
-            if (it.isEmpty()) {
+            it.ifEmpty {
                 MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE
-            } else {
-                it
             }
         }))
     }
 
-    internal val writeLegacyClasspath = project.tasks.register(
-        lowerCamelCaseGradleName("write", featureName, "legacyClasspath"),
-        WriteClasspathFile::class.java,
-    ) { task ->
-        configureLegacyClasspath(task, main, legacyClasspathConfiguration)
-    }
-
-    internal val writeLegacyDataClasspath: TaskProvider<WriteClasspathFile> = project.tasks.register(
-        lowerCamelCaseGradleName("write", featureName, "dataLegacyClasspath"),
-        WriteClasspathFile::class.java,
-    ) { task ->
-        data.onConfigured { data ->
-            configureLegacyClasspath(task, data, dataLegacyClasspathConfiguration)
-        }
-    }
-
-    internal val writeLegacyTestClasspath: TaskProvider<WriteClasspathFile> = project.tasks.register(
-        lowerCamelCaseGradleName("write", featureName, "testLegacyClasspath"),
-        WriteClasspathFile::class.java,
-    ) { task ->
-        test.onConfigured { test ->
-            configureLegacyClasspath(task, test, testLegacyClasspathConfiguration)
-        }
-    }
-
     override val finalJar
-        get() = main.includeJarTask
+        get() = main.includeJarTask!!
 
-    final override lateinit var main: TargetCompilation
+    final override lateinit var main: ForgeCompilationImpl
 
-    final override val data: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
+    final override val data: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
         val data = run {
-            project.objects.newInstance(
-                TargetCompilation::class.java,
+            objectFactory.newInstance(
+                ForgeCompilationImpl::class.java,
                 TargetCompilationInfo(
                     ClochePlugin.DATA_COMPILATION_NAME,
                     this,
                     project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                     minecraftFile,
                     project.provider { emptyList<RegularFile>() },
-                    PublicationSide.Joined,
+                    sideProvider,
                     data = true,
                     test = false,
                     isSingleTarget = isSingleTarget,
@@ -184,17 +118,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         data
     }
 
-    final override val test: LazyConfigurableInternal<TargetCompilation> = project.lazyConfigurable {
+    final override val test: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
         val data = run {
-            project.objects.newInstance(
-                TargetCompilation::class.java,
+            objectFactory.newInstance(
+                ForgeCompilationImpl::class.java,
                 TargetCompilationInfo(
                     SourceSet.TEST_SOURCE_SET_NAME,
                     this,
                     project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                     minecraftFile,
-                    project.provider { emptyList<RegularFile>() },
-                    PublicationSide.Joined,
+                    project.provider { emptyList() },
+                    sideProvider,
                     data = false,
                     test = true,
                     isSingleTarget = isSingleTarget,
@@ -218,14 +152,14 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         providerFactory.provider { false }
 
     override val runs: ForgeRunConfigurations<out ForgeLikeTargetImpl> =
-        project.objects.newInstance(ForgeRunConfigurations::class.java, this)
+        objectFactory.newInstance(ForgeRunConfigurations::class.java, this)
 
     abstract val group: String
     abstract val artifact: String
 
     override val commonType get() = FORGE
 
-    override val metadata: ForgeMetadata = project.objects.newInstance(ForgeMetadata::class.java)
+    override val metadata: ForgeMetadata = objectFactory.newInstance(ForgeMetadata::class.java, this)
 
     private val remapTask = project.tasks.register(
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
@@ -242,19 +176,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         it.sourceNamespace.set(minecraftRemapNamespace)
 
         it.outputFile.set(output(project.provider { MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE }))
-    }
-
-    protected val generateModsToml: TaskProvider<GenerateForgeModsToml> = project.tasks.register(
-        lowerCamelCaseGradleName("generate", featureName, "modsToml"),
-        GenerateForgeModsToml::class.java
-    ) {
-        it.output.set(metadataDirectory.map {
-            it.dir("META-INF").file("mods.toml")
-        })
-
-        it.metadata.set(metadata)
-
-        it.loaderName.set(loaderName)
     }
 
     private val minecraftFile = minecraftRemapNamespace.flatMap {
@@ -277,23 +198,13 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         project.dependencies.add(universal.name, forgeDependency {})
     }
 
-    private fun configureLegacyClasspath(task: WriteClasspathFile, compilation: TargetCompilation, configuration: Provider<Configuration>) {
-        task.classpath.from(minecraftLibrariesConfiguration)
-        task.classpath.from(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
-        task.classpath.from(configuration)
-
-        if (this is ForgeTargetImpl) {
-            task.classpath.from(compilation.finalMinecraftFile)
-        }
-    }
-
     private fun output(suffix: Provider<String>) = suffix.flatMap { suffix ->
         outputDirectory.zip(minecraftVersion.zip(loaderVersion) { a, b -> "$a-$b" }) { dir, version ->
             dir.file("$loaderName-$version-$suffix.jar")
         }
     }
 
-    protected fun loaderVersionRange(version: String): CommonMetadata.VersionRange =
+    internal fun loaderVersionRange(version: String): CommonMetadata.VersionRange =
         objectFactory.newInstance(CommonMetadata.VersionRange::class.java).apply {
             start.set(version)
         }
@@ -318,15 +229,15 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         this.isSingleTarget = isSingleTarget
 
-        main = project.objects.newInstance(
-            TargetCompilation::class.java,
+        main = objectFactory.newInstance(
+            ForgeCompilationImpl::class.java,
             TargetCompilationInfo(
                 SourceSet.MAIN_SOURCE_SET_NAME,
                 this,
                 project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                 minecraftFile,
                 project.provider { emptyList() },
-                PublicationSide.Joined,
+                sideProvider,
                 data = false,
                 test = false,
                 isSingleTarget = isSingleTarget,
@@ -334,34 +245,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 includeJarType = JarJar::class.java,
             ),
         )
-
-        legacyClasspathConfiguration.configure {
-            it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
-        }
-
-        dataLegacyClasspathConfiguration.configure {
-            data.onConfigured { data ->
-                it.shouldResolveConsistentlyWith(project.configurations.getByName(data.sourceSet.runtimeClasspathConfigurationName))
-            }
-        }
-
-        testLegacyClasspathConfiguration.configure {
-            test.onConfigured { test ->
-                it.shouldResolveConsistentlyWith(project.configurations.getByName(test.sourceSet.runtimeClasspathConfigurationName))
-            }
-        }
-
-        sourceSet.resources.srcDir(metadataDirectory)
-
-        project.tasks.named(sourceSet.processResourcesTaskName) {
-            it.dependsOn(generateModsToml)
-        }
-
-        data.onConfigured {
-            project.tasks.named(it.sourceSet.processResourcesTaskName) {
-                it.dependsOn(generateModsToml)
-            }
-        }
 
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
@@ -431,4 +314,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     override fun onClientIncluded(action: () -> Unit) {
         action()
     }
+
+    override fun withMetadataToml(action: Action<MetadataFileProvider<TomlTable>>) = main.withMetadataToml(action)
 }

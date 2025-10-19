@@ -2,31 +2,31 @@
 
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.javaExecutableFor
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.MappingsBuilder
-import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
-import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.InvalidUserCodeException
+import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
+import javax.inject.Inject
 
 internal fun Configuration.addCollectedDependencies(collector: DependencyCollector) {
     dependencies.addAllLater(collector.dependencies)
@@ -35,10 +35,10 @@ internal fun Configuration.addCollectedDependencies(collector: DependencyCollect
 
 internal abstract class MinecraftTargetInternal(
     private val name: String,
-) : MinecraftTarget, ClocheTargetInternal {
-    abstract val main: TargetCompilation
-    abstract override val data: LazyConfigurableInternal<TargetCompilation>
-    abstract override val test: LazyConfigurableInternal<TargetCompilation>
+) : MinecraftTarget, Dependencies, ClocheTargetInternal {
+    abstract val main: TargetCompilation<*>
+    abstract override val data: LazyConfigurableInternal<TargetCompilation<*>>
+    abstract override val test: LazyConfigurableInternal<TargetCompilation<*>>
 
     abstract val commonType: String
 
@@ -76,8 +76,6 @@ internal abstract class MinecraftTargetInternal(
     val outputDirectory: Provider<Directory> =
         project.layout.buildDirectory.dir("minecraft").map { it.dir(capabilitySuffix) }
 
-    override val metadata: CommonMetadata = project.objects.newInstance(CommonMetadata::class.java)
-
     protected val mappings = MappingsBuilder(this, project)
 
     @Suppress("UNCHECKED_CAST")
@@ -85,10 +83,8 @@ internal abstract class MinecraftTargetInternal(
         project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
-        dependsOn.configureEach { dependency ->
-            dependency.metadataActions.forEach { metadataAction ->
-                metadataAction.execute(metadata)
-            }
+        dependsOn.all { dependency ->
+            useCommonMetadata(dependency as CommonTargetInternal)
         }
 
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
@@ -105,6 +101,16 @@ internal abstract class MinecraftTargetInternal(
             if (!loaderVersion.isPresent) {
                 throw InvalidUserCodeException("loaderVersion not set for target '$name'")
             }
+        }
+    }
+
+    private fun useCommonMetadata(commonTarget: CommonTargetInternal) {
+        commonTarget.dependsOn.all {
+            useCommonMetadata(it as CommonTargetInternal)
+        }
+
+        commonTarget.metadataActions.all { metadataAction ->
+            metadataAction.execute(metadata)
         }
     }
 

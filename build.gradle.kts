@@ -3,9 +3,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     // TODO Switch to kotlin-dsl
     kotlin("plugin.serialization") version embeddedKotlinVersion
-    `embedded-kotlin`
 
+    `embedded-kotlin`
     `java-gradle-plugin`
+
     `maven-publish`
     idea
 }
@@ -52,6 +53,7 @@ dependencies {
     implementation(group = "net.msrandom", name = "classpath-api-stubs", version = "0.1.9")
 
     implementation(group = "net.peanuuutz.tomlkt", name = "tomlkt", version = "0.4.0")
+    implementation(group = "org.apache.groovy", name = "groovy-toml", version = "5.0.2")
 
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.18.0")
 

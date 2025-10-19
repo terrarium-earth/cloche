@@ -3,7 +3,6 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
-import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.RootMetadata
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.FabricTarget
@@ -146,19 +145,12 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     @Suppress("UNCHECKED_CAST")
     internal val mappingActions = project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
-    private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>?, (target: MinecraftTarget) -> Unit>()
+    private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, (target: MinecraftTarget) -> Unit>()
 
-    private fun onSingleTargetConfigured(action: (target: MinecraftTarget) -> Unit) =
-        onTargetTypeConfigured(null, action)
-
-    private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>?, action: (target: MinecraftTarget) -> Unit) {
+    private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: (target: MinecraftTarget) -> Unit) {
         var configured = false
 
-        val set = if (type != null) {
-            targets.withType(type)
-        } else {
-            targets
-        }
+        val set = targets.withType(type)
 
         set.whenObjectAdded {
             if (!configured) {
@@ -172,9 +164,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }
 
     internal fun singleTargetSetCallback(type: Class<out MinecraftTarget>, target: MinecraftTarget) = singleTargetCallbacks.entries.filter {
-        val key = it.key
-
-        key == null || key.isAssignableFrom(type)
+        it.key.isAssignableFrom(type)
     }.forEach { it.value.invoke(target) }
 
     init {
@@ -218,18 +208,6 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         commonTargets
             .named { it != COMMON }
             .configureEach { it.dependsOn(common()) }
-
-        commonTargets
-            .named { it == COMMON }
-            .configureEach { common ->
-                common.metadata { commonMetadata ->
-                    metadata.useAsConventionFor(commonMetadata)
-                }
-            }
-
-        onSingleTargetConfigured {
-            metadata.useAsConventionFor(it.metadata)
-        }
 
         // afterEvaluate needed as we are querying the configuration of a value
         project.afterEvaluate {

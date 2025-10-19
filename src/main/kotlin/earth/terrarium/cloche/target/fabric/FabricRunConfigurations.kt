@@ -39,7 +39,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         return run
     }
 
-    private fun clientDescription(name: String) = if (target.hasIncludedClient) {
+    private fun clientDescription(name: String) = if (target.client.isConfiguredValue) {
         quotedDescription(name)
     } else if (target.client.value.isPresent) {
         "'${FabricTarget::client.name} { ${commonDescription(name)} }'"
@@ -57,7 +57,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     }
 
     override val client = project.lazyConfigurable {
-        val compilation = target.client.value.map<TargetCompilation> { it }.orElse(target.main)
+        val compilation = target.client.value.map<TargetCompilation<*>> { it }.orElse(target.main)
 
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {

@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target.forge
 
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
@@ -8,11 +7,9 @@ import earth.terrarium.cloche.api.run.quotedDescription
 import earth.terrarium.cloche.api.run.withCompilation
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
-import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.LazyConfigurableInternal
-import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.modOutputs
 import net.msrandom.minecraftcodev.core.utils.extension
@@ -44,14 +41,14 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     }
 
     protected open fun applyDefault(run: MinecraftRunConfiguration) {}
-    protected open fun configureData(data: ForgeRunConfigurationData, compilation: TargetCompilation) {}
-    protected open fun configureData(data: ForgeRunConfigurationData, compilation: Provider<TargetCompilation>) {}
+    protected open fun configureData(data: ForgeRunConfigurationData, compilation: ForgeCompilationImpl) {}
+    protected open fun configureData(data: ForgeRunConfigurationData, compilation: Provider<ForgeCompilationImpl>) {}
 
-    private fun ForgeRunConfigurationData.configure(sourceSet: TargetCompilation) {
+    private fun ForgeRunConfigurationData.configure(sourceSet: ForgeCompilationImpl) {
         configureData(this, sourceSet)
     }
 
-    private fun ForgeRunConfigurationData.configure(sourceSet: Provider<TargetCompilation>) {
+    private fun ForgeRunConfigurationData.configure(sourceSet: Provider<ForgeCompilationImpl>) {
         configureData(this, sourceSet)
     }
 
@@ -62,7 +59,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.writeLegacyClasspathTask.set(target.writeLegacyClasspath)
+                it.writeLegacyClasspathTask.set(target.main.writeLegacyClasspath)
 
                 it.configure(target.main)
             }
@@ -78,7 +75,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 it.extractNativesTask.set(project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java))
                 it.downloadAssetsTask.set(project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java))
-                it.writeLegacyClasspathTask.set(target.writeLegacyClasspath)
+                it.writeLegacyClasspathTask.set(target.main.writeLegacyClasspath)
 
                 it.configure(target.main)
             }
@@ -103,7 +100,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                         DownloadAssets::class.java
                     )
                 )
-                it.writeLegacyClasspathTask.set(target.writeLegacyDataClasspath)
+                it.writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
 
                 it.configure(compilation)
             }
@@ -172,7 +169,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                         DownloadAssets::class.java
                     )
                 )
-                it.writeLegacyClasspathTask.set(target.writeLegacyDataClasspath)
+                it.writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
 
                 it.mainResources.set(target.sourceSet.output.resourcesDir)
 
@@ -238,7 +235,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.writeLegacyClasspathTask.set(target.writeLegacyTestClasspath)
+                it.writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
 
                 it.configure(compilation)
             }

@@ -70,7 +70,7 @@ fun Project.javaExecutableFor(
 }
 
 @Suppress("UnstableApiUsage")
-private fun TargetCompilation.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
+private fun TargetCompilation<*>.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
     val modImplementation =
         project.configurations.dependencyScope(modConfigurationName(configurationName)) {
             it.addCollectedDependencies(modCollector)
@@ -84,7 +84,7 @@ private fun TargetCompilation.addModDependencies(configurationName: String, coll
 }
 
 @Suppress("UnstableApiUsage")
-private fun TargetCompilation.addDependencies() {
+private fun TargetCompilation<*>.addDependencies() {
     addModDependencies(sourceSet.implementationConfigurationName, dependencyHandler.implementation, dependencyHandler.modImplementation)
     addModDependencies(sourceSet.runtimeOnlyConfigurationName, dependencyHandler.runtimeOnly, dependencyHandler.modRuntimeOnly)
     addModDependencies(sourceSet.compileOnlyConfigurationName, dependencyHandler.compileOnly, dependencyHandler.modCompileOnly)
@@ -148,7 +148,7 @@ private fun TargetCompilation.addDependencies() {
 
 context(Project)
 internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
-    fun addCompilation(compilation: TargetCompilation, testName: String? = null) {
+    fun addCompilation(compilation: TargetCompilation<*>, testName: String? = null) {
         val sourceSet = compilation.sourceSet
 
         if (!compilation.isTest) {
@@ -265,12 +265,16 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
 
         for (name in libraryConsumableConfigurationNames) {
+            if (compilation.isTest) {
+                continue
+            }
+
             configurations.named(name) { configuration ->
                 // TODO Can this be avoided? maybe publishing remapped Jars in a separate variant if our named namespace is stable(like mojang mappings)?
                 //  Alternatively could we find the exact artifact by checking if the files match? or via the build dependencies?
                 configuration.artifacts.clear()
 
-                project.artifacts.add(name, compilation.includeJarTask)
+                project.artifacts.add(name, compilation.includeJarTask!!)
 
                 val variant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT) {
                     it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
@@ -321,6 +325,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
                 for (name in listOf(it.compileClasspathConfigurationName, it.runtimeClasspathConfigurationName)) {
                     project.configurations.named(name) {
                         it.attributes(compilation::attributes)
+                        it.attributes(compilation::resolvableAttributes)
                     }
                 }
             }

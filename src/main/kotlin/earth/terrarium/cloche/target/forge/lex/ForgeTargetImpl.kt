@@ -19,7 +19,7 @@ import javax.inject.Inject
 import kotlin.io.path.exists
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
-    override val runs: LexForgeRunConfigurations = project.objects.newInstance(LexForgeRunConfigurations::class.java, this)
+    override val runs: LexForgeRunConfigurations = objectFactory.newInstance(LexForgeRunConfigurations::class.java, this)
 
     override val group
         @Internal
@@ -37,18 +37,6 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         GenerateMcpToSrg::class.java,
     ) {
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
-    }
-
-    init {
-        generateModsToml.configure {
-            it.neoforge.set(false)
-
-            it.loaderDependencyVersion.set(
-                metadata.loaderVersion.orElse(loaderVersion.map {
-                    loaderVersionRange(it.substringBefore('.'))
-                }),
-            )
-        }
     }
 
     private fun removeNameMappingService(compilation: Compilation) {

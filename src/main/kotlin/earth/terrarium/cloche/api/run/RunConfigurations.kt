@@ -27,7 +27,7 @@ interface RunConfigurations {
 internal fun commonDescription(name: String) = "$name()"
 internal fun quotedDescription(name: String) = "'${commonDescription(name)}'"
 
-internal fun MinecraftRunConfiguration.withCompilation(compilation: TargetCompilation): MinecraftRunConfiguration {
+internal fun MinecraftRunConfiguration.withCompilation(compilation: TargetCompilation<*>): MinecraftRunConfiguration {
     return sourceSet(compilation.sourceSet)
         .addMixinJavaAgent(compilation.target.withMixinAgent)
         .beforeRun(compilation.generateModOutputs)
@@ -35,7 +35,7 @@ internal fun MinecraftRunConfiguration.withCompilation(compilation: TargetCompil
 
 internal fun MinecraftRunConfiguration.withCompilation(
     target: MinecraftTarget,
-    compilation: Provider<TargetCompilation>,
+    compilation: Provider<out TargetCompilation<*>>,
     description: () -> String,
 ): MinecraftRunConfiguration {
     // afterEvaluate needed to query property
@@ -45,7 +45,7 @@ internal fun MinecraftRunConfiguration.withCompilation(
         }
     }
 
-    return sourceSet(compilation.map(TargetCompilation::sourceSet))
+    return sourceSet(compilation.map(TargetCompilation<*>::sourceSet))
         .addMixinJavaAgent(target.withMixinAgent)
-        .beforeRun(compilation.flatMap(TargetCompilation::generateModOutputs))
+        .beforeRun(compilation.flatMap(TargetCompilation<*>::generateModOutputs))
 }

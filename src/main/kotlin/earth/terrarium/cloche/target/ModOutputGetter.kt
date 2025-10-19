@@ -10,7 +10,7 @@ import org.gradle.api.attributes.Usage
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Provider
 
-internal fun Project.modOutputs(compilation: TargetCompilation): FileCollection {
+internal fun Project.modOutputs(compilation: TargetCompilation<*>): FileCollection {
     val dependencyOutputs = configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName).map {
         it.incoming.artifactView {
             it.attributes
@@ -34,5 +34,5 @@ internal fun Project.modOutputs(compilation: TargetCompilation): FileCollection 
     return files(dependencyOutputs, localOutputs)
 }
 
-internal fun Project.modOutputs(compilation: Provider<TargetCompilation>) =
+internal fun Project.modOutputs(compilation: Provider<out TargetCompilation<*>>) =
     compilation.map(::modOutputs)

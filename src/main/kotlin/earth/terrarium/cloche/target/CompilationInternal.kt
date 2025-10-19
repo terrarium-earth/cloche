@@ -16,6 +16,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.ArtifactView
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.SourceDirectorySet
 import org.gradle.api.provider.Provider
@@ -48,15 +49,11 @@ internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Build
     getNonProjectArtifacts(configurations.named(configurationName)).map(ArtifactView::getFiles)
 
 @JvmDefaultWithoutCompatibility
-internal abstract class CompilationInternal : Compilation {
+internal abstract class CompilationInternal : Compilation, Dependencies {
     abstract val isTest: Boolean
 
     abstract override val target: ClocheTargetInternal
         @Internal get
-
-    abstract val project: Project
-        @Inject
-        get
 
     val dependencyHandler: ClocheDependencyHandler by lazy(LazyThreadSafetyMode.NONE) {
         project.objects.newInstance(ClocheDependencyHandler::class.java, target.minecraftVersion)
@@ -165,14 +162,14 @@ internal fun Project.configureSourceSet(
     val syncTask = tasks.named(IDE_SYNC_TASK_NAME) { task ->
         task.dependsOn(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
 
-        if (compilation is TargetCompilation) {
+        if (compilation is TargetCompilation<*>) {
             task.dependsOn(compilation.finalMinecraftFile)
             task.dependsOn(compilation.info.extraClasspathFiles)
             task.dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
         }
     }
 
-    if (compilation is TargetCompilation) {
+    if (compilation is TargetCompilation<*>) {
         syncTask.configure { task ->
             task.dependsOn(compilation.generateModOutputs)
         }
@@ -235,12 +232,12 @@ internal fun Project.configureSourceSet(
         it.archiveClassifier.set(devClassifier)
     }
 
-    if (compilation is TargetCompilation) {
-        compilation.includeJarTask.configure {
+    if (compilation is TargetCompilation<*>) {
+        compilation.includeJarTask!!.configure {
             it.archiveClassifier.set(classifier)
         }
 
-        compilation.remapJarTask.configure {
+        compilation.remapJarTask!!.configure {
             it.archiveClassifier.set(classifier)
         }
     }

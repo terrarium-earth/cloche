@@ -66,8 +66,9 @@ internal abstract class CommonTargetInternal @Inject constructor(
     var publish = false
 
     override val hasSeparateClient = client.isConfigured
+
     @Suppress("UNCHECKED_CAST")
-    override val metadataActions: DomainObjectCollection<Action<CommonMetadata>> =
+    val metadataActions: DomainObjectCollection<Action<CommonMetadata>> =
         project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<CommonMetadata>>
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
@@ -110,14 +111,6 @@ internal abstract class CommonTargetInternal @Inject constructor(
         dependants.map { (it as MinecraftTargetInternal).commonType }.onlyValue()
     }
 
-    init {
-        dependsOn.configureEach { dependency ->
-            dependency.metadataActions.forEach { metadataAction ->
-                metadataActions.add(metadataAction)
-            }
-        }
-    }
-
     override fun getName() = name
 
     override fun withJavadocJar() = main.withJavadocJar()
@@ -128,6 +121,10 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     override fun withPublication() {
         publish = true
+    }
+
+    override fun metadata(action: Action<CommonMetadata>) {
+        metadataActions.add(action)
     }
 
     override fun toString() = name

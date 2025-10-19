@@ -65,18 +65,6 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             )
         }
 
-        generateModsToml.configure {
-            it.neoforge.set(true)
-
-            it.loaderDependencyVersion.set(metadata.loaderVersion.orElse(loaderVersionRange("1")))
-
-            it.output.set(metadataDirectory.map {
-                it.dir("META-INF").file("neoforge.mods.toml")
-            })
-
-            it.mixinConfigs.from(mixins)
-        }
-
         resolvePatchedMinecraft.configure {
             it.neoforge.set(true)
         }
@@ -106,6 +94,10 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
     override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {
         super.registerAccessWidenerMergeTask(compilation)
+
+        if (compilation.isTest) {
+            return
+        }
 
         project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
             it.doLast {

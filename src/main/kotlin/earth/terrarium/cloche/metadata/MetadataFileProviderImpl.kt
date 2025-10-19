@@ -1,45 +1,28 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package earth.terrarium.cloche.metadata
 
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.tasks.data.decodeFromStream
 import earth.terrarium.cloche.tasks.data.encodeToStream
 import earth.terrarium.cloche.tasks.data.toml
-import groovy.util.Node
+import groovy.json.JsonBuilder
+import groovy.json.JsonSlurper
+import groovy.lang.Closure
+import groovy.toml.TomlBuilder
+import groovy.toml.TomlSlurper
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.decodeFromStream
-import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.encodeToStream
-import kotlinx.serialization.json.floatOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.longOrNull
-import net.peanuuutz.tomlkt.TomlArray
-import net.peanuuutz.tomlkt.TomlElement
-import net.peanuuutz.tomlkt.TomlLiteral
-import net.peanuuutz.tomlkt.TomlNull
 import net.peanuuutz.tomlkt.TomlTable
-import net.peanuuutz.tomlkt.toBoolean
-import net.peanuuutz.tomlkt.toFloat
-import net.peanuuutz.tomlkt.toInt
-import net.peanuuutz.tomlkt.toLocalDate
-import net.peanuuutz.tomlkt.toLocalDateTime
-import net.peanuuutz.tomlkt.toLocalTime
-import net.peanuuutz.tomlkt.toOffsetDateTime
 import org.gradle.api.Action
 import org.gradle.api.Task
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import java.io.InputStream
 import java.io.OutputStream
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
-import java.time.OffsetDateTime
+import java.nio.file.Path
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 import kotlin.io.path.readText
@@ -47,37 +30,44 @@ import kotlin.io.path.writeText
 
 private class MetadataFileProviderImpl<ElementT : Any>(
     private val readString: () -> String,
+    private val readObject: () -> MutableMap<String, Any?>,
     private val readElement: () -> ElementT,
-    private val decodeNode: (ElementT) -> Node,
 ) : MetadataFileProvider<ElementT> {
     var builder: StringBuilder? = null
-    var node: Node? = null
+    var obj: Map<String, Any?>? = null
     var element: ElementT? = null
 
     override fun asString() = StringBuilder(readString()).also {
         builder = it
-        node = null
+        obj = null
         element = null
     }
 
-    override fun asNode() = decodeNode(readElement()).also {
-        builder = null
-        node = it
-        element = null
-    }
+    override fun withContents(action: Action<MutableMap<String, Any?>>) {
+        val newObj = readObject()
 
-    override fun asElement(): ElementT {
         builder = null
-        node = null
+        obj = newObj
         element = null
 
-        return readElement()
+        action.execute(newObj)
     }
 
-    override fun applyElement(element: ElementT) {
+    override fun withContents(closure: Closure<*>) = withContents {
+        closure.rehydrate(it, this, this).call()
+    }
+
+    override fun withElement(action: ElementT.() -> ElementT) {
         builder = null
-        node = null
-        this.element = element
+        obj = null
+        element = action(readElement())
+    }
+
+    override fun withElement(closure: Closure<ElementT>) = withElement {
+        val delegate = this@withElement
+        val owner = this@MetadataFileProviderImpl
+
+        closure.rehydrate(delegate, owner, owner).call()
     }
 }
 
@@ -86,8 +76,8 @@ internal fun fabricJsonMetadataAction(output: Provider<RegularFile>, action: Act
     action,
     Json::decodeFromStream,
     Json::encodeToStream,
-    ::decodeNodeFromJsonObject,
-    ::encodeNodeToJsonObject,
+    ::decodeMapFromJson,
+    ::encodeMapToJson,
 )
 
 internal fun forgeTomlMetadataAction(output: Provider<RegularFile>, action: Action<MetadataFileProvider<TomlTable>>) = metadataAction(
@@ -95,8 +85,8 @@ internal fun forgeTomlMetadataAction(output: Provider<RegularFile>, action: Acti
     action,
     toml::decodeFromStream,
     toml::encodeToStream,
-    ::decodeNodeFromTomlTable,
-    ::encodeNodeToTomlTable,
+    ::decodeMapFromToml,
+    ::encodeMapToToml,
 )
 
 private fun <ElementT : Any> metadataAction(
@@ -104,199 +94,50 @@ private fun <ElementT : Any> metadataAction(
     action: Action<MetadataFileProvider<ElementT>>,
     readElement: (stream: InputStream) -> ElementT,
     writeElement: (ElementT, stream: OutputStream) -> Unit,
-    decodeNode: (ElementT) -> Node,
-    encodeNode: (Node) -> ElementT,
+    readObject: (stream: InputStream) -> MutableMap<String, Any?>,
+    writeObject: (Map<String, Any?>, output: Path) -> Unit,
 ): (Task) -> Unit {
     return action@{ _ ->
         val path = output.get().asFile.toPath()
 
         val provider = MetadataFileProviderImpl(
             { path.readText() },
+            { path.inputStream().use(readObject) },
             { path.inputStream().use(readElement) },
-            decodeNode,
         )
 
         action.execute(provider)
 
         if (provider.builder != null) {
             path.writeText(provider.builder.toString())
-
-            return@action
-        }
-
-        val element = provider.node?.let(encodeNode) ?: provider.element
-
-        if (element != null) {
+        } else if (provider.obj != null) {
+            writeObject(provider.obj!!, path)
+        } else if (provider.element != null) {
             path.outputStream().use {
-                writeElement(element, it)
+                writeElement(provider.element!!, it)
             }
         }
     }
 }
 
-private fun decodeNodeFromJsonObject(obj: JsonObject): Node {
-    val node = Node(null, "root")
+private fun decodeMapFromJson(stream: InputStream) =
+    JsonSlurper().parse(stream) as MutableMap<String, Any?>
 
-    for ((name, child) in obj.entries) {
-        decodeNodeFromJsonElement(child, name, node)
-    }
+private fun encodeMapToJson(map: Map<String, Any?>, path: Path) {
+    val builder = JsonBuilder()
 
-    return node
+    builder.call(map)
+
+    path.writeText(builder.toString())
 }
 
-private fun decodeNodeFromJsonElement(element: JsonElement, name: String, parent: Node): Node {
-    when (element) {
-        is JsonNull -> {
-            return Node(parent, name, null as Any?)
-        }
+private fun decodeMapFromToml(stream: InputStream) =
+    TomlSlurper().parse(stream) as MutableMap<String, Any?>
 
-        is JsonPrimitive -> {
-            val values = listOf(element::booleanOrNull, element::intOrNull, element::longOrNull, element::floatOrNull, element::doubleOrNull, element::content)
+private fun encodeMapToToml(map: Map<String, Any?>, path: Path) {
+    val builder = TomlBuilder()
 
-            return Node(parent, name, values.firstNotNullOf { it() })
-        }
+    builder.call(map)
 
-        is JsonArray -> {
-            val node = Node(parent, name, mapOf("array" to true))
-
-            for (child in element) {
-                decodeNodeFromJsonElement(child, "entry", node)
-            }
-
-            return parent
-        }
-
-        is JsonObject -> {
-            val node = Node(parent, name, mapOf("array" to false))
-
-            for ((name, child) in element.entries) {
-                decodeNodeFromJsonElement(child, name, node)
-            }
-
-            return node
-        }
-    }
-}
-
-private fun decodeNodeFromTomlTable(table: TomlTable): Node {
-    val node = Node(null, "root")
-
-    for ((name, child) in table.entries) {
-        encodeNodeToJsonElement(child, name, node)
-    }
-
-    return node
-}
-
-private fun encodeNodeToJsonElement(element: TomlElement, name: String, parent: Node): Node {
-    when (element) {
-        is TomlNull -> {
-            return Node(parent, name, null as Any?)
-        }
-
-        is TomlLiteral -> {
-            val value = when (element.type) {
-                TomlLiteral.Type.Boolean -> element.toBoolean()
-                TomlLiteral.Type.Integer -> element.toInt()
-                TomlLiteral.Type.Float -> element.toFloat()
-                TomlLiteral.Type.String -> element.content
-                TomlLiteral.Type.LocalDateTime -> element.toLocalDateTime()
-                TomlLiteral.Type.OffsetDateTime -> element.toOffsetDateTime()
-                TomlLiteral.Type.LocalDate -> element.toLocalDate()
-                TomlLiteral.Type.LocalTime -> element.toLocalTime()
-            }
-
-            return Node(parent, name, value)
-        }
-
-        is TomlArray -> {
-            val node = Node(parent, name, mapOf("array" to true))
-
-            for (child in element) {
-                encodeNodeToJsonElement(child, "entry", node)
-            }
-
-            return parent
-        }
-
-        is TomlTable -> {
-            val node = Node(parent, name, mapOf("array" to false))
-
-            for ((name, child) in element.entries) {
-                encodeNodeToJsonElement(child, name, node)
-            }
-
-            return node
-        }
-    }
-}
-
-private fun encodeNodeToJsonElement(node: Node): JsonElement = when (val value = node.value()) {
-    is Collection<*> -> {
-        if (node.attributes()["array"] == true) {
-            JsonArray(node.children().map {
-                encodeNodeToJsonElement(it as Node)
-            })
-        } else {
-            encodeNodeToJsonObject(node)
-        }
-    }
-    is Boolean -> JsonPrimitive(value)
-    is Int -> JsonPrimitive(value)
-    is Long -> JsonPrimitive(value)
-    is Float -> JsonPrimitive(value)
-    is Double -> JsonPrimitive(value)
-    is String -> JsonPrimitive(value)
-    null -> JsonNull
-    else -> throw UnsupportedOperationException("Unexpected value when converting Node to JSON, $value of type ${value::class.java}")
-}
-
-private fun encodeNodeToJsonObject(node: Node): JsonObject {
-    val content = buildMap {
-        for (child in node.children()) {
-            child as Node
-
-            val key = child.name() as String
-
-            put(key, encodeNodeToJsonElement(child))
-        }
-    }
-
-    return JsonObject(content)
-}
-
-private fun encodeNodeToTomlElement(node: Node): TomlElement = when (val value = node.value()) {
-    is Collection<*> -> {
-        if (node.attributes()["array"] == true) {
-            TomlArray(node.children().map {
-                encodeNodeToTomlElement(it as Node)
-            })
-        } else {
-            encodeNodeToTomlTable(node)
-        }
-    }
-    is Boolean -> TomlLiteral(value)
-    is Int -> TomlLiteral(value)
-    is Float -> TomlLiteral(value)
-    is String -> TomlLiteral(value)
-    is LocalDateTime -> TomlLiteral(value)
-    is OffsetDateTime -> TomlLiteral(value)
-    is LocalDate -> TomlLiteral(value)
-    is LocalTime -> TomlLiteral(value)
-    null -> TomlNull
-    else -> throw UnsupportedOperationException("Unexpected value when converting Node to TOML, $value of type ${value::class.java}")
-}
-
-private fun encodeNodeToTomlTable(node: Node): TomlTable {
-    val content = buildMap {
-        for (child in node.children()) {
-            child as Node
-
-            val key = child.name() as String
-
-            put(key, encodeNodeToJsonElement(child))
-        }
-    }
-
-    return TomlTable(content)
+    path.writeText(builder.toString())
 }

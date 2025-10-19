@@ -104,10 +104,10 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
 }
 
 context(Project)
-private fun TargetCompilation.extendFromDependency(dependency: TargetCompilation) {
+private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilation<*>) {
     if (!isTest && !dependency.isTest) {
         artifacts {
-            it.add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask)
+            it.add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask!!)
             it.add(sourceSet.runtimeElementsConfigurationName, dependency.includeJarTask)
         }
 
@@ -133,7 +133,7 @@ private fun TargetCompilation.extendFromDependency(dependency: TargetCompilation
  * Depend on the variant of [dependency]
  */
 context(Project)
-internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilation) {
+internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompilation<*>) {
     println("(classpath dependency) $this -> $dependency")
 
     sourceSet.compileClasspath += dependency.sourceSet.output
@@ -143,7 +143,7 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
 }
 
 context(Project)
-internal fun TargetCompilation.addDataClasspathDependency(dependency: TargetCompilation) {
+internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetCompilation<*>) {
     println("(classpath dependency) $this -> $dependency")
 
     sourceSet.compileClasspath += dependency.sourceSet.output.classesDirs

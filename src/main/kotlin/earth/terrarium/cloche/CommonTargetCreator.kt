@@ -26,7 +26,7 @@ import org.jetbrains.kotlin.gradle.plugin.PLUGIN_CLASSPATH_CONFIGURATION_NAME
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
 private fun convertClasspath(
-    compilation: TargetCompilation,
+    compilation: TargetCompilation<*>,
     configurations: ConfigurationContainer,
     objects: ObjectFactory,
 ): Provider<List<GenerateStubApi.ResolvedArtifact>> {
@@ -68,7 +68,7 @@ internal fun createCommonTarget(
 ) {
     fun intersection(
         compilation: CommonCompilation,
-        compilations: Provider<List<TargetCompilation>>,
+        compilations: Provider<List<TargetCompilation<*>>>,
     ): FileCollection {
         val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "apiStub")
 
@@ -115,7 +115,7 @@ internal fun createCommonTarget(
         compilation: CommonCompilation,
         variant: PublicationSide,
         data: Boolean,
-        targetCompilations: Provider<List<TargetCompilation>>,
+        targetCompilations: Provider<List<TargetCompilation<*>>>,
     ) {
         val sourceSet = with(commonTarget) {
             compilation.sourceSet
@@ -302,10 +302,10 @@ internal fun createCommonTarget(
 
     fun add(
         compilation: CommonTopLevelCompilation,
-        dataGetter: (MinecraftTargetInternal) -> TargetCompilation,
-        testGetter: (MinecraftTargetInternal) -> TargetCompilation,
+        dataGetter: (MinecraftTargetInternal) -> TargetCompilation<*>,
+        testGetter: (MinecraftTargetInternal) -> TargetCompilation<*>,
         variant: PublicationSide,
-        targetCompilations: Provider<List<TargetCompilation>>,
+        targetCompilations: Provider<List<TargetCompilation<*>>>,
     ) {
         addCompilation(compilation, variant, false, targetCompilations)
 
@@ -384,7 +384,7 @@ internal fun createCommonTarget(
             PublicationSide.Client,
             commonTarget.dependents.map {
                 it.map {
-                    (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation
+                    (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation<*>
                         ?: (it as MinecraftTargetInternal).main
                 }
             },

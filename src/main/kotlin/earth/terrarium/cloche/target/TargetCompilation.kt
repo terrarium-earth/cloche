@@ -7,6 +7,7 @@ import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.util.fromJars
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -26,14 +27,17 @@ import org.gradle.api.artifacts.DependencyScopeConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.internal.extensions.core.serviceOf
+import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 private fun Project.getUnmappedModFiles(configurationName: String): FileCollection {
@@ -143,7 +147,7 @@ internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String,
 private fun setupModTransformationPipeline(
     project: Project,
     target: MinecraftTargetInternal,
-    compilation: TargetCompilation,
+    compilation: TargetCompilation<*>,
 ) {
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform, but that's far slower
@@ -198,13 +202,13 @@ private fun GenerateModOutputs.addSourceSet(sourceSet: SourceSet) {
     paths.add(sourceSet.output.resourcesDir!!.relativeTo(rootDirectory).path)
 }
 
-internal data class TargetCompilationInfo(
+internal data class TargetCompilationInfo<T : MinecraftTargetInternal>(
     val name: String,
-    val target: MinecraftTargetInternal,
+    val target: T,
     val intermediaryMinecraftClasspath: FileCollection,
     val namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
-    val side: PublicationSide,
+    val side: Provider<PublicationSide>,
     val data: Boolean,
     val test: Boolean,
     val isSingleTarget: Boolean,
@@ -213,7 +217,7 @@ internal data class TargetCompilationInfo(
 )
 
 @Suppress("UnstableApiUsage")
-internal abstract class TargetCompilation @Inject constructor(val info: TargetCompilationInfo) : CompilationInternal() {
+internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject constructor(val info: TargetCompilationInfo<T>) : CompilationInternal() {
     override val target get() = info.target
 
     override val isTest get() = info.test
@@ -227,6 +231,10 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         info.namedMinecraftFile,
         info.extraClasspathFiles,
     )
+
+    val metadataDirectory: Provider<Directory>
+        @Internal
+        get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").dir(target.featureName).dir(namePath) }
 
     val generateModOutputs: TaskProvider<GenerateModOutputs> = project.tasks.register(
         lowerCamelCaseGradleName("generate", sourceSet.takeUnless(SourceSet::isMain)?.name, "modOutputs"),
@@ -268,53 +276,61 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
 
             configuration.attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(CompilationAttributes.SIDE, info.side)
+                .attributeProvider(CompilationAttributes.SIDE, info.side)
                 .attribute(CompilationAttributes.DATA, info.data)
 
             configuration.isTransitive = false
         }
 
-    val remapJarTask: TaskProvider<RemapJar> = project.tasks.register(
-        lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
-        RemapJar::class.java
-    ) {
-        val jarFile = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
-            .flatMap(Jar::getArchiveFile)
+    val remapJarTask: TaskProvider<RemapJar>? = if (!isTest) {
+        project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
+            RemapJar::class.java
+        ) {
+            val jarFile = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
+                .flatMap(Jar::getArchiveFile)
 
-        it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
-        it.input.set(jarFile)
-        it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
-        it.targetNamespace.set(target.modRemapNamespace)
-        it.classpath.from(sourceSet.compileClasspath)
+            it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
+            it.input.set(jarFile)
+            it.sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+            it.targetNamespace.set(target.modRemapNamespace)
+            it.classpath.from(sourceSet.compileClasspath)
 
-        it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+            it.mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-        it.manifest.fromJars(project.serviceOf(), jarFile)
+            it.manifest.fromJars(project.serviceOf(), jarFile)
+        }
+    } else {
+        null
     }
 
-    val includeJarTask: TaskProvider<out IncludesJar> = project.tasks.register(
-        lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "includeJar"),
-        info.includeJarType,
-    ) {
-        it.destinationDirectory.set(project.cloche.finalOutputsDirectory)
+    val includeJarTask: TaskProvider<out IncludesJar>? = if (!isTest) {
+        project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "includeJar"),
+            info.includeJarType,
+        ) {
+            it.destinationDirectory.set(project.cloche.finalOutputsDirectory)
 
-        val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
-        val remapped = target.modRemapNamespace.map(String::isNotEmpty)
+            val jar = project.tasks.named(sourceSet.jarTaskName, Jar::class.java)
+            val remapped = target.modRemapNamespace.map(String::isNotEmpty)
 
-        val jarFile = remapped.flatMap {
-            val jarTask = if (it) {
-                remapJarTask
-            } else {
-                jar
+            val jarFile = remapped.flatMap {
+                val jarTask = if (it) {
+                    remapJarTask!!
+                } else {
+                    jar
+                }
+
+                jarTask.flatMap(Jar::getArchiveFile)
             }
 
-            jarTask.flatMap(Jar::getArchiveFile)
+            it.input.set(jarFile)
+            it.manifest.fromJars(project.serviceOf(), jarFile)
+
+            it.fromResolutionResults(includeResolvableConfiguration)
         }
-
-        it.input.set(jarFile)
-        it.manifest.fromJars(project.serviceOf(), jarFile)
-
-        it.fromResolutionResults(includeResolvableConfiguration)
+    } else {
+        null
     }
 
     init {
@@ -359,7 +375,7 @@ internal abstract class TargetCompilation @Inject constructor(val info: TargetCo
         target.attributes(attributes)
 
         attributes
-            .attribute(CompilationAttributes.SIDE, info.side)
+            .attributeProvider(CompilationAttributes.SIDE, info.side)
             .attribute(CompilationAttributes.DATA, info.data)
     }
 
