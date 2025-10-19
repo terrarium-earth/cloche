@@ -3,21 +3,21 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.javaExecutableFor
-import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
+import earth.terrarium.cloche.javaExecutableFor
+import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.InvalidUserCodeException
-import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.artifacts.dsl.DependencyCollector
@@ -26,7 +26,6 @@ import org.gradle.api.file.Directory
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
-import javax.inject.Inject
 
 internal fun Configuration.addCollectedDependencies(collector: DependencyCollector) {
     dependencies.addAllLater(collector.dependencies)
@@ -54,7 +53,7 @@ internal abstract class MinecraftTargetInternal(
     abstract val runs: RunConfigurations
 
     val loadMappingsTask: TaskProvider<LoadMappings> =
-        project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+        project.tasks.register(lowerCamelCaseGradleName("load", featureName, "mappings"), LoadMappings::class.java) {
             it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
 
             it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
@@ -74,7 +73,7 @@ internal abstract class MinecraftTargetInternal(
     override val target get() = this
 
     val outputDirectory: Provider<Directory> =
-        project.layout.buildDirectory.dir("minecraft").map { it.dir(capabilitySuffix) }
+        project.layout.buildDirectory.dir("minecraft").map { it.optionalDir(capabilitySuffix) }
 
     protected val mappings = MappingsBuilder(this, project)
 
@@ -88,7 +87,7 @@ internal abstract class MinecraftTargetInternal(
         }
 
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
-            it.dir("resources").dir(target.featureName)
+            it.dir("resources").optionalDir(target.featureName)
         })
 
         datagenClientDirectory.convention(project.layout.buildDirectory.dir("generated").map {
@@ -156,8 +155,6 @@ internal abstract class MinecraftTargetInternal(
     }
 
     abstract fun onClientIncluded(action: () -> Unit)
-
-    open fun initialize(isSingleTarget: Boolean) {}
 
     override fun runs(action: Action<RunConfigurations>) {
         action.execute(runs)

@@ -1,15 +1,14 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.cloche
-import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.util.fromJars
+import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
@@ -37,7 +36,6 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.internal.extensions.core.serviceOf
-import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 private fun Project.getUnmappedModFiles(configurationName: String): FileCollection {
@@ -129,9 +127,9 @@ internal fun registerCompilationTransformations(
     return accessWidenTask to decompile.flatMap(Decompile::outputFile)
 }
 
-internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String, isSingleTarget: Boolean): SourceSet {
+internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String): SourceSet {
     val sourceSet =
-        target.project.extension<SourceSetContainer>().maybeCreate(sourceSetName(target, name, isSingleTarget))
+        target.project.extension<SourceSetContainer>().maybeCreate(sourceSetName(target, name))
 
     if (sourceSet.localRuntimeConfigurationName !in target.project.configurations.names) {
         target.project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
@@ -211,7 +209,6 @@ internal data class TargetCompilationInfo<T : MinecraftTargetInternal>(
     val side: Provider<PublicationSide>,
     val data: Boolean,
     val test: Boolean,
-    val isSingleTarget: Boolean,
     val includeState: IncludeTransformationStateAttribute,
     val includeJarType: Class<out IncludesJar>,
 )
@@ -222,7 +219,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
     override val isTest get() = info.test
 
-    final override val sourceSet: SourceSet = compilationSourceSet(target, info.name, info.isSingleTarget)
+    final override val sourceSet: SourceSet = compilationSourceSet(target, info.name)
 
     private val setupFiles = registerCompilationTransformations(
         target,
@@ -234,7 +231,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
     val metadataDirectory: Provider<Directory>
         @Internal
-        get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").dir(target.featureName).dir(namePath) }
+        get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").optionalDir(target.featureName).dir(namePath) }
 
     val generateModOutputs: TaskProvider<GenerateModOutputs> = project.tasks.register(
         lowerCamelCaseGradleName("generate", sourceSet.takeUnless(SourceSet::isMain)?.name, "modOutputs"),

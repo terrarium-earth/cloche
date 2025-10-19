@@ -6,6 +6,7 @@ import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.TargetAttributes
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -70,7 +71,7 @@ internal fun createCommonTarget(
         compilation: CommonCompilation,
         compilations: Provider<List<TargetCompilation<*>>>,
     ): FileCollection {
-        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "apiStub")
+        val name = lowerCamelCaseGradleName("create", commonTarget.targetName, compilation.featureName, "apiStub")
 
         val generateStub = tasks.register(name, GenerateStubApi::class.java) {
             it.group = "minecraft-stubs"
@@ -124,10 +125,10 @@ internal fun createCommonTarget(
         createCompilationVariants(
             compilation,
             sourceSet,
-            commonTarget.name == COMMON || commonTarget.publish
+            commonTarget.targetName == COMMON || commonTarget.publish
         )
 
-        configureSourceSet(sourceSet, commonTarget, compilation, false)
+        configureSourceSet(sourceSet, commonTarget, compilation)
 
         components.named("java") { java ->
             java as AdhocComponentWithVariants
@@ -249,8 +250,8 @@ internal fun createCommonTarget(
                     it.attribute(TargetAttributes.MINECRAFT_VERSION, minecraftVersion)
                 }
 
-                if (!onlyCommonOfType.get() && commonTarget.name != COMMON && !commonTarget.publish) {
-                    it.attribute(CommonTargetAttributes.NAME, commonTarget.name)
+                if (!onlyCommonOfType.get() && commonTarget.targetName != COMMON && !commonTarget.publish) {
+                    it.attribute(CommonTargetAttributes.NAME, commonTarget.targetName!!)
                 }
             }
         }

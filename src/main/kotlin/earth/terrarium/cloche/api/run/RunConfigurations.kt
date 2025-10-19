@@ -3,6 +3,7 @@ package earth.terrarium.cloche.api.run
 import earth.terrarium.cloche.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.target.TargetCompilation
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import org.gradle.api.InvalidUserCodeException
@@ -41,7 +42,7 @@ internal fun MinecraftRunConfiguration.withCompilation(
     // afterEvaluate needed to query property
     project.afterEvaluate {
         if (!compilation.isPresent) {
-            throw InvalidUserCodeException("Run configuration '$name' did not have pre-requisite source sets configured. Please add ${description()} to the target '${target.name}'.")
+            throw InvalidUserCodeException("Run configuration '$name' did not have pre-requisite source sets configured. Please add ${description()} to the target '${target.targetName}'.")
         }
     }
 

@@ -39,19 +39,7 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
     }
 
-    private fun removeNameMappingService(compilation: Compilation) {
-        project.configurations.named(compilation.sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-        }
-
-        project.configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-        }
-    }
-
-    override fun initialize(isSingleTarget: Boolean) {
-        super.initialize(isSingleTarget)
-
+    init {
         project.dependencies.add(minecraftLibrariesConfiguration.name, "net.msrandom:codev-forge-runtime:0.1.1")
 
         removeNameMappingService(main)
@@ -60,6 +48,16 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         test.onConfigured(::removeNameMappingService)
 
         minecraftLibrariesConfiguration.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+    }
+
+    private fun removeNameMappingService(compilation: Compilation) {
+        project.configurations.named(compilation.sourceSet.compileClasspathConfigurationName) {
+            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+        }
+
+        project.configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName) {
+            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+        }
     }
 
     override fun version(minecraftVersion: String, loaderVersion: String) =

@@ -18,8 +18,6 @@ internal fun applyTargets(project: Project, cloche: ClocheExtension) {
     cloche.targets.all { target ->
         target as MinecraftTargetInternal
 
-        target.initialize(false)
-
         addTarget(cloche, project, target, false)
 
         target.dependsOn.all { dependency ->

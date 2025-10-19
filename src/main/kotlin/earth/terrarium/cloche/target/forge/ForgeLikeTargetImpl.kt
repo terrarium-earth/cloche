@@ -89,7 +89,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     override val finalJar
         get() = main.includeJarTask!!
 
-    final override lateinit var main: ForgeCompilationImpl
+    final override val main: ForgeCompilationImpl
 
     final override val data: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
         val data = run {
@@ -104,7 +104,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     sideProvider,
                     data = true,
                     test = false,
-                    isSingleTarget = isSingleTarget,
                     includeState = IncludeTransformationStateAttribute.None,
                     includeJarType = JarJar::class.java,
                 ),
@@ -131,7 +130,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                     sideProvider,
                     data = false,
                     test = true,
-                    isSingleTarget = isSingleTarget,
                     includeState = IncludeTransformationStateAttribute.None,
                     includeJarType = JarJar::class.java,
                 ),
@@ -186,8 +184,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
     }
 
-    private var isSingleTarget = false
-
     init {
         project.dependencies.add(minecraftLibrariesConfiguration.name, forgeDependency {
             capabilities {
@@ -196,38 +192,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         })
 
         project.dependencies.add(universal.name, forgeDependency {})
-    }
 
-    private fun output(suffix: Provider<String>) = suffix.flatMap { suffix ->
-        outputDirectory.zip(minecraftVersion.zip(loaderVersion) { a, b -> "$a-$b" }) { dir, version ->
-            dir.file("$loaderName-$version-$suffix.jar")
-        }
-    }
-
-    internal fun loaderVersionRange(version: String): CommonMetadata.VersionRange =
-        objectFactory.newInstance(CommonMetadata.VersionRange::class.java).apply {
-            start.set(version)
-        }
-
-    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<ExternalModuleDependency> =
-        minecraftVersion.flatMap { minecraftVersion ->
-            loaderVersion.map { forgeVersion ->
-                module(group, artifact, null).apply {
-                    version { version ->
-                        version.strictly(version(minecraftVersion, forgeVersion))
-                    }
-
-                    configure()
-                }
-            }
-        }
-
-    override fun initialize(isSingleTarget: Boolean) {
         metadata.modLoader.set("javafml")
-
-        super.initialize(isSingleTarget)
-
-        this.isSingleTarget = isSingleTarget
 
         main = objectFactory.newInstance(
             ForgeCompilationImpl::class.java,
@@ -240,7 +206,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
                 sideProvider,
                 data = false,
                 test = false,
-                isSingleTarget = isSingleTarget,
                 includeState = IncludeTransformationStateAttribute.None,
                 includeJarType = JarJar::class.java,
             ),
@@ -274,6 +239,30 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         registerMappings()
     }
+
+    private fun output(suffix: Provider<String>) = suffix.flatMap { suffix ->
+        outputDirectory.zip(minecraftVersion.zip(loaderVersion) { a, b -> "$a-$b" }) { dir, version ->
+            dir.file("$loaderName-$version-$suffix.jar")
+        }
+    }
+
+    internal fun loaderVersionRange(version: String): CommonMetadata.VersionRange =
+        objectFactory.newInstance(CommonMetadata.VersionRange::class.java).apply {
+            start.set(version)
+        }
+
+    private fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<ExternalModuleDependency> =
+        minecraftVersion.flatMap { minecraftVersion ->
+            loaderVersion.map { forgeVersion ->
+                module(group, artifact, null).apply {
+                    version { version ->
+                        version.strictly(version(minecraftVersion, forgeVersion))
+                    }
+
+                    configure()
+                }
+            }
+        }
 
     protected abstract fun version(minecraftVersion: String, loaderVersion: String): String
 

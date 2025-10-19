@@ -7,6 +7,7 @@ import earth.terrarium.cloche.api.run.quotedDescription
 import earth.terrarium.cloche.api.run.withCompilation
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.LazyConfigurableInternal
@@ -30,7 +31,7 @@ import javax.inject.Inject
 
 internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject constructor(val target: T) : RunConfigurations {
     fun create(vararg names: String, action: Action<ForgeRunsDefaultsContainer>): MinecraftRunConfiguration {
-        val run = project.extension<RunsContainer>().create(listOf(target.name, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
+        val run = project.extension<RunsContainer>().create(listOfNotNull(target.targetName, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
         applyDefault(run)
         run.defaults {

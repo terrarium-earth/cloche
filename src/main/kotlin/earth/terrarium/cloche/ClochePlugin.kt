@@ -58,7 +58,7 @@ internal fun addTarget(
     cloche.metadata.useAsConventionFor(target.metadata)
 
     with(project) {
-        handleTarget(target, singleTarget)
+        handleTarget(target)
     }
 }
 

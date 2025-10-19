@@ -9,6 +9,8 @@ import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
+import earth.terrarium.cloche.api.target.isSingleTarget
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.CompilationInternal
@@ -20,7 +22,6 @@ import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
-import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.tasks.data.FabricMod
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
@@ -229,8 +230,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         it.separator.set(File.pathSeparator)
     }
 
-    lateinit var mergeJarTask: TaskProvider<Jar>
-    lateinit var mergeIncludeJarTask: TaskProvider<JarInJar>
+    val mergeJarTask: TaskProvider<Jar>
+    val mergeIncludeJarTask: TaskProvider<JarInJar>
 
     override val finalJar: Provider<Jar>
         get() = client.isConfigured.flatMap {
@@ -241,7 +242,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         }
 
-    final override lateinit var main: FabricCompilationImpl
+    final override val main: FabricCompilationImpl
 
     final override val client: LazyConfigurableInternal<FabricClientSecondarySourceSets> = project.lazyConfigurable {
         if (includedClient.isConfiguredValue) {
@@ -267,7 +268,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     sideProvider,
                     data = false,
                     test = false,
-                    isSingleTarget = isSingleTarget,
                     includeState = IncludeTransformationStateAttribute.Stripped,
                     includeJarType = JarInJar::class.java,
                 ),
@@ -318,9 +318,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     override val commonType get() = FABRIC
 
+    private val mainTargetMinecraftName = featureName ?: SourceSet.MAIN_SOURCE_SET_NAME
     private val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
-
-    private var isSingleTarget = false
 
     private val fabricLoader = loaderVersion.map {
         main.dependencyHandler.module("net.fabricmc", "fabric-loader", it)
@@ -335,7 +334,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         project.dependencies.add(commonLibrariesConfiguration.name, commonStub.apply {
             capabilities {
-                it.requireCapability("net.msrandom:$featureName")
+                it.requireCapability("net.msrandom:$mainTargetMinecraftName")
             }
         })
 
@@ -344,6 +343,111 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 it.requireCapability("net.msrandom:$clientTargetMinecraftName")
             }
         })
+
+        main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
+
+        val mergeIncludeResolvableConfiguration: NamedDomainObjectProvider<ResolvableConfiguration> =
+            project.configurations.resolvable(
+                lowerCamelCaseGradleName(featureName, "mergeIncludeFiles")
+            ) { configuration ->
+                configuration.extendsFrom(main.includeBucketConfiguration.get())
+
+                client.onConfigured {
+                    configuration.extendsFrom(it.includeBucketConfiguration.get())
+                }
+
+                attributes(configuration.attributes)
+
+                configuration.attributes
+                    .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
+                    .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
+                    .attribute(CompilationAttributes.DATA, false)
+
+                configuration.isTransitive = false
+            }
+
+        project.dependencies.add(
+            main.sourceSet.runtimeOnlyConfigurationName,
+            project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)),
+        )
+
+        mergeJarTask = project.tasks.register(
+            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "mergeJar"),
+            Jar::class.java,
+        ) {
+            if (isSingleTarget) {
+                it.archiveClassifier.set("merged")
+            } else {
+                it.archiveClassifier.set("$capabilitySuffix-merged")
+            }
+
+            it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
+
+            val mainJar = main.remapJarTask!!.flatMap(Jar::getArchiveFile)
+            val clientJar =
+                client.value.flatMap(TargetCompilation<FabricTargetImpl>::remapJarTask).flatMap(Jar::getArchiveFile)
+
+            it.from(project.zipTree(mainJar)) {
+                it.exclude(JarFile.MANIFEST_NAME)
+            }
+
+            it.from(project.zipTree(clientJar)) {
+                it.exclude(JarFile.MANIFEST_NAME)
+            }
+
+            it.manifest.fromJars(project.serviceOf(), mainJar, clientJar)
+        }
+
+        mergeIncludeJarTask = project.tasks.register(
+            lowerCamelCaseGradleName(target.targetName, "mergeIncludeJar"),
+            JarInJar::class.java,
+        ) {
+            val jarFile = mergeJarTask.flatMap(Jar::getArchiveFile)
+
+            if (!isSingleTarget) {
+                it.archiveClassifier.set(capabilitySuffix)
+            }
+
+            it.destinationDirectory.set(project.cloche.finalOutputsDirectory)
+
+            it.input.set(jarFile)
+            it.manifest.fromJars(project.serviceOf(), jarFile)
+
+            it.fromResolutionResults(mergeIncludeResolvableConfiguration)
+        }
+
+        commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+
+        project.configurations.named(sourceSet.localImplementationConfigurationName) {
+            it.extendsFrom(commonLibrariesConfiguration)
+        }
+
+        mappings.fabricIntermediary()
+
+        registerMappings()
+
+        // afterEvaluate needed because of the component rules using providers
+        project.afterEvaluate { project ->
+            project.dependencies.components { components ->
+                components.withModule(
+                    ClochePlugin.STUB_MODULE,
+                    MinecraftComponentMetadataRule::class.java,
+                ) {
+                    it.params(
+                        getGlobalCacheDirectory(project),
+                        minecraftVersion.get(),
+                        VERSION_MANIFEST_URL,
+                        project.gradle.startParameter.isOffline,
+                        mainTargetMinecraftName,
+                        clientTargetMinecraftName,
+                    )
+                }
+            }
+        }
+
+        main.dependencies { dependencies ->
+            dependencies.implementation.add(fabricLoader)
+        }
     }
 
     private fun output(suffix: String) = outputDirectory.zip(minecraftVersion) { dir, version ->
@@ -369,7 +473,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         val commonTask = registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common"),
-            compilationSourceSet(this, name, isSingleTarget),
+            compilationSourceSet(this, name),
             remapCommon.flatMap(RemapTask::outputFile),
             project.provider { emptyList() },
         ).first
@@ -422,121 +526,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 side,
                 name == ClochePlugin.DATA_COMPILATION_NAME,
                 name == SourceSet.TEST_SOURCE_SET_NAME,
-                isSingleTarget,
                 IncludeTransformationStateAttribute.Stripped,
                 JarInJar::class.java,
             ),
         )
-    }
-
-    override fun initialize(isSingleTarget: Boolean) {
-        super.initialize(isSingleTarget)
-
-        this.isSingleTarget = isSingleTarget
-
-        main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
-
-        val mergeIncludeResolvableConfiguration: NamedDomainObjectProvider<ResolvableConfiguration> =
-            project.configurations.resolvable(
-                lowerCamelCaseGradleName(featureName, "mergeIncludeFiles")
-            ) { configuration ->
-                configuration.extendsFrom(main.includeBucketConfiguration.get())
-
-                client.onConfigured {
-                    configuration.extendsFrom(it.includeBucketConfiguration.get())
-                }
-
-                attributes(configuration.attributes)
-
-                configuration.attributes
-                    .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                    .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-                    .attribute(CompilationAttributes.DATA, false)
-
-                configuration.isTransitive = false
-            }
-
-        project.dependencies.add(
-            main.sourceSet.runtimeOnlyConfigurationName,
-            project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)),
-        )
-
-        mergeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "mergeJar"),
-            Jar::class.java,
-        ) {
-            if (isSingleTarget) {
-                it.archiveClassifier.set("merged")
-            } else {
-                it.archiveClassifier.set("$capabilitySuffix-merged")
-            }
-
-            it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
-
-            val mainJar = main.remapJarTask!!.flatMap(Jar::getArchiveFile)
-            val clientJar = client.value.flatMap(TargetCompilation<FabricTargetImpl>::remapJarTask).flatMap(Jar::getArchiveFile)
-
-            it.from(project.zipTree(mainJar)) {
-                it.exclude(JarFile.MANIFEST_NAME)
-            }
-
-            it.from(project.zipTree(clientJar)) {
-                it.exclude(JarFile.MANIFEST_NAME)
-            }
-
-            it.manifest.fromJars(project.serviceOf(), mainJar, clientJar)
-        }
-
-        mergeIncludeJarTask = project.tasks.register(
-            lowerCamelCaseGradleName(target.name, "mergeIncludeJar"),
-            JarInJar::class.java,
-        ) {
-            val jarFile = mergeJarTask.flatMap(Jar::getArchiveFile)
-
-            if (!isSingleTarget) {
-                it.archiveClassifier.set(capabilitySuffix)
-            }
-
-            it.destinationDirectory.set(project.cloche.finalOutputsDirectory)
-
-            it.input.set(jarFile)
-            it.manifest.fromJars(project.serviceOf(), jarFile)
-
-            it.fromResolutionResults(mergeIncludeResolvableConfiguration)
-        }
-
-        commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
-
-        project.configurations.named(sourceSet.localImplementationConfigurationName) {
-            it.extendsFrom(commonLibrariesConfiguration)
-        }
-
-        mappings.fabricIntermediary()
-
-        registerMappings()
-
-        // afterEvaluate needed because of the component rules using providers
-        project.afterEvaluate { project ->
-            project.dependencies.components { components ->
-                components.withModule(
-                    ClochePlugin.STUB_MODULE,
-                    MinecraftComponentMetadataRule::class.java,
-                ) {
-                    it.params(
-                        getGlobalCacheDirectory(project),
-                        minecraftVersion.get(),
-                        VERSION_MANIFEST_URL,
-                        project.gradle.startParameter.isOffline,
-                        featureName,
-                        clientTargetMinecraftName,
-                    )
-                }
-            }
-        }
-
-        main.dependencies { dependencies ->
-            dependencies.implementation.add(fabricLoader)
-        }
     }
 
     override fun registerAccessWidenerMergeTask(compilation: CompilationInternal) {

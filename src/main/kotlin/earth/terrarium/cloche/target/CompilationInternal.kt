@@ -6,7 +6,10 @@ import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.compilation.Compilation
+import earth.terrarium.cloche.api.target.isSingleTarget
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
@@ -24,7 +27,6 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.plugins.ide.idea.model.IdeaModel
-import javax.inject.Inject
 
 internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
@@ -122,30 +124,23 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
         }
     }
 
-    override fun toString() = target.name + TARGET_NAME_PATH_SEPARATOR + name
+    override fun toString() = target.targetName + TARGET_NAME_PATH_SEPARATOR + name
 }
 
 internal fun sourceSetName(target: ClocheTarget, compilationName: String) = when {
-    target.name == COMMON -> lowerCamelCaseGradleName(compilationName)
-    compilationName == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName
+    target.isSingleTarget || target.targetName == COMMON -> lowerCamelCaseGradleName(compilationName)
+    compilationName == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName ?: SourceSet.MAIN_SOURCE_SET_NAME
     else -> lowerCamelCaseGradleName(target.featureName, compilationName)
-}
-
-internal fun sourceSetName(target: ClocheTarget, compilationName: String, isSingleTarget: Boolean) = if (isSingleTarget) {
-    lowerCamelCaseGradleName(compilationName)
-} else {
-    sourceSetName(target, compilationName)
 }
 
 internal fun Project.configureSourceSet(
     sourceSet: SourceSet,
     target: ClocheTarget,
     compilation: CompilationInternal,
-    singleTarget: Boolean
 ) {
-    if (!singleTarget) {
+    if (!target.isSingleTarget) {
         val compilationDirectory =
-            project.layout.projectDirectory.dir("src").dir(target.namePath).dir(compilation.namePath)
+            project.layout.projectDirectory.dir("src").optionalDir(target.namePath).dir(compilation.namePath)
 
         sourceSet.java.srcDir(compilationDirectory.dir("java"))
         sourceSet.resources.srcDir(compilationDirectory.dir("resources"))
@@ -196,7 +191,7 @@ internal fun Project.configureSourceSet(
         return
     }
 
-    val prefix = if (singleTarget || target.name == COMMON) {
+    val prefix = if (target.isSingleTarget || target.targetName == COMMON) {
         null
     } else {
         target.capabilitySuffix

@@ -28,7 +28,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 info.side,
                 data = true,
                 test = false,
-                isSingleTarget = info.isSingleTarget,
                 includeState = IncludeTransformationStateAttribute.Stripped,
                 includeJarType = JarInJar::class.java,
             ),
@@ -47,7 +46,6 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
                 info.side,
                 data = false,
                 test = true,
-                isSingleTarget = info.isSingleTarget,
                 includeState = IncludeTransformationStateAttribute.Stripped,
                 includeJarType = JarInJar::class.java,
             ),
@@ -57,6 +55,8 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
     init {
         project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
             it.from(target.main.metadataDirectory)
+
+            it.dependsOn(target.main.generateModJson)
         }
 
         project.ideaModule(sourceSet) {

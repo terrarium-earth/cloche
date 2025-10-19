@@ -10,6 +10,7 @@ import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import earth.terrarium.cloche.target.sourceSetName
+import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
@@ -147,7 +148,7 @@ private fun TargetCompilation<*>.addDependencies() {
 }
 
 context(Project)
-internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
+internal fun handleTarget(target: MinecraftTargetInternal) {
     fun addCompilation(compilation: TargetCompilation<*>, testName: String? = null) {
         val sourceSet = compilation.sourceSet
 
@@ -155,7 +156,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             createCompilationVariants(compilation, sourceSet, true)
         }
 
-        configureSourceSet(sourceSet, target, compilation, singleTarget)
+        configureSourceSet(sourceSet, target, compilation)
 
         compilation.addDependencies()
 
@@ -165,7 +166,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         ) {
             it.from(compilation.mixins)
 
-            it.destinationDir = layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
+            it.destinationDir = layout.buildDirectory.dir("mixins").get().optionalDir(target.namePath).dir(compilation.namePath).asFile
         }
 
         project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -196,7 +197,9 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             // TODO This logic is duplicated from CompilationVariantCreator. Should probably be consolidated
             outgoing.capability(group.toString(), name, version.toString())
 
-            val baseCapabilityName = "${project.name}-${compilation.target.capabilitySuffix}"
+            val baseCapabilityName = compilation.target.capabilitySuffix?.let {
+                "$name-$it"
+            } ?: name
 
             val compilationCapability = compilation.capabilitySuffix.map {
                 "${project.group}:$baseCapabilityName-$it:${project.version}"
@@ -319,7 +322,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
 
         if (testName != null) {
-            val sourceSetName = sourceSetName(target, testName, singleTarget)
+            val sourceSetName = sourceSetName(target, testName)
 
             project.extension<SourceSetContainer>().named { it == sourceSetName }.configureEach {
                 for (name in listOf(it.compileClasspathConfigurationName, it.runtimeClasspathConfigurationName)) {

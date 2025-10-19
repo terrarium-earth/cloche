@@ -68,6 +68,12 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         resolvePatchedMinecraft.configure {
             it.neoforge.set(true)
         }
+
+        resolvableAttributes(::addAttributes)
+
+        data.onConfigured {
+            it.resolvableAttributes(::addAttributes)
+        }
     }
 
     private fun addAttributes(attributeContainer: AttributeContainer) {
@@ -77,16 +83,6 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
             operatingSystemName(),
         )
-    }
-
-    override fun initialize(isSingleTarget: Boolean) {
-        super.initialize(isSingleTarget)
-
-        resolvableAttributes(::addAttributes)
-
-        data.onConfigured {
-            it.resolvableAttributes(::addAttributes)
-        }
     }
 
     final override fun version(minecraftVersion: String, loaderVersion: String) =

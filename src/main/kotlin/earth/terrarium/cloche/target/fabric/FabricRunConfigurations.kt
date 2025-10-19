@@ -10,6 +10,7 @@ import earth.terrarium.cloche.api.run.withCompilation
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.TargetCompilation
@@ -30,7 +31,7 @@ import javax.inject.Inject
 
 internal abstract class FabricRunConfigurations @Inject constructor(val target: FabricTargetImpl) : RunConfigurations {
     fun create(vararg names: String, action: Action<FabricRunsDefaultsContainer>): MinecraftRunConfiguration {
-        val run = project.extension<RunsContainer>().create(listOf(target.name, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
+        val run = project.extension<RunsContainer>().create(listOfNotNull(target.targetName, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
         run.defaults {
             action.execute(it.extension<FabricRunsDefaultsContainer>())

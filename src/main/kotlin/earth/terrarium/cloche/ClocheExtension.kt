@@ -9,6 +9,7 @@ import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.NeoforgeTarget
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.target.CommonTargetInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
@@ -82,11 +83,11 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
         val loaderName = loaderName(type)
 
         extension.targets.configureEach {
-            throw UnsupportedOperationException("Target '${it.name}' has been configured. Can not set single target to '$loaderName'")
+            throw UnsupportedOperationException("Target '${it.targetName}' has been configured. Can not set single target to '$loaderName'")
         }
 
         extension.commonTargets.configureEach {
-            throw UnsupportedOperationException("Common target '${it.name}' has been configured. Can not use single target mode with target '$loaderName'")
+            throw UnsupportedOperationException("Common target '${it.targetName}' has been configured. Can not use single target mode with target '$loaderName'")
         }
 
         target?.let {
@@ -100,11 +101,9 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
             return it
         }
 
-        val instance = project.objects.newInstance(type, loaderName)
+        val instance = project.objects.newInstance(type, "")
 
         extension.singleTargetSetCallback(type, instance)
-
-        (instance as MinecraftTargetInternal).initialize(true)
 
         addTarget(extension, project, instance, true)
 
