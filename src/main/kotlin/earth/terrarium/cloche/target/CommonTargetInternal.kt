@@ -2,16 +2,17 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.cloche
 import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import javax.inject.Inject
@@ -66,11 +67,15 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     override val hasSeparateClient = client.isConfigured
 
+    @Suppress("UNCHECKED_CAST")
+    val metadataActions: DomainObjectCollection<Action<CommonMetadata>> =
+        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<CommonMetadata>>
+
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class.java)
 
     override val dependents: Provider<List<MinecraftTarget>> = run {
-        val cloche = project.extension<ClocheExtension>()
+        val cloche = project.cloche
 
         project.provider {
             // Evaluate targets
@@ -116,6 +121,10 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     override fun withPublication() {
         publish = true
+    }
+
+    override fun metadata(action: Action<CommonMetadata>) {
+        metadataActions.add(action)
     }
 
     override fun toString() = name

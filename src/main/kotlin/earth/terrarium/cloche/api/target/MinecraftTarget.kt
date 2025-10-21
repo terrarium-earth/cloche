@@ -1,35 +1,34 @@
 package earth.terrarium.cloche.api.target
 
 import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.run.RunConfigurations
-import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
+import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
+import earth.terrarium.cloche.loaderName
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import org.gradle.api.Action
-import org.gradle.api.NamedDomainObjectProvider
-import org.gradle.api.artifacts.dsl.Dependencies
-import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.plugins.jvm.PlatformDependencyModifiers
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.bundling.Jar
 
 @Suppress("UnstableApiUsage")
 @JvmDefaultWithoutCompatibility
-interface MinecraftTarget : ClocheTarget, TargetSecondarySourceSets, Dependencies, PlatformDependencyModifiers {
+interface MinecraftTarget : ClocheTarget, CommonSecondarySourceSets, PlatformDependencyModifiers {
     override val minecraftVersion: Property<String>
         @Input get
 
     val loaderVersion: Property<String>
         @Input get
 
-    val metadataDirectory: Provider<Directory>
-        @Internal
-        get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").dir(featureName) }
+    override val loaderName
+        get() = loaderName(javaClass)
+
+    val metadata: CommonMetadata
 
     val datagenDirectory: DirectoryProperty
         @Optional

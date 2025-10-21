@@ -1,6 +1,6 @@
 package earth.terrarium.cloche.target.forge.lex
 
-import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.forge.ForgeCompilationImpl
 import earth.terrarium.cloche.target.forge.ForgeRunConfigurations
 import net.msrandom.minecraftcodev.forge.runs.ForgeRunConfigurationData
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
@@ -8,14 +8,14 @@ import org.gradle.api.provider.Provider
 import javax.inject.Inject
 
 internal abstract class LexForgeRunConfigurations @Inject constructor(target: ForgeTargetImpl) : ForgeRunConfigurations<ForgeTargetImpl>(target) {
-    override fun configureData(data: ForgeRunConfigurationData, compilation: Provider<TargetCompilation>) {
+    override fun configureData(data: ForgeRunConfigurationData, compilation: Provider<ForgeCompilationImpl>) {
         super.configureData(data, compilation)
 
         data.generateMcpToSrg.set(target.generateMcpToSrg)
-        data.mixinConfigs.from(compilation.map(TargetCompilation::mixins))
+        data.mixinConfigs.from(compilation.map(ForgeCompilationImpl::mixins))
     }
 
-    override fun configureData(data: ForgeRunConfigurationData, compilation: TargetCompilation) {
+    override fun configureData(data: ForgeRunConfigurationData, compilation: ForgeCompilationImpl) {
         super.configureData(data, compilation)
 
         data.generateMcpToSrg.set(target.generateMcpToSrg)

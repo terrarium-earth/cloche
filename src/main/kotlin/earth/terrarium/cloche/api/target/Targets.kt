@@ -1,54 +1,33 @@
 package earth.terrarium.cloche.api.target
 
-import earth.terrarium.cloche.FABRIC
-import earth.terrarium.cloche.FORGE
-import earth.terrarium.cloche.NEOFORGE
 import earth.terrarium.cloche.api.LazyConfigurable
-import earth.terrarium.cloche.api.target.compilation.TargetSecondarySourceSets
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
+import earth.terrarium.cloche.api.target.compilation.FabricCompilation
+import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
+import earth.terrarium.cloche.api.target.compilation.ForgeCompilation
+import earth.terrarium.cloche.api.target.compilation.FabricSecondarySourceSets
 import org.gradle.api.Action
-import org.gradle.api.Incubating
-import org.gradle.api.artifacts.dsl.DependencyCollector
 
 @JvmDefaultWithoutCompatibility
-interface FabricTarget : MinecraftTarget {
-    val metadata: FabricMetadata
+interface FabricTarget : MinecraftTarget, FabricSecondarySourceSets, FabricCompilation {
+    override val metadata: FabricMetadata
 
-    override val loaderName: String
-        get() = FABRIC
+    val client: LazyConfigurable<FabricSecondarySourceSets>
+    val includedClient: LazyConfigurable<FabricIncludedClient>
 
-    val client: LazyConfigurable<TargetSecondarySourceSets>
-
-    fun includedClient()
-
-    fun metadata(configure: Action<FabricMetadata>) = configure.execute(metadata)
+    fun metadata(action: Action<FabricMetadata>) = action.execute(metadata)
 }
 
 @JvmDefaultWithoutCompatibility
-interface ForgeLikeTarget : MinecraftTarget {
-    val legacyClasspath: DependencyCollector
-        @Incubating get
+interface ForgeLikeTarget : MinecraftTarget, ForgeCompilation {
+    override val data: LazyConfigurable<ForgeCompilation>
+    override val test: LazyConfigurable<ForgeCompilation>
 
-    val dataLegacyClasspath: DependencyCollector
-        @Incubating get
+    override val metadata: ForgeMetadata
 
-    val testLegacyClasspath: DependencyCollector
-        @Incubating get
-
-    val metadata: ForgeMetadata
-
-    fun metadata(configure: Action<ForgeMetadata>) = configure.execute(metadata)
+    fun metadata(action: Action<ForgeMetadata>) = action.execute(metadata)
 }
 
-@JvmDefaultWithoutCompatibility
-interface ForgeTarget : ForgeLikeTarget {
-    override val loaderName: String
-        get() = FORGE
-}
-
-@JvmDefaultWithoutCompatibility
-interface NeoforgeTarget : ForgeLikeTarget {
-    override val loaderName: String
-        get() = NEOFORGE
-}
+interface ForgeTarget : ForgeLikeTarget
+interface NeoforgeTarget : ForgeLikeTarget

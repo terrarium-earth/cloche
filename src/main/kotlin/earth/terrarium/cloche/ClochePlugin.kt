@@ -55,9 +55,10 @@ internal fun addTarget(
     target.minecraftVersion.convention(cloche.minecraftVersion)
 
     cloche.mappingActions.all(target::mappings)
+    cloche.metadata.useAsConventionFor(target.metadata)
 
     with(project) {
-        handleTarget(target, singleTarget)
+        handleTarget(target)
     }
 }
 

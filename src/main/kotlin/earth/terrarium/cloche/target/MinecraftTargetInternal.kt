@@ -11,18 +11,18 @@ import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.javaExecutableFor
+import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.includes.IncludesJar
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
-import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
@@ -34,10 +34,10 @@ internal fun Configuration.addCollectedDependencies(collector: DependencyCollect
 
 internal abstract class MinecraftTargetInternal(
     private val name: String,
-) : MinecraftTarget, ClocheTargetInternal {
-    abstract val main: TargetCompilation
-    abstract override val data: LazyConfigurableInternal<TargetCompilation>
-    abstract override val test: LazyConfigurableInternal<TargetCompilation>
+) : MinecraftTarget, Dependencies, ClocheTargetInternal {
+    abstract val main: TargetCompilation<*>
+    abstract override val data: LazyConfigurableInternal<TargetCompilation<*>>
+    abstract override val test: LazyConfigurableInternal<TargetCompilation<*>>
 
     abstract val commonType: String
 
@@ -53,7 +53,7 @@ internal abstract class MinecraftTargetInternal(
     abstract val runs: RunConfigurations
 
     val loadMappingsTask: TaskProvider<LoadMappings> =
-        project.tasks.register(lowerCamelCaseGradleName("load", name, "mappings"), LoadMappings::class.java) {
+        project.tasks.register(lowerCamelCaseGradleName("load", featureName, "mappings"), LoadMappings::class.java) {
             it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
 
             it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
@@ -73,7 +73,7 @@ internal abstract class MinecraftTargetInternal(
     override val target get() = this
 
     val outputDirectory: Provider<Directory> =
-        project.layout.buildDirectory.dir("minecraft").map { it.dir(capabilitySuffix) }
+        project.layout.buildDirectory.dir("minecraft").map { it.optionalDir(capabilitySuffix) }
 
     internal val mappings = MappingsBuilder(this, project)
 
@@ -82,8 +82,12 @@ internal abstract class MinecraftTargetInternal(
         project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
+        dependsOn.all { dependency ->
+            useCommonMetadata(dependency as CommonTargetInternal)
+        }
+
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
-            it.dir("resources").dir(target.featureName)
+            it.dir("resources").optionalDir(target.featureName)
         })
 
         datagenClientDirectory.convention(project.layout.buildDirectory.dir("generated").map {
@@ -96,6 +100,16 @@ internal abstract class MinecraftTargetInternal(
             if (!loaderVersion.isPresent) {
                 throw InvalidUserCodeException("loaderVersion not set for target '$name'")
             }
+        }
+    }
+
+    private fun useCommonMetadata(commonTarget: CommonTargetInternal) {
+        commonTarget.dependsOn.all {
+            useCommonMetadata(it as CommonTargetInternal)
+        }
+
+        commonTarget.metadataActions.all { metadataAction ->
+            metadataAction.execute(metadata)
         }
     }
 
@@ -141,8 +155,6 @@ internal abstract class MinecraftTargetInternal(
     }
 
     abstract fun onClientIncluded(action: () -> Unit)
-
-    abstract fun initialize(isSingleTarget: Boolean)
 
     override fun runs(action: Action<RunConfigurations>) {
         action.execute(runs)

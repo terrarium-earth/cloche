@@ -16,7 +16,7 @@ import org.gradle.api.tasks.SourceSet
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.9"
 const val JAVA_CLASS_EXTENSIONS_ANNOTATIONS = "net.msrandom:class-extension-annotations:1.0.0"
 const val JAVA_CLASS_EXTENSIONS_PROCESSOR = "net.msrandom:java-class-extensions-processor:1.0.0"
-const val KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR = "net.msrandom:kmp-actual-stubs-processor:1.0.3"
+const val KOTLIN_MULTIPLATFORM_STUB_PLUGIN = "net.msrandom:kmp-actual-stubs-compiler-plugin:0.1.0"
 
 context(Project)
 private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolean) {
@@ -104,10 +104,10 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
 }
 
 context(Project)
-private fun TargetCompilation.extendFromDependency(dependency: TargetCompilation) {
+private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilation<*>) {
     if (!isTest && !dependency.isTest) {
         artifacts {
-            it.add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask)
+            it.add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask!!)
             it.add(sourceSet.runtimeElementsConfigurationName, dependency.includeJarTask)
         }
 
@@ -133,7 +133,7 @@ private fun TargetCompilation.extendFromDependency(dependency: TargetCompilation
  * Depend on the variant of [dependency]
  */
 context(Project)
-internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilation) {
+internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompilation<*>) {
     println("(classpath dependency) $this -> $dependency")
 
     sourceSet.compileClasspath += dependency.sourceSet.output
@@ -143,7 +143,7 @@ internal fun TargetCompilation.addClasspathDependency(dependency: TargetCompilat
 }
 
 context(Project)
-internal fun TargetCompilation.addDataClasspathDependency(dependency: TargetCompilation) {
+internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetCompilation<*>) {
     println("(classpath dependency) $this -> $dependency")
 
     sourceSet.compileClasspath += dependency.sourceSet.output.classesDirs

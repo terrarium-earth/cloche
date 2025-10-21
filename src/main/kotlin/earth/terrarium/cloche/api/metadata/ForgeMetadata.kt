@@ -1,11 +1,12 @@
 package earth.terrarium.cloche.api.metadata
 
-import earth.terrarium.cloche.api.metadata.ModMetadata.Dependency
-import earth.terrarium.cloche.api.metadata.ModMetadata.VersionRange
+import earth.terrarium.cloche.api.metadata.CommonMetadata.VersionRange
 import earth.terrarium.cloche.api.metadata.custom.JsonSerializable
 import earth.terrarium.cloche.api.metadata.custom.convertToSerializable
+import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
+import earth.terrarium.cloche.tasks.data.MetadataFileProvider
+import net.peanuuutz.tomlkt.TomlTable
 import org.gradle.api.Action
-import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
@@ -14,69 +15,61 @@ import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
-@JvmDefaultWithoutCompatibility
-interface ForgeMetadata {
-    val modLoader: Property<String>
+abstract class ForgeMetadata @Inject internal constructor(private val target: ForgeLikeTargetImpl) : CommonMetadata {
+    abstract val modLoader: Property<String>
         @Optional
         @Input
         get
 
-    val loaderVersion: Property<VersionRange>
+    abstract val loaderVersion: Property<VersionRange>
         @Nested
         @Optional
         get
 
-    val showAsResourcePack: Property<Boolean>
+    abstract val showAsResourcePack: Property<Boolean>
         @Optional
         @Input
         get
 
-    val showAsDataPack: Property<Boolean>
+    abstract val showAsDataPack: Property<Boolean>
         @Optional
         @Input
         get
 
-    val services: ListProperty<String>
+    abstract val services: ListProperty<String>
         @Optional
         @Input
         get
 
-    val blurLogo: Property<Boolean>
+    abstract val blurLogo: Property<Boolean>
         @Optional
         @Input
         get
 
-    val dependencies: ListProperty<Dependency>
+    abstract val modProperties: MapProperty<String, JsonSerializable>
         @Nested
         get
 
-    val modProperties: MapProperty<String, JsonSerializable>
-        @Nested
-        get
+    fun withToml(action: Action<MetadataFileProvider<TomlTable>>) {
+        target.withMetadataToml(action)
 
-    val objects: ObjectFactory
-        @Inject get
+        target.data.onConfigured {
+            it.withMetadataToml(action)
+        }
 
-    fun dependency(action: Action<Dependency>) =
-        dependencies.add(objects.newInstance(Dependency::class.java).also(action::execute))
+        target.test.onConfigured {
+            it.withMetadataToml(action)
+        }
+    }
 
-    fun custom(vararg data: Pair<String, Any?>) =
-        modProperties(*data)
-
-    fun custom(data: Map<String, Any?>) =
-        modProperties(data)
-
-    fun custom(name: String, value: Any?) =
-        modProperty(name, value)
+    fun modProperty(name: String, value: Any?) =
+        modProperties.put(name, convertToSerializable(objects, value))
 
     fun modProperties(vararg data: Pair<String, Any?>) =
         custom(mapOf(*data))
 
     fun modProperties(data: Map<String, Any?>) =
         modProperties.putAll(data.mapValues { (_, value) -> convertToSerializable(objects, value) })
-
-    fun modProperty(name: String, value: Any?) =
-        modProperties.put(name, convertToSerializable(objects, value))
 
     fun loaderVersion(version: String) = loaderVersion {
         it.start.set(version)

@@ -6,6 +6,7 @@ import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.TargetAttributes
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
@@ -21,11 +22,12 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
+import org.jetbrains.kotlin.gradle.plugin.PLUGIN_CLASSPATH_CONFIGURATION_NAME
 
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
 
 private fun convertClasspath(
-    compilation: TargetCompilation,
+    compilation: TargetCompilation<*>,
     configurations: ConfigurationContainer,
     objects: ObjectFactory,
 ): Provider<List<GenerateStubApi.ResolvedArtifact>> {
@@ -67,9 +69,9 @@ internal fun createCommonTarget(
 ) {
     fun intersection(
         compilation: CommonCompilation,
-        compilations: Provider<List<TargetCompilation>>,
+        compilations: Provider<List<TargetCompilation<*>>>,
     ): FileCollection {
-        val name = lowerCamelCaseGradleName("create", commonTarget.name, compilation.featureName, "apiStub")
+        val name = lowerCamelCaseGradleName("create", commonTarget.targetName, compilation.featureName, "apiStub")
 
         val generateStub = tasks.register(name, GenerateStubApi::class.java) {
             it.group = "minecraft-stubs"
@@ -78,7 +80,7 @@ internal fun createCommonTarget(
                 "${commonTarget.capabilitySuffix}-$it"
             }.orElse(commonTarget.capabilitySuffix)
 
-            it.apiFileName.set("$jarName-api-stub.jar")
+            it.apiFileName.set(jarName.map { "$it-api-stub.jar" } )
 
             val objects = objects
             val configurations = configurations
@@ -114,7 +116,7 @@ internal fun createCommonTarget(
         compilation: CommonCompilation,
         variant: PublicationSide,
         data: Boolean,
-        targetCompilations: Provider<List<TargetCompilation>>,
+        targetCompilations: Provider<List<TargetCompilation<*>>>,
     ) {
         val sourceSet = with(commonTarget) {
             compilation.sourceSet
@@ -123,10 +125,10 @@ internal fun createCommonTarget(
         createCompilationVariants(
             compilation,
             sourceSet,
-            commonTarget.name == COMMON || commonTarget.publish
+            commonTarget.targetName == COMMON || commonTarget.publish
         )
 
-        configureSourceSet(sourceSet, commonTarget, compilation, false)
+        configureSourceSet(sourceSet, commonTarget, compilation)
 
         components.named("java") { java ->
             java as AdhocComponentWithVariants
@@ -248,8 +250,8 @@ internal fun createCommonTarget(
                     it.attribute(TargetAttributes.MINECRAFT_VERSION, minecraftVersion)
                 }
 
-                if (!onlyCommonOfType.get() && commonTarget.name != COMMON && !commonTarget.publish) {
-                    it.attribute(CommonTargetAttributes.NAME, commonTarget.name)
+                if (!onlyCommonOfType.get() && commonTarget.targetName != COMMON && !commonTarget.publish) {
+                    it.attribute(CommonTargetAttributes.NAME, commonTarget.targetName!!)
                 }
             }
         }
@@ -280,26 +282,20 @@ internal fun createCommonTarget(
             JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
         )
 
-        plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
-            val kspConfigurationName = if (SourceSet.isMain(sourceSet)) {
-                "ksp"
-            } else {
-                lowerCamelCaseGradleName("ksp", sourceSet.name)
-            }
-
-            dependencies.add(
-                kspConfigurationName,
-                KOTLIN_MULTIPLATFORM_STUB_SYMBOL_PROCESSOR,
-            )
-        }
-
         tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
             it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
         }
 
-        plugins.withId("org.jetbrains.kotlin.jvm") {
+        plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
+            val pluginClasspathConfigurationName = lowerCamelCaseGradleName(PLUGIN_CLASSPATH_CONFIGURATION_NAME, sourceSet.name)
+
+            dependencies.add(
+                pluginClasspathConfigurationName,
+                KOTLIN_MULTIPLATFORM_STUB_PLUGIN,
+            )
+
             project.dependencies.add(
-                commonCompileOnly.name,
+                sourceSet.compileOnlyConfigurationName,
                 "net.msrandom:kmp-stub-annotations:1.0.0",
             )
         }
@@ -307,10 +303,10 @@ internal fun createCommonTarget(
 
     fun add(
         compilation: CommonTopLevelCompilation,
-        dataGetter: (MinecraftTargetInternal) -> TargetCompilation,
-        testGetter: (MinecraftTargetInternal) -> TargetCompilation,
+        dataGetter: (MinecraftTargetInternal) -> TargetCompilation<*>,
+        testGetter: (MinecraftTargetInternal) -> TargetCompilation<*>,
         variant: PublicationSide,
-        targetCompilations: Provider<List<TargetCompilation>>,
+        targetCompilations: Provider<List<TargetCompilation<*>>>,
     ) {
         addCompilation(compilation, variant, false, targetCompilations)
 
@@ -389,7 +385,7 @@ internal fun createCommonTarget(
             PublicationSide.Client,
             commonTarget.dependents.map {
                 it.map {
-                    (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation
+                    (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation<*>
                         ?: (it as MinecraftTargetInternal).main
                 }
             },

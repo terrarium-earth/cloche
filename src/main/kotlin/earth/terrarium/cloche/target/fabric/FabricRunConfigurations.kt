@@ -10,7 +10,9 @@ import earth.terrarium.cloche.api.run.withCompilation
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
+import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.modOutputs
@@ -29,7 +31,7 @@ import javax.inject.Inject
 
 internal abstract class FabricRunConfigurations @Inject constructor(val target: FabricTargetImpl) : RunConfigurations {
     fun create(vararg names: String, action: Action<FabricRunsDefaultsContainer>): MinecraftRunConfiguration {
-        val run = project.extension<RunsContainer>().create(listOf(target.name, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
+        val run = project.extension<RunsContainer>().create(listOfNotNull(target.targetName, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
         run.defaults {
             action.execute(it.extension<FabricRunsDefaultsContainer>())
@@ -38,7 +40,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         return run
     }
 
-    private fun clientDescription(name: String) = if (target.hasIncludedClient) {
+    private fun clientDescription(name: String) = if (target.client.isConfiguredValue) {
         quotedDescription(name)
     } else if (target.client.value.isPresent) {
         "'${FabricTarget::client.name} { ${commonDescription(name)} }'"
@@ -56,7 +58,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     }
 
     override val client = project.lazyConfigurable {
-        val compilation = target.client.value.map<TargetCompilation> { it }.orElse(target.main)
+        val compilation = target.client.value.map<TargetCompilation<*>> { it }.orElse(target.main)
 
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {
@@ -93,7 +95,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenDirectory)
                 it.downloadAssetsTask.set(
@@ -150,7 +152,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 it.modOutputs.from(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(project.extension<ClocheExtension>().metadata.modId)
+                it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.outputDirectory.set(target.datagenClientDirectory)
                 it.downloadAssetsTask.set(

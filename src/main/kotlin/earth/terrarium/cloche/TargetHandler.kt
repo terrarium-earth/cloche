@@ -10,6 +10,7 @@ import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
 import earth.terrarium.cloche.target.sourceSetName
+import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
@@ -70,7 +71,7 @@ fun Project.javaExecutableFor(
 }
 
 @Suppress("UnstableApiUsage")
-private fun TargetCompilation.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
+private fun TargetCompilation<*>.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
     val modImplementation =
         project.configurations.dependencyScope(modConfigurationName(configurationName)) {
             it.addCollectedDependencies(modCollector)
@@ -84,7 +85,7 @@ private fun TargetCompilation.addModDependencies(configurationName: String, coll
 }
 
 @Suppress("UnstableApiUsage")
-private fun TargetCompilation.addDependencies() {
+private fun TargetCompilation<*>.addDependencies() {
     addModDependencies(sourceSet.implementationConfigurationName, dependencyHandler.implementation, dependencyHandler.modImplementation)
     addModDependencies(sourceSet.runtimeOnlyConfigurationName, dependencyHandler.runtimeOnly, dependencyHandler.modRuntimeOnly)
     addModDependencies(sourceSet.compileOnlyConfigurationName, dependencyHandler.compileOnly, dependencyHandler.modCompileOnly)
@@ -147,15 +148,15 @@ private fun TargetCompilation.addDependencies() {
 }
 
 context(Project)
-internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean) {
-    fun addCompilation(compilation: TargetCompilation, testName: String? = null) {
+internal fun handleTarget(target: MinecraftTargetInternal) {
+    fun addCompilation(compilation: TargetCompilation<*>, testName: String? = null) {
         val sourceSet = compilation.sourceSet
 
         if (!compilation.isTest) {
             createCompilationVariants(compilation, sourceSet, true)
         }
 
-        configureSourceSet(sourceSet, target, compilation, singleTarget)
+        configureSourceSet(sourceSet, target, compilation)
 
         compilation.addDependencies()
 
@@ -165,7 +166,7 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         ) {
             it.from(compilation.mixins)
 
-            it.destinationDir = layout.buildDirectory.dir("mixins").get().dir(target.namePath).dir(compilation.namePath).asFile
+            it.destinationDir = layout.buildDirectory.dir("mixins").get().optionalDir(target.namePath).dir(compilation.namePath).asFile
         }
 
         project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
@@ -196,7 +197,9 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
             // TODO This logic is duplicated from CompilationVariantCreator. Should probably be consolidated
             outgoing.capability(group.toString(), name, version.toString())
 
-            val baseCapabilityName = "${project.name}-${compilation.target.capabilitySuffix}"
+            val baseCapabilityName = compilation.target.capabilitySuffix?.let {
+                "$name-$it"
+            } ?: name
 
             val compilationCapability = compilation.capabilitySuffix.map {
                 "${project.group}:$baseCapabilityName-$it:${project.version}"
@@ -265,12 +268,16 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
 
         for (name in libraryConsumableConfigurationNames) {
+            if (compilation.isTest) {
+                continue
+            }
+
             configurations.named(name) { configuration ->
                 // TODO Can this be avoided? maybe publishing remapped Jars in a separate variant if our named namespace is stable(like mojang mappings)?
                 //  Alternatively could we find the exact artifact by checking if the files match? or via the build dependencies?
                 configuration.artifacts.clear()
 
-                project.artifacts.add(name, compilation.includeJarTask)
+                project.artifacts.add(name, compilation.includeJarTask!!)
 
                 val variant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT) {
                     it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
@@ -315,12 +322,13 @@ internal fun handleTarget(target: MinecraftTargetInternal, singleTarget: Boolean
         }
 
         if (testName != null) {
-            val sourceSetName = sourceSetName(target, testName, singleTarget)
+            val sourceSetName = sourceSetName(target, testName)
 
             project.extension<SourceSetContainer>().named { it == sourceSetName }.configureEach {
                 for (name in listOf(it.compileClasspathConfigurationName, it.runtimeClasspathConfigurationName)) {
                     project.configurations.named(name) {
                         it.attributes(compilation::attributes)
+                        it.attributes(compilation::resolvableAttributes)
                     }
                 }
             }

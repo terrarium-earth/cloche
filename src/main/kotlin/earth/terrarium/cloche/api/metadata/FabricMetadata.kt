@@ -1,36 +1,58 @@
 package earth.terrarium.cloche.api.metadata
 
-import earth.terrarium.cloche.api.metadata.ModMetadata.Dependency
-import earth.terrarium.cloche.api.metadata.custom.JsonSerializable
-import earth.terrarium.cloche.api.metadata.custom.convertToSerializable
+import earth.terrarium.cloche.api.metadata.CommonMetadata.Environment
+import earth.terrarium.cloche.api.target.FabricTarget
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.tasks.GenerateFabricModJson
+import earth.terrarium.cloche.tasks.data.MetadataFileProvider
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import org.gradle.api.Action
-import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
-@JvmDefaultWithoutCompatibility
-interface FabricMetadata {
-    val entrypoints: MapProperty<String, List<Entrypoint>>
-        @Input get
-
-    val languageAdapters: MapProperty<String, String>
-        @Input get
-
-    val dependencies: ListProperty<Dependency>
-        @Nested
+abstract class FabricMetadata @Inject internal constructor(private val target: FabricTargetImpl) : CommonMetadata {
+    abstract val environment: Property<Environment>
+        @Optional
+        @Input
         get
 
-    val custom: MapProperty<String, JsonSerializable>
-        @Nested
+    abstract var entrypoints: MutableMap<String, ListProperty<Entrypoint>>?
+        @Input
+        @Optional
         get
 
-    val objects: ObjectFactory
-        @Inject get
+    abstract val languageAdapters: MapProperty<String, String>
+        @Input
+        @Optional
+        get
+
+    fun withJson(action: Action<MetadataFileProvider<JsonObject>>) {
+        target.withMetadataJson(action)
+
+        target.data.onConfigured {
+            it.withMetadataJson(action)
+        }
+
+        target.test.onConfigured {
+            it.withMetadataJson(action)
+        }
+
+        target.client.onConfigured {
+            it.data.onConfigured {
+                it.withMetadataJson(action)
+            }
+
+            it.test.onConfigured {
+                it.withMetadataJson(action)
+            }
+        }
+    }
 
     fun entrypoint(name: String, value: String) = entrypoint(name) {
         it.value.set(value)
@@ -40,23 +62,16 @@ interface FabricMetadata {
         entrypoint(name, listOf(action))
 
     fun entrypoint(name: String, actions: List<Action<Entrypoint>>) {
-        val entrypoints = actions.map {
-            objects.newInstance(Entrypoint::class.java).also(it::execute)
+        if (entrypoints == null) {
+            entrypoints = mutableMapOf()
         }
 
-        this.entrypoints.put(name, entrypoints)
+        entrypoints!!.computeIfAbsent(name) { _ ->
+            objects.listProperty(Entrypoint::class.java)
+        }.addAll(actions.map {
+            objects.newInstance(Entrypoint::class.java).also(it::execute)
+        })
     }
-
-    fun dependency(action: Action<Dependency>) =
-        dependencies.add(objects.newInstance(Dependency::class.java).also(action::execute))
-
-    fun custom(vararg data: Pair<String, Any?>) = custom(mapOf(*data))
-
-    fun custom(data: Map<String, Any?>) =
-        custom.putAll(data.mapValues { (_, value) -> convertToSerializable(objects, value) })
-
-    fun custom(name: String, value: Any?) =
-        custom.put(name, convertToSerializable(objects, value))
 
     interface Entrypoint {
         val value: Property<String>

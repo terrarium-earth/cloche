@@ -2,6 +2,8 @@ package earth.terrarium.cloche.api.metadata
 
 import earth.terrarium.cloche.api.metadata.custom.JsonSerializable
 import earth.terrarium.cloche.api.metadata.custom.convertToSerializable
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
@@ -13,10 +15,7 @@ import org.gradle.api.tasks.Optional
 import javax.inject.Inject
 
 @JvmDefaultWithoutCompatibility
-interface ModMetadata {
-    val modId: Property<String>
-        @Input get
-
+interface CommonMetadata {
     val name: Property<String>
         @Optional
         @Input
@@ -52,11 +51,6 @@ interface ModMetadata {
         @Input
         get
 
-    val clientOnly: Property<Boolean>
-        @Optional
-        @Input
-        get
-
     val authors: ListProperty<Person>
         @Nested
         get
@@ -75,6 +69,22 @@ interface ModMetadata {
 
     val objects: ObjectFactory
         @Inject get
+
+    fun useAsConventionFor(metadata: CommonMetadata) {
+        metadata.name.convention(name)
+        metadata.description.convention(description)
+        metadata.license.convention(license)
+        metadata.icon.convention(icon)
+        metadata.url.convention(url)
+        metadata.issues.convention(issues)
+        metadata.sources.convention(sources)
+
+        metadata.authors.addAll(authors)
+        metadata.contributors.addAll(contributors)
+        metadata.dependencies.addAll(dependencies)
+
+        metadata.custom.putAll(custom)
+    }
 
     fun contributor(name: String) = contributor {
         it.name.set(name)
@@ -99,6 +109,76 @@ interface ModMetadata {
 
     fun author(action: Action<Person>) =
         authors.add(objects.newInstance(Person::class.java).also(action::execute))
+
+    fun require(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
+    ) {
+        dependency(modId, version, Dependency.Type.Required, reason, ordering, environment)
+    }
+
+    fun recommend(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
+    ) {
+        dependency(modId, version, Dependency.Type.Recommended, reason, ordering, environment)
+    }
+
+    fun suggest(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
+    ) {
+        dependency(modId, version, Dependency.Type.Suggested, reason, ordering, environment)
+    }
+
+    fun markConflict(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
+    ) {
+        dependency(modId, version, Dependency.Type.Conflicts, reason, ordering, environment)
+    }
+
+    fun markIncompatible(
+        modId: String,
+        version: String,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
+    ) {
+        dependency(modId, version, Dependency.Type.Breaks, reason, ordering, environment)
+    }
+
+    fun dependency(
+        modId: String,
+        version: String,
+        type: Dependency.Type = Dependency.Type.Required,
+        reason: String? = null,
+        ordering: Dependency.Ordering = Dependency.Ordering.None,
+        environment: Environment = Environment.Both
+    ) {
+        dependency() {
+            it.modId.set(modId)
+            it.version(version)
+            it.type.set(type)
+            if (reason != null) {
+                it.reason.set(reason)
+            }
+            it.ordering.set(ordering)
+            it.environment.set(environment)
+        }
+    }
 
     fun dependency(action: Action<Dependency>) =
         dependencies.add(objects.newInstance(Dependency::class.java).also(action::execute))
@@ -155,7 +235,22 @@ interface ModMetadata {
             @Optional
             get
 
-        val required: Property<Boolean>
+        val type: Property<Type>
+            @Input
+            @Optional
+            get
+
+        val reason: Property<String>
+            @Input
+            @Optional
+            get
+
+        val ordering: Property<Ordering>
+            @Input
+            @Optional
+            get
+
+        val environment: Property<Environment>
             @Input
             @Optional
             get
@@ -169,5 +264,26 @@ interface ModMetadata {
 
         fun version(action: Action<VersionRange>) =
             version.set(objects.newInstance(VersionRange::class.java).also(action::execute))
+
+        enum class Type {
+            Required,
+            Recommended,
+            Suggested,
+            Conflicts,
+            Breaks,
+        }
+
+        enum class Ordering {
+            @SerialName("NONE") None,
+            @SerialName("BEFORE") Before,
+            @SerialName("AFTER") After,
+        }
+    }
+
+    @Serializable
+    enum class Environment {
+        @SerialName("client") Client,
+        @SerialName("server") Server,
+        @SerialName("*") Both,
     }
 }
