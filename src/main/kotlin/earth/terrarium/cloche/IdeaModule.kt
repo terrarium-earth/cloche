@@ -1,11 +1,14 @@
 package earth.terrarium.cloche
 
 import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSet
+import org.gradle.plugins.ide.idea.GenerateIdeaModule
 import org.gradle.plugins.ide.idea.model.IdeaModel
 import org.gradle.plugins.ide.idea.model.IdeaModule
+import org.gradle.plugins.ide.idea.model.IdeaModuleIml
 import org.jetbrains.gradle.ext.ModuleRef
 
 private fun runModuleAction(project: Project, sourceSet: SourceSet, action: Action<IdeaModule>) {

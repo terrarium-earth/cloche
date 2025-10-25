@@ -455,7 +455,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     private fun registerCommonCompilation(name: String): FabricCompilationImpl {
-        fun <T> clientAlternative(normal: Provider<T>, client: Provider<T>) =
+        fun <T : Any> clientAlternative(normal: Provider<T>, client: Provider<T>) =
             includedClient.isConfigured.flatMap {
                 if (it) {
                     client

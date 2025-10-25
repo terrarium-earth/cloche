@@ -1,13 +1,16 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
+import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
+import earth.terrarium.cloche.ClochePlugin.Companion.WRITE_MOD_ID_TASK_NAME
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.tasks.WriteModId
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.named
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
@@ -21,6 +24,7 @@ import net.msrandom.virtualsourcesets.JavaVirtualSourceSetsPlugin
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
+import org.gradle.api.attributes.Category
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
@@ -91,11 +95,24 @@ fun applyToProject(project: Project) {
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
         }
-
-        it.create(JSON_ARTIFACT_TYPE)
     }
 
-    project.ideaSyncHook()
+    val writeModId = project.tasks.register(WRITE_MOD_ID_TASK_NAME, WriteModId::class.java) {
+        it.modId.set(cloche.metadata.modId)
+        it.outputFile.set(project.layout.buildDirectory.file("modId.txt"))
+    }
+
+    project.configurations.consumable("modId") {
+        it.attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.objects.named(MOD_ID_CATEGORY))
+
+        it.outgoing.artifact(writeModId.flatMap(WriteModId::outputFile))
+    }
+
+    project.tasks.register(IDE_SYNC_TASK_NAME) {
+        it.dependsOn(writeModId)
+    }
+
+    project.ideSyncHook()
 
     project.dependencies.components.withModule(
         "net.minecraftforge:forge",

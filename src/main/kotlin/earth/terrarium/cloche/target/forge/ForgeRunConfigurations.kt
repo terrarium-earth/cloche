@@ -56,7 +56,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
             it.server {
-                it.modOutputs.from(project.modOutputs(target.main))
+                it.modOutputs.set(project.modOutputs(target.main))
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
@@ -70,7 +70,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
     override val client = project.lazyConfigurable {
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {
-                it.modOutputs.from(project.modOutputs(target.main))
+                it.modOutputs.set(project.modOutputs(target.main))
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
@@ -88,7 +88,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
 
                 it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
@@ -157,7 +157,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
 
                 it.modId.set(project.modId)
                 it.minecraftVersion.set(target.minecraftVersion)
@@ -232,7 +232,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
         create(SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestServer {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
 
                 it.minecraftVersion.set(target.minecraftVersion)
                 it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))

@@ -17,9 +17,7 @@ internal fun Project.requireGroup() {
     }
 }
 
-internal fun Project.ideaSyncHook() {
-    tasks.register(IDE_SYNC_TASK_NAME)
-
+internal fun Project.ideSyncHook() {
     if (!isIdeDetected()) {
         return
     }
@@ -48,7 +46,6 @@ internal fun addTarget(
     cloche: ClocheExtension,
     project: Project,
     target: MinecraftTarget,
-    singleTarget: Boolean,
 ) {
     target as MinecraftTargetInternal
 
@@ -87,6 +84,7 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
         const val DATA_COMPILATION_NAME = "data"
 
         const val IDE_SYNC_TASK_NAME = "clocheIdeSync"
+        const val WRITE_MOD_ID_TASK_NAME = "writeModId"
 
         const val STUB_GROUP = "net.msrandom"
         const val STUB_NAME = "stub"

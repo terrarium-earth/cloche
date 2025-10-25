@@ -6,10 +6,11 @@ import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
-import earth.terrarium.cloche.util.isIdeDetected
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ConfigurationVariant
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSet
 
@@ -116,7 +117,7 @@ private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilat
             sourceSet.runtimeElementsConfigurationName
         )) {
             configurations.named(name) {
-                it.outgoing.variants.named(REMAPPED_SUBVARIANT) {
+                it.outgoing.variants.named(REMAPPED_SUBVARIANT_NAME) {
                     it.artifact(tasks.named(dependency.sourceSet.jarTaskName))
                 }
             }
@@ -139,6 +140,16 @@ internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompi
     sourceSet.compileClasspath += dependency.sourceSet.output
     sourceSet.runtimeClasspath += dependency.sourceSet.output
 
+    configurations.named(sourceSet.runtimeElementsConfigurationName) { elementsConfiguration ->
+        configurations.named(dependency.sourceSet.runtimeElementsConfigurationName) { dependencyConfiguration ->
+            elementsConfiguration.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) { variant ->
+                val dependencyVariant = dependencyConfiguration.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME)
+
+                variant.artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
+            }
+        }
+    }
+
     extendFromDependency(dependency)
 }
 
@@ -146,14 +157,22 @@ context(Project)
 internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetCompilation<*>) {
     println("(classpath dependency) $this -> $dependency")
 
-    sourceSet.compileClasspath += dependency.sourceSet.output.classesDirs
-    sourceSet.runtimeClasspath += dependency.sourceSet.output.classesDirs
+    val configuration =
+        configurations.detachedConfiguration(dependencies.create(dependency.sourceSet.output.classesDirs))
+
+    sourceSet.compileClasspath += configuration
+    sourceSet.runtimeClasspath += configuration
 
     sourceSet.resources.srcDir(dependency.sourceSet.resources)
 
-    if (isIdeDetected()) {
-        // TODO Model this better
-        sourceSet.compileClasspath += dependency.sourceSet.output
+    configurations.named(sourceSet.runtimeElementsConfigurationName) { elementsConfiguration ->
+        configurations.named(dependency.sourceSet.runtimeElementsConfigurationName) { dependencyConfiguration ->
+            elementsConfiguration.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) { variant ->
+                val dependencyVariant = dependencyConfiguration.outgoing.variants.named(LibraryElements.RESOURCES)
+
+                variant.artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
+            }
+        }
     }
 
     extendFromDependency(dependency)

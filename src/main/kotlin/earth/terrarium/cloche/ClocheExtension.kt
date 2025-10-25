@@ -105,7 +105,7 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
 
         extension.singleTargetSetCallback(type, instance)
 
-        addTarget(extension, project, instance, true)
+        addTarget(extension, project, instance)
 
         return instance.also(configure::execute).also {
             target = it

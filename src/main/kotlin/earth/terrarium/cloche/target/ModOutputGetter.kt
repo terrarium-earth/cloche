@@ -1,37 +1,81 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.MOD_OUTPUTS_CATEGORY
+import earth.terrarium.cloche.MOD_ID_CATEGORY
+import earth.terrarium.cloche.modId
 import net.msrandom.minecraftcodev.core.utils.named
-import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
+import net.msrandom.minecraftcodev.runs.DependencyModOutputListing
+import net.msrandom.minecraftcodev.runs.OutputListings
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.Category
-import org.gradle.api.attributes.Usage
-import org.gradle.api.file.FileCollection
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.provider.Provider
 
-internal fun Project.modOutputs(compilation: TargetCompilation<*>): FileCollection {
-    val dependencyOutputs = configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName).map {
-        it.incoming.artifactView {
+internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListings {
+    val objects = project.objects
+
+    val dependencyOutputs = configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName).flatMap { runtimeClasspath ->
+        val projectArtifacts = runtimeClasspath.incoming.artifactView {
             it.attributes
-                .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
-                .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+                .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
+                .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
 
-            compilation.attributes(it.attributes)
-
-            it.componentFilter {
-                // Only set mod output groups for project dependencies(which we know export that variant)
-                it is ProjectComponentIdentifier
+            it.componentFilter { id ->
+                // Only set mod output groups for project dependencies
+                id is ProjectComponentIdentifier
             }
 
             @Suppress("UnstableApiUsage")
             it.withVariantReselection()
-        }.files
+        }.artifacts
+
+        val modIdFiles = runtimeClasspath.incoming.artifactView {
+            it.attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_ID_CATEGORY))
+
+            it.componentFilter { id ->
+                id is ProjectComponentIdentifier
+            }
+
+            @Suppress("UnstableApiUsage")
+            it.withVariantReselection()
+        }.artifacts
+
+        projectArtifacts.resolvedArtifacts.zip(modIdFiles.resolvedArtifacts) { projectFiles, modIds ->
+            val modOutputsList = objects.listProperty(DependencyModOutputListing::class.java)
+
+            val modIds = modIds.associateBy {
+                it.id.componentIdentifier
+            }
+
+            val groupedFiles = projectFiles.groupBy {
+                it.id.componentIdentifier
+            }
+
+            for ((id, artifacts) in groupedFiles) {
+                val modIdArtifact = modIds[id] ?: continue
+
+                val modOutputs = objects.newInstance(DependencyModOutputListing::class.java)
+
+                modOutputs.modIdFile.set(modIdArtifact.file)
+
+                for (artifact in artifacts) {
+                    modOutputs.outputs.from(artifact.file)
+                }
+
+                modOutputsList.add(modOutputs)
+            }
+
+            modOutputsList
+        }.flatMap { it }
     }
 
-    val localOutputs = compilation.generateModOutputs.flatMap(GenerateModOutputs::output)
+    val listings = objects.newInstance(OutputListings::class.java)
 
-    return files(dependencyOutputs, localOutputs)
+    listings.modId.set(project.modId)
+    listings.outputs.from(compilation.sourceSet.output)
+    listings.dependencies.set(dependencyOutputs)
+
+    return listings
 }
 
 internal fun Project.modOutputs(compilation: Provider<out TargetCompilation<*>>) =

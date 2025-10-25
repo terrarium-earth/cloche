@@ -51,7 +51,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
             it.server {
-                it.modOutputs.from(project.modOutputs(target.main))
+                it.modOutputs.set(project.modOutputs(target.main))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
         }.withCompilation(target.main)
@@ -62,7 +62,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
             it.client {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.minecraftVersion.set(target.minecraftVersion)
@@ -92,7 +92,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
             it.data {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.modId.set(project.modId)
@@ -149,7 +149,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
             it.clientData {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.modId.set(project.modId)
@@ -254,7 +254,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
         create(SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestServer {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
         }.withCompilation(target, compilation) {
@@ -266,7 +266,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         val compilation = target.client.value.flatMap { it.test.value }.orElse(target.test.value)
         create(ClochePlugin.CLIENT_COMPILATION_NAME, SourceSet.TEST_SOURCE_SET_NAME) {
             it.gameTestClient {
-                it.modOutputs.from(project.modOutputs(compilation))
+                it.modOutputs.set(project.modOutputs(compilation))
                 it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 it.minecraftVersion.set(target.minecraftVersion)

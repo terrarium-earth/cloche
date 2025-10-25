@@ -1,15 +1,8 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.configureSourceSet
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.modConfigurationName
-import earth.terrarium.cloche.target.sourceSetName
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -24,14 +17,11 @@ import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
-import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ConfigurationPublications
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
-import org.gradle.api.attributes.Category
-import org.gradle.api.attributes.Usage
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
@@ -45,9 +35,9 @@ import org.gradle.language.jvm.tasks.ProcessResources
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-internal const val JSON_ARTIFACT_TYPE = "json"
-internal const val MOD_OUTPUTS_CATEGORY = "mod-outputs"
-internal const val REMAPPED_SUBVARIANT = "remapped"
+internal const val MOD_ID_CATEGORY = "mod-id"
+internal const val REMAPPED_SUBVARIANT_NAME = "remapped"
+internal const val CLASSES_AND_RESOURCES_SUBVARIANT_NAME = "classesAndResources"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -183,49 +173,6 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             target.addJarInjects(compilation)
         }
 
-        // TODO Remove modOutputs and export a variant with only the mod ID. The rest should be discoverable via an artifact view
-        val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
-            requireGroup()
-
-            val outgoing = modOutputs.outgoing
-
-            fun ConfigurationPublications.capability(group: String, name: String, version: String) =
-                capability("$group:$name:$version")
-
-            outgoing.capability(group.toString(), "$name-mod-outputs", version.toString())
-
-            // TODO This logic is duplicated from CompilationVariantCreator. Should probably be consolidated
-            outgoing.capability(group.toString(), name, version.toString())
-
-            val baseCapabilityName = compilation.target.capabilitySuffix?.let {
-                "$name-$it"
-            } ?: name
-
-            val compilationCapability = compilation.capabilitySuffix.map {
-                "${project.group}:$baseCapabilityName-$it:${project.version}"
-            }.orElse("${project.group}:$baseCapabilityName:${project.version}")
-
-            outgoing.capability(compilationCapability)
-
-            modOutputs.attributes
-                .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
-                .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-
-            compilation.attributes(modOutputs.attributes)
-
-            components.named("java") { java ->
-                java as AdhocComponentWithVariants
-
-                java.addVariantsFromConfiguration(modOutputs) {
-                    it.skip()
-                }
-            }
-        }
-
-        artifacts.add(modOutputs.name, compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
-            it.type = JSON_ARTIFACT_TYPE
-        }
-
         val javaVersion = target.minecraftVersion.map {
             getVersionList(
                 getGlobalCacheDirectory(project).toPath(),
@@ -279,7 +226,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
                 project.artifacts.add(name, compilation.includeJarTask!!)
 
-                val variant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT) {
+                val remappedVariant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT_NAME) {
                     it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
                     it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
 
@@ -290,7 +237,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                     it as AdhocComponentWithVariants
 
                     it.withVariantsFromConfiguration(configuration) {
-                        if (it.configurationVariant.name == variant.name) {
+                        if (it.configurationVariant.name == remappedVariant.name) {
                             it.skip()
                         }
                     }
@@ -299,6 +246,34 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                 configuration.outgoing.variants.named { it == "classes" || it == "resources" }.configureEach {
                     it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
                     it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                }
+            }
+        }
+
+        if (!compilation.isTest) {
+            configurations.named(sourceSet.runtimeElementsConfigurationName) { configuration ->
+                val classesAndResourcesVariants = configuration.outgoing.variants.named { it == "classes" || it == "resources" }
+
+                val classesAndResourcesVariant = configuration.outgoing.variants.maybeCreate(
+                    CLASSES_AND_RESOURCES_SUBVARIANT_NAME
+                ).also {
+                    it.attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
+
+                    classesAndResourcesVariants.configureEach { variant ->
+                        variant.artifacts.configureEach { artifact ->
+                            it.artifact(artifact)
+                        }
+                    }
+                }
+
+                components.named("java") {
+                    it as AdhocComponentWithVariants
+
+                    it.withVariantsFromConfiguration(configuration) {
+                        if (it.configurationVariant.name == classesAndResourcesVariant.name) {
+                            it.skip()
+                        }
+                    }
                 }
             }
         }

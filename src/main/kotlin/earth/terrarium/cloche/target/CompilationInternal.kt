@@ -124,7 +124,15 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
         }
     }
 
-    override fun toString() = target.targetName + TARGET_NAME_PATH_SEPARATOR + name
+    override fun toString(): String {
+        val name = listOfNotNull(target.targetName, name).joinToString(TARGET_NAME_PATH_SEPARATOR.toString())
+
+        if (project == project.rootProject) {
+            return project.path + name
+        }
+
+        return project.path + TARGET_NAME_PATH_SEPARATOR + name
+    }
 }
 
 internal fun sourceSetName(target: ClocheTarget, compilationName: String) = when {
@@ -165,10 +173,6 @@ internal fun Project.configureSourceSet(
     }
 
     if (compilation is TargetCompilation<*>) {
-        syncTask.configure { task ->
-            task.dependsOn(compilation.generateModOutputs)
-        }
-
         if (project == rootProject) {
             // afterEvaluate required as isDownloadSources is not lazy
             afterEvaluate { project ->

@@ -29,9 +29,7 @@ internal fun commonDescription(name: String) = "$name()"
 internal fun quotedDescription(name: String) = "'${commonDescription(name)}'"
 
 internal fun MinecraftRunConfiguration.withCompilation(compilation: TargetCompilation<*>): MinecraftRunConfiguration {
-    return sourceSet(compilation.sourceSet)
-        .addMixinJavaAgent(compilation.target.withMixinAgent)
-        .beforeRun(compilation.generateModOutputs)
+    return sourceSet(compilation.sourceSet).addMixinJavaAgent(compilation.target.withMixinAgent)
 }
 
 internal fun MinecraftRunConfiguration.withCompilation(
@@ -46,7 +44,5 @@ internal fun MinecraftRunConfiguration.withCompilation(
         }
     }
 
-    return sourceSet(compilation.map(TargetCompilation<*>::sourceSet))
-        .addMixinJavaAgent(target.withMixinAgent)
-        .beforeRun(compilation.flatMap(TargetCompilation<*>::generateModOutputs))
+    return sourceSet(compilation.map(TargetCompilation<*>::sourceSet)).addMixinJavaAgent(target.withMixinAgent)
 }

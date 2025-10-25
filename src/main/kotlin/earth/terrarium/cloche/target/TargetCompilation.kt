@@ -19,7 +19,6 @@ import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
-import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.Project
 import org.gradle.api.artifacts.DependencyScopeConfiguration
@@ -100,7 +99,10 @@ internal fun registerCompilationTransformations(
         it.inputFile.set(namedMinecraftFile)
         it.namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        it.accessWideners.from(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+        with(project) {
+            // TODO Export access wideners as a separate artifact
+            it.accessWideners.from(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
+        }
 
         it.outputFile.set(outputDirectory.zip(namedMinecraftFile) { dir, file ->
             dir.file(file.asFile.name)
@@ -188,18 +190,6 @@ private fun setupModTransformationPipeline(
     }
 }
 
-private fun GenerateModOutputs.addSourceSet(sourceSet: SourceSet) {
-    val rootDirectory = project.rootProject.layout.projectDirectory.asFile
-
-    paths.addAll(project.provider {
-        sourceSet.output.classesDirs.map {
-            it.relativeTo(rootDirectory).path
-        }
-    })
-
-    paths.add(sourceSet.output.resourcesDir!!.relativeTo(rootDirectory).path)
-}
-
 internal data class TargetCompilationInfo<T : MinecraftTargetInternal>(
     val name: String,
     val target: T,
@@ -233,28 +223,10 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         @Internal
         get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").optionalDir(target.featureName).dir(namePath) }
 
-    val generateModOutputs: TaskProvider<GenerateModOutputs> = project.tasks.register(
-        lowerCamelCaseGradleName("generate", sourceSet.takeUnless(SourceSet::isMain)?.name, "modOutputs"),
-        GenerateModOutputs::class.java,
-    ) {
-        it.modId.set(project.modId)
-
-        // TODO Make this logic a bit better;
-        //   The way it should go is as follows:
-        //     data - main + data
-        //     client - main + client
-        //     clientData - main + client + data + clientData
-        if (name != SourceSet.MAIN_SOURCE_SET_NAME) {
-            it.addSourceSet(target.main.sourceSet)
-        }
-
-        it.addSourceSet(sourceSet)
-    }
-
     val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)
     val sources = setupFiles.second
 
-    val includeBucketConfiguration: NamedDomainObjectProvider<DependencyScopeConfiguration?> =
+    val includeBucketConfiguration: NamedDomainObjectProvider<DependencyScopeConfiguration> =
         project.configurations.dependencyScope(lowerCamelCaseGradleName(target.featureName, featureName, "include")) {
             it.addCollectedDependencies(dependencyHandler.include)
         }
