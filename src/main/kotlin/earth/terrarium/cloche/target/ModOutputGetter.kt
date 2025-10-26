@@ -2,7 +2,6 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.MOD_ID_CATEGORY
 import earth.terrarium.cloche.modId
-import net.msrandom.minecraftcodev.core.utils.named
 import net.msrandom.minecraftcodev.runs.DependencyModOutputListing
 import net.msrandom.minecraftcodev.runs.OutputListings
 import org.gradle.api.Project
@@ -10,38 +9,41 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.provider.Provider
+import org.gradle.kotlin.dsl.listProperty
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.newInstance
 
 internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListings {
     val objects = project.objects
 
     val dependencyOutputs = configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName).flatMap { runtimeClasspath ->
         val projectArtifacts = runtimeClasspath.incoming.artifactView {
-            it.attributes
+            attributes
                 .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
                 .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
 
-            it.componentFilter { id ->
+            componentFilter { id ->
                 // Only set mod output groups for project dependencies
                 id is ProjectComponentIdentifier
             }
 
             @Suppress("UnstableApiUsage")
-            it.withVariantReselection()
+            withVariantReselection()
         }.artifacts
 
         val modIdFiles = runtimeClasspath.incoming.artifactView {
-            it.attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_ID_CATEGORY))
+            attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_ID_CATEGORY))
 
-            it.componentFilter { id ->
+            componentFilter { id ->
                 id is ProjectComponentIdentifier
             }
 
             @Suppress("UnstableApiUsage")
-            it.withVariantReselection()
+            withVariantReselection()
         }.artifacts
 
         projectArtifacts.resolvedArtifacts.zip(modIdFiles.resolvedArtifacts) { projectFiles, modIds ->
-            val modOutputsList = objects.listProperty(DependencyModOutputListing::class.java)
+            val modOutputsList = objects.listProperty<DependencyModOutputListing>()
 
             val modIds = modIds.associateBy {
                 it.id.componentIdentifier
@@ -54,7 +56,7 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
             for ((id, artifacts) in groupedFiles) {
                 val modIdArtifact = modIds[id] ?: continue
 
-                val modOutputs = objects.newInstance(DependencyModOutputListing::class.java)
+                val modOutputs = objects.newInstance<DependencyModOutputListing>()
 
                 modOutputs.modIdFile.set(modIdArtifact.file)
 
@@ -69,7 +71,7 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
         }.flatMap { it }
     }
 
-    val listings = objects.newInstance(OutputListings::class.java)
+    val listings = objects.newInstance<OutputListings>()
 
     listings.modId.set(project.modId)
     listings.outputs.from(compilation.sourceSet.output)

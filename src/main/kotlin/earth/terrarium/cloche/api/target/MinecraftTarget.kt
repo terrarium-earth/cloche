@@ -52,6 +52,8 @@ interface MinecraftTarget : ClocheTarget, CommonSecondarySourceSets, PlatformDep
     fun runs(action: Action<RunConfigurations>)
 
     fun runs(@DelegatesTo(RunConfigurations::class) closure: Closure<*>) = runs {
-        closure.rehydrate(it, this, this).call()
+        val owner = this@MinecraftTarget
+
+        closure.rehydrate(this, owner, owner).call()
     }
 }

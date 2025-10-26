@@ -11,40 +11,41 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import org.gradle.api.Action
 import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.register
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 internal abstract class FabricCompilationImpl @Inject constructor(info: TargetCompilationInfo<FabricTargetImpl>) :
     TargetCompilation<FabricTargetImpl>(info), FabricCompilation {
-    internal val generateModJson = project.tasks.register(
-        lowerCamelCaseGradleName("generate", target.featureName, featureName, "ModJson"),
-        GenerateFabricModJson::class.java
+    internal val generateModJson = project.tasks.register<GenerateFabricModJson>(
+        lowerCamelCaseGradleName("generate", target.featureName, featureName, "modJson"),
     ) {
-        it.loaderDependencyVersion.set(target.loaderVersion.map {
+        loaderDependencyVersion.set(target.loaderVersion.map {
             it.substringBeforeLast('.')
         })
 
-        it.output.set(metadataDirectory.map {
+        output.set(metadataDirectory.map {
             it.file(MinecraftCodevFabricPlugin.MOD_JSON)
         })
 
-        it.targetMetadata.set(target.metadata)
+        targetMetadata.set(target.metadata)
 
-        it.mixinConfigs.from(mixins)
+        mixinConfigs.from(mixins)
 
         if (info.name == SourceSet.MAIN_SOURCE_SET_NAME) {
             // TODO How do we apply this for client:data and client:test as well?
             info.target.client.onConfigured { client ->
-                it.clientMixinConfigs.from(client.mixins)
+                clientMixinConfigs.from(client.mixins)
             }
         }
     }
 
     init {
-        project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(metadataDirectory)
+        project.tasks.named<ProcessResources>(sourceSet.processResourcesTaskName) {
+            from(metadataDirectory)
 
-            it.dependsOn(generateModJson)
+            dependsOn(generateModJson)
         }
 
         project.ideaModule(sourceSet) {
@@ -53,6 +54,6 @@ internal abstract class FabricCompilationImpl @Inject constructor(info: TargetCo
     }
 
     override fun withMetadataJson(action: Action<MetadataFileProvider<JsonObject>>) = generateModJson.configure {
-        it.withJson(action)
+        withJson(action)
     }
 }

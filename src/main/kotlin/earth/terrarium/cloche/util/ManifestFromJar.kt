@@ -14,7 +14,7 @@ fun Manifest.fromJars(fileOperations: FileOperations, vararg jarFiles: Provider<
         jarProvider.map { jarFile ->
             fileOperations.zipTree(jarFile)
                 .matching {
-                    it.include(JarFile.MANIFEST_NAME)
+                    include(JarFile.MANIFEST_NAME)
                 }
                 .singleFile
         }

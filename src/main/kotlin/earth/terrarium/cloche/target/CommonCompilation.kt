@@ -9,6 +9,7 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 internal interface CommonSecondarySourceSetsInternal : CommonSecondarySourceSets {
@@ -55,11 +56,11 @@ internal abstract class CommonTopLevelCompilation @Inject constructor(
     }
 
     override val data: LazyConfigurableInternal<CommonCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(CommonCompilation::class.java, name(ClochePlugin.DATA_COMPILATION_NAME), target, false)
+        project.objects.newInstance(name(ClochePlugin.DATA_COMPILATION_NAME), target, false)
     }
 
     override val test: LazyConfigurableInternal<CommonCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(CommonCompilation::class.java, name(SourceSet.TEST_SOURCE_SET_NAME), target, true)
+        project.objects.newInstance(name(SourceSet.TEST_SOURCE_SET_NAME), target, true)
     }
 
     override val sourceSet: SourceSet

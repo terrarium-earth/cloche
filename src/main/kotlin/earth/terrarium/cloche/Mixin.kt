@@ -10,8 +10,8 @@ private val ComponentIdentifier.isMixin
 fun MinecraftRunConfiguration.addMixinJavaAgent(withMixinAgent: Property<Boolean>): MinecraftRunConfiguration {
     val args = sourceSet.flatMap {
         project.configurations.named(it.runtimeClasspathConfigurationName).map { configuration ->
-            configuration.incoming.artifactView { view ->
-                view.componentFilter(ComponentIdentifier::isMixin)
+            configuration.incoming.artifactView {
+                componentFilter(ComponentIdentifier::isMixin)
             }.files
         }
     }.flatMap { mixins ->

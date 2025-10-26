@@ -10,7 +10,6 @@ import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlug
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
-import net.msrandom.minecraftcodev.core.utils.named
 import net.msrandom.minecraftcodev.decompiler.MinecraftCodevDecompilerPlugin
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
@@ -29,110 +28,113 @@ import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
+import org.gradle.kotlin.dsl.add
+import org.gradle.kotlin.dsl.apply
+import org.gradle.kotlin.dsl.create
+import org.gradle.kotlin.dsl.withType
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.withModule
 
 private fun propertyName(name: String) = "earth.terrarium.cloche.$name"
 
 private fun Project.checkFlag(name: String) =
     project.findProperty(propertyName(name))?.toString()?.toBoolean() == true
 
-fun applyToProject(project: Project) {
-    val cloche = project.extensions.create("cloche", ClocheExtension::class.java)
+fun applyToProject(target: Project) {
+    val cloche = target.extensions.create("cloche", ClocheExtension::class)
 
-    project.plugins.apply(MinecraftCodevFabricPlugin::class.java)
-    project.plugins.apply(MinecraftCodevForgePlugin::class.java)
-    project.plugins.apply(MinecraftCodevRemapperPlugin::class.java)
-    project.plugins.apply(MinecraftCodevIncludesPlugin::class.java)
-    project.plugins.apply(MinecraftCodevDecompilerPlugin::class.java)
-    project.plugins.apply(MinecraftCodevAccessWidenerPlugin::class.java)
-    project.plugins.apply(MinecraftCodevMixinsPlugin::class.java)
-    project.plugins.apply(MinecraftCodevRunsPlugin::class.java)
+    target.apply<MinecraftCodevFabricPlugin<*>>()
+    target.apply<MinecraftCodevForgePlugin<*>>()
+    target.apply<MinecraftCodevRemapperPlugin<*>>()
+    target.apply<MinecraftCodevIncludesPlugin<*>>()
+    target.apply<MinecraftCodevDecompilerPlugin<*>>()
+    target.apply<MinecraftCodevAccessWidenerPlugin<*>>()
+    target.apply<MinecraftCodevMixinsPlugin<*>>()
+    target.apply<MinecraftCodevRunsPlugin<*>>()
 
-    project.plugins.apply(JavaVirtualSourceSetsPlugin::class.java)
+    target.apply<JavaVirtualSourceSetsPlugin>()
 
-    if (!project.checkFlag("disable-class-extensions")) {
-        project.plugins.apply(ClassExtensionsPlugin::class.java)
+    if (!target.checkFlag("disable-class-extensions")) {
+        target.apply<ClassExtensionsPlugin>()
     }
 
-    project.plugins.apply(JavaLibraryPlugin::class.java)
+    target.apply<JavaLibraryPlugin>()
 
-    project.plugins.withType(MavenPublishPlugin::class.java) {
-        project.extension<PublishingExtension>().publications.configureEach { publication ->
-            if (publication is MavenPublication) {
-                // afterEvaluate needed to query value of property
-                project.afterEvaluate {
-                    val error = "artifactId set for publication '${publication.name}' in $project. This is heavily discouraged as it can break core capability functionality."
+    target.plugins.withType<MavenPublishPlugin> {
+        target.extension<PublishingExtension>().publications.configureEach {
+            if (this !is MavenPublication) {
+                return@configureEach
+            }
 
-                    if (publication.artifactId != project.name) {
-                        if (project.checkFlag("allow-maven-artifact-id")) {
-                            project.logger.warn("WARNING: $error")
-                        } else {
-                            throw InvalidUserCodeException("$error If you explicitly want opt-in to artifact-id, set the ${propertyName("allow-maven-artifact-id")} property")
-                        }
+            // afterEvaluate needed to query value of property
+            target.afterEvaluate {
+                val error = "artifactId set for publication '${this@configureEach.name}' in $target. This is heavily discouraged as it can break core capability functionality."
+
+                if (artifactId != name) {
+                    if (target.checkFlag("allow-maven-artifact-id")) {
+                        target.logger.warn("WARNING: $error")
+                    } else {
+                        throw InvalidUserCodeException("$error If you explicitly want opt-in to artifact-id, set the ${propertyName("allow-maven-artifact-id")} property")
                     }
                 }
             }
         }
     }
 
-    ClocheRepositoriesExtension.register(project.repositories)
+    ClocheRepositoriesExtension.register(target.repositories)
 
-    project.dependencies.attributesSchema { schema ->
-        schema.attribute(CompilationAttributes.SIDE) {
-            it.compatibilityRules.add(SideCompatibilityRule::class.java)
-            it.disambiguationRules.add(SideDisambiguationRule::class.java)
+    target.dependencies.attributesSchema {
+        attribute(CompilationAttributes.SIDE) {
+            compatibilityRules.add(SideCompatibilityRule::class)
+            disambiguationRules.add(SideDisambiguationRule::class)
         }
 
-        schema.attribute(CompilationAttributes.DATA) {
-            it.compatibilityRules.add(DataCompatibilityRule::class.java)
-            it.disambiguationRules.add(DataDisambiguationRule::class.java)
+        attribute(CompilationAttributes.DATA) {
+            compatibilityRules.add(DataCompatibilityRule::class)
+            disambiguationRules.add(DataDisambiguationRule::class)
         }
     }
 
-    project.dependencies.artifactTypes {
-        it.named(ArtifactTypeDefinition.JAR_TYPE) { jar ->
-            jar.attributes
+    target.dependencies.artifactTypes {
+        named(ArtifactTypeDefinition.JAR_TYPE) {
+            attributes
                 .attribute(REMAPPED_ATTRIBUTE, false)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
         }
     }
 
-    val writeModId = project.tasks.register(WRITE_MOD_ID_TASK_NAME, WriteModId::class.java) {
-        it.modId.set(cloche.metadata.modId)
-        it.outputFile.set(project.layout.buildDirectory.file("modId.txt"))
+    val writeModId = target.tasks.register<WriteModId>(WRITE_MOD_ID_TASK_NAME) {
+        modId.set(cloche.metadata.modId)
+        outputFile.set(target.layout.buildDirectory.file("modId.txt"))
     }
 
-    project.configurations.consumable("modId") {
-        it.attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.objects.named(MOD_ID_CATEGORY))
+    target.configurations.consumable("modId") {
+        attributes.attribute(Category.CATEGORY_ATTRIBUTE, target.objects.named(MOD_ID_CATEGORY))
 
-        it.outgoing.artifact(writeModId.flatMap(WriteModId::outputFile))
+        outgoing.artifact(writeModId.flatMap(WriteModId::outputFile))
     }
 
-    project.tasks.register(IDE_SYNC_TASK_NAME) {
-        it.dependsOn(writeModId)
+    target.tasks.register(IDE_SYNC_TASK_NAME) {
+        dependsOn(writeModId)
     }
 
-    project.ideSyncHook()
+    target.ideSyncHook()
 
-    project.dependencies.components.withModule(
-        "net.minecraftforge:forge",
-        ForgeLexToNeoComponentMetadataRule::class.java
-    ) {
-        it.params(
-            getGlobalCacheDirectory(project),
+    target.dependencies.components.withModule<ForgeLexToNeoComponentMetadataRule>("net.minecraftforge:forge") {
+        params(
+            getGlobalCacheDirectory(target),
             VERSION_MANIFEST_URL,
-            project.gradle.startParameter.isOffline,
+            target.gradle.startParameter.isOffline,
         )
     }
 
-    project.dependencies.components.withModule(
-        "de.oceanlabs.mcp:mcp_config",
-        McpConfigToNeoformComponentMetadataRule::class.java
-    ) {
-        it.params(
-            getGlobalCacheDirectory(project),
+    target.dependencies.components.withModule<McpConfigToNeoformComponentMetadataRule>("de.oceanlabs.mcp:mcp_config") {
+        params(
+            getGlobalCacheDirectory(target),
         )
     }
 
-    applyTargets(project, cloche)
+    applyTargets(target, cloche)
 }

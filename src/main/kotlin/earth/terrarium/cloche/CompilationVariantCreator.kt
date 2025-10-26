@@ -24,21 +24,21 @@ internal fun Project.createCompilationVariants(
     } else {
         requireGroup()
 
-        java.registerFeature(sourceSet.name) { spec ->
-            spec.usingSourceSet(sourceSet)
+        java.registerFeature(sourceSet.name) {
+            usingSourceSet(sourceSet)
 
-            spec.capability(project.group.toString(), project.name, project.version.toString())
+            capability(project.group.toString(), project.name, project.version.toString())
 
             if (compilation.withJavadoc) {
-                spec.withJavadocJar()
+                withJavadocJar()
             }
 
             if (compilation.withSources) {
-                spec.withSourcesJar()
+                withSourcesJar()
             }
 
             if (!publish) {
-                spec.disablePublication()
+                disablePublication()
             }
         }
 
@@ -59,7 +59,7 @@ internal fun Project.createCompilationVariants(
         )
 
         project.configurations.named { it in configurationNames }.configureEach {
-            it.outgoing.capability(compilationCapability)
+            outgoing.capability(compilationCapability)
         }
     }
 }

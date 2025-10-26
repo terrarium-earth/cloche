@@ -13,6 +13,7 @@ import org.gradle.api.artifacts.ConfigurationVariant
 import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.named
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.9"
 const val JAVA_CLASS_EXTENSIONS_ANNOTATIONS = "net.msrandom:class-extension-annotations:1.0.0"
@@ -94,7 +95,7 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
 
     if (!isTest && !dependency.isTest) {
         artifacts {
-            it.add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
+            add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
         }
     }
 
@@ -108,8 +109,8 @@ context(Project)
 private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilation<*>) {
     if (!isTest && !dependency.isTest) {
         artifacts {
-            it.add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask!!)
-            it.add(sourceSet.runtimeElementsConfigurationName, dependency.includeJarTask)
+            add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask!!)
+            add(sourceSet.runtimeElementsConfigurationName, dependency.includeJarTask)
         }
 
         for (name in listOf(
@@ -117,8 +118,8 @@ private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilat
             sourceSet.runtimeElementsConfigurationName
         )) {
             configurations.named(name) {
-                it.outgoing.variants.named(REMAPPED_SUBVARIANT_NAME) {
-                    it.artifact(tasks.named(dependency.sourceSet.jarTaskName))
+                outgoing.variants.named(REMAPPED_SUBVARIANT_NAME) {
+                    artifact(tasks.named(dependency.sourceSet.jarTaskName))
                 }
             }
         }
@@ -140,13 +141,13 @@ internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompi
     sourceSet.compileClasspath += dependency.sourceSet.output
     sourceSet.runtimeClasspath += dependency.sourceSet.output
 
-    configurations.named(sourceSet.runtimeElementsConfigurationName) { elementsConfiguration ->
-        configurations.named(dependency.sourceSet.runtimeElementsConfigurationName) { dependencyConfiguration ->
-            elementsConfiguration.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) { variant ->
-                val dependencyVariant = dependencyConfiguration.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME)
+    val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME)
+    }
 
-                variant.artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
-            }
+    configurations.named(sourceSet.runtimeElementsConfigurationName) {
+        outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) {
+            artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
         }
     }
 
@@ -165,13 +166,13 @@ internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetC
 
     sourceSet.resources.srcDir(dependency.sourceSet.resources)
 
-    configurations.named(sourceSet.runtimeElementsConfigurationName) { elementsConfiguration ->
-        configurations.named(dependency.sourceSet.runtimeElementsConfigurationName) { dependencyConfiguration ->
-            elementsConfiguration.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) { variant ->
-                val dependencyVariant = dependencyConfiguration.outgoing.variants.named(LibraryElements.RESOURCES)
+    val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.RESOURCES)
+    }
 
-                variant.artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
-            }
+    configurations.named(sourceSet.runtimeElementsConfigurationName) {
+        outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) {
+            artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
         }
     }
 

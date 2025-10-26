@@ -15,6 +15,9 @@ import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.domainObjectSet
+import org.gradle.kotlin.dsl.newInstance
+import org.gradle.kotlin.dsl.setProperty
 import javax.inject.Inject
 
 private fun collectTargetDependencies(target: ClocheTarget): Set<CommonTarget> =
@@ -44,7 +47,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
 ) : CommonTarget,
     CommonSecondarySourceSetsInternal, ClocheTargetInternal {
     val main: CommonTopLevelCompilation = run {
-        project.objects.newInstance(CommonTopLevelCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME, this)
+        project.objects.newInstance<CommonTopLevelCompilation>(SourceSet.MAIN_SOURCE_SET_NAME, this)
     }
 
     override val mixins get() = main.mixins
@@ -55,11 +58,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
     override val target = this
 
     override val client: LazyConfigurableInternal<CommonTopLevelCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(
-            CommonTopLevelCompilation::class.java,
-            ClochePlugin.CLIENT_COMPILATION_NAME,
-            this,
-        )
+        project.objects.newInstance<CommonTopLevelCompilation>(ClochePlugin.CLIENT_COMPILATION_NAME, this)
     }
 
     // Not lazy as it has to happen once at configuration time
@@ -69,10 +68,10 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     @Suppress("UNCHECKED_CAST")
     val metadataActions: DomainObjectCollection<Action<CommonMetadata>> =
-        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<CommonMetadata>>
+        project.objects.domainObjectSet(Action::class) as DomainObjectCollection<Action<CommonMetadata>>
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
-        project.objects.domainObjectSet(CommonTarget::class.java)
+        project.objects.domainObjectSet(CommonTarget::class)
 
     override val dependents: Provider<List<MinecraftTarget>> = run {
         val cloche = project.cloche
@@ -91,7 +90,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
         val objects = project.objects
 
         dependents.flatMap {
-            val versions = objects.setProperty(String::class.java)
+            val versions = objects.setProperty<String>()
 
             for (dependant in it) {
                 versions.add(dependant.minecraftVersion)

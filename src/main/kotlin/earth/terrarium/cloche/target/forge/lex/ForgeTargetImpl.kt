@@ -14,12 +14,15 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.newInstance
+import org.gradle.kotlin.dsl.register
 import java.io.File
 import javax.inject.Inject
 import kotlin.io.path.exists
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
-    override val runs: LexForgeRunConfigurations = objectFactory.newInstance(LexForgeRunConfigurations::class.java, this)
+    override val runs = objectFactory.newInstance<LexForgeRunConfigurations>(this)
 
     override val group
         @Internal
@@ -32,11 +35,10 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
     override val minecraftRemapNamespace: Provider<String>
         get() = providerFactory.provider { MinecraftCodevForgePlugin.SRG_MAPPINGS_NAMESPACE }
 
-    val generateMcpToSrg: TaskProvider<GenerateMcpToSrg> = project.tasks.register(
+    val generateMcpToSrg = project.tasks.register<GenerateMcpToSrg>(
         lowerCamelCaseGradleName("generate", featureName, "mcpToSrg"),
-        GenerateMcpToSrg::class.java,
     ) {
-        it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
+        mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
     }
 
     init {
@@ -52,11 +54,11 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
 
     private fun removeNameMappingService(compilation: Compilation) {
         project.configurations.named(compilation.sourceSet.compileClasspathConfigurationName) {
-            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+            attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
         }
 
         project.configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName) {
-            it.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+            attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
         }
     }
 
@@ -64,26 +66,28 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         "$minecraftVersion-$loaderVersion"
 
     override fun addJarInjects(compilation: CompilationInternal) {
-        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
-            it.manifest {
-                it.attributes["MixinConfigs"] = object {
+        project.tasks.named<Jar>(compilation.sourceSet.jarTaskName) {
+            manifest {
+                attributes["MixinConfigs"] = object {
                     override fun toString(): String {
                         return compilation.mixins.joinToString(",", transform = File::getName)
                     }
                 }
             }
 
-            it.doFirst { jar ->
-                jar as Jar
+            // TODO This is fundamentally broken as we are trying to access the not-yet-generated Jar to check if it contains a specific file,
+            //  to change the manifest used to generate said Jar
+/*            doFirst {
+                this as Jar
 
                 val accessTransformerName = "accesstransformer.cfg"
 
-                zipFileSystem(jar.archiveFile.get().asFile.toPath()).use {
+                zipFileSystem(archiveFile.get().asFile.toPath()).use {
                     if (it.getPath("META-INF", accessTransformerName).exists()) {
-                        jar.manifest.attributes["FMLAT"] = accessTransformerName
+                        manifest.attributes["FMLAT"] = accessTransformerName
                     }
                 }
-            }
+            }*/
         }
     }
 }

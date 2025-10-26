@@ -14,6 +14,8 @@ import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
+import org.gradle.kotlin.dsl.listProperty
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 abstract class FabricMetadata @Inject internal constructor(private val target: FabricTargetImpl) : CommonMetadata {
@@ -55,7 +57,7 @@ abstract class FabricMetadata @Inject internal constructor(private val target: F
     }
 
     fun entrypoint(name: String, value: String) = entrypoint(name) {
-        it.value.set(value)
+        this.value.set(value)
     }
 
     fun entrypoint(name: String, action: Action<Entrypoint>) =
@@ -67,9 +69,9 @@ abstract class FabricMetadata @Inject internal constructor(private val target: F
         }
 
         entrypoints!!.computeIfAbsent(name) { _ ->
-            objects.listProperty(Entrypoint::class.java)
+            objects.listProperty<Entrypoint>()
         }.addAll(actions.map {
-            objects.newInstance(Entrypoint::class.java).also(it::execute)
+            objects.newInstance<Entrypoint>().also(it::execute)
         })
     }
 

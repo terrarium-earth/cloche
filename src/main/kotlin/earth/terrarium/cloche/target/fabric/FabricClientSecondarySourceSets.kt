@@ -12,13 +12,14 @@ import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.lazyConfigurable
 import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.newInstance
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 internal abstract class FabricClientSecondarySourceSets @Inject constructor(info: TargetCompilationInfo<FabricTargetImpl>) : TargetCompilation<FabricTargetImpl>(info), FabricSecondarySourceSets {
     override val data: LazyConfigurableInternal<FabricCompilationImpl> = project.lazyConfigurable {
-        project.objects.newInstance(
-            FabricCompilationImpl::class.java,
+        project.objects.newInstance<FabricCompilationImpl>(
             TargetCompilationInfo(
                 name + TARGET_NAME_PATH_SEPARATOR + ClochePlugin.DATA_COMPILATION_NAME,
                 target,
@@ -35,8 +36,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
     }
 
     override val test: LazyConfigurableInternal<FabricCompilationImpl> = project.lazyConfigurable {
-        project.objects.newInstance(
-            FabricCompilationImpl::class.java,
+        project.objects.newInstance<FabricCompilationImpl>(
             TargetCompilationInfo(
                 name + TARGET_NAME_PATH_SEPARATOR + SourceSet.TEST_SOURCE_SET_NAME,
                 target,
@@ -53,10 +53,10 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
     }
 
     init {
-        project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(target.main.metadataDirectory)
+        project.tasks.named<ProcessResources>(sourceSet.processResourcesTaskName) {
+            from(target.main.metadataDirectory)
 
-            it.dependsOn(target.main.generateModJson)
+            dependsOn(target.main.generateModJson)
         }
 
         project.ideaModule(sourceSet) {

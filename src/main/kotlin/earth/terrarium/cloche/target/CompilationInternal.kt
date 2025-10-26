@@ -26,6 +26,9 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.kotlin.dsl.domainObjectSet
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.newInstance
 import org.gradle.plugins.ide.idea.model.IdeaModel
 
 internal fun modConfigurationName(name: String) =
@@ -33,7 +36,7 @@ internal fun modConfigurationName(name: String) =
 
 internal fun getNonProjectArtifacts(configuration: Provider<out Configuration>): Provider<ArtifactView> = configuration.map {
     it.incoming.artifactView {
-        it.componentFilter {
+        componentFilter {
             // We do *not* want to build anything during sync.
             it !is ProjectComponentIdentifier
         }
@@ -58,16 +61,16 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
         @Internal get
 
     val dependencyHandler: ClocheDependencyHandler by lazy(LazyThreadSafetyMode.NONE) {
-        project.objects.newInstance(ClocheDependencyHandler::class.java, target.minecraftVersion)
+        project.objects.newInstance<ClocheDependencyHandler>(target.minecraftVersion)
     }
 
     @Suppress("UNCHECKED_CAST")
     val attributeActions: DomainObjectCollection<Action<AttributeContainer>> =
-        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
+        project.objects.domainObjectSet(Action::class) as DomainObjectCollection<Action<AttributeContainer>>
 
     @Suppress("UNCHECKED_CAST")
     val resolvableAttributeActions: DomainObjectCollection<Action<AttributeContainer>> =
-        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<AttributeContainer>>
+        project.objects.domainObjectSet(Action::class) as DomainObjectCollection<Action<AttributeContainer>>
 
     var withJavadoc: Boolean = false
     var withSources: Boolean = false
@@ -110,7 +113,7 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
 
     open fun attributes(attributes: AttributeContainer) {
         attributeActions.all {
-            it.execute(attributes)
+            execute(attributes)
         }
     }
 
@@ -120,7 +123,7 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
 
     open fun resolvableAttributes(attributes: AttributeContainer) {
         resolvableAttributeActions.all {
-            it.execute(attributes)
+            execute(attributes)
         }
     }
 
@@ -162,30 +165,30 @@ internal fun Project.configureSourceSet(
         // TODO Groovy + Scala?
     }
 
-    val syncTask = tasks.named(IDE_SYNC_TASK_NAME) { task ->
-        task.dependsOn(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
+    val syncTask = tasks.named(IDE_SYNC_TASK_NAME) {
+        dependsOn(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
 
         if (compilation is TargetCompilation<*>) {
-            task.dependsOn(compilation.finalMinecraftFile)
-            task.dependsOn(compilation.info.extraClasspathFiles)
-            task.dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
+            dependsOn(compilation.finalMinecraftFile)
+            dependsOn(compilation.info.extraClasspathFiles)
+            dependsOn(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
         }
     }
 
     if (compilation is TargetCompilation<*>) {
         if (project == rootProject) {
             // afterEvaluate required as isDownloadSources is not lazy
-            afterEvaluate { project ->
-                syncTask.configure { task ->
+            afterEvaluate {
+                syncTask.configure {
                     if (project.extension<IdeaModel>().module.isDownloadSources) {
-                        task.dependsOn(compilation.sources)
+                        dependsOn(compilation.sources)
                     }
                 }
             }
         } else {
-            syncTask.configure { task ->
+            syncTask.configure {
                 if (rootProject.extension<IdeaModel>().module.isDownloadSources) {
-                    task.dependsOn(compilation.sources)
+                    dependsOn(compilation.sources)
                 }
             }
         }
@@ -225,19 +228,19 @@ internal fun Project.configureSourceSet(
         classifier
     }
 
-    tasks.named(sourceSet.jarTaskName, Jar::class.java) {
-        it.destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
+    tasks.named<Jar>(sourceSet.jarTaskName) {
+        destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
 
-        it.archiveClassifier.set(devClassifier)
+        archiveClassifier.set(devClassifier)
     }
 
     if (compilation is TargetCompilation<*>) {
         compilation.includeJarTask!!.configure {
-            it.archiveClassifier.set(classifier)
+            archiveClassifier.set(classifier)
         }
 
         compilation.remapJarTask!!.configure {
-            it.archiveClassifier.set(classifier)
+            archiveClassifier.set(classifier)
         }
     }
 }

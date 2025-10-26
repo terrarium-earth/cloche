@@ -26,6 +26,7 @@ import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.named
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
@@ -35,7 +36,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
         applyDefault(run)
         run.defaults {
-            action.execute(it.extension<ForgeRunsDefaultsContainer>())
+            action.execute(extension<ForgeRunsDefaultsContainer>())
         }
 
         return run
@@ -55,30 +56,30 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
-            it.server {
-                it.modOutputs.set(project.modOutputs(target.main))
+            server {
+                modOutputs.set(project.modOutputs(target.main))
 
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.writeLegacyClasspathTask.set(target.main.writeLegacyClasspath)
+                minecraftVersion.set(target.minecraftVersion)
+                patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
+                writeLegacyClasspathTask.set(target.main.writeLegacyClasspath)
 
-                it.configure(target.main)
+                configure(target.main)
             }
         }.withCompilation(target.main)
     }
 
     override val client = project.lazyConfigurable {
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
-            it.client {
-                it.modOutputs.set(project.modOutputs(target.main))
+            client {
+                modOutputs.set(project.modOutputs(target.main))
 
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.extractNativesTask.set(project.tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java))
-                it.downloadAssetsTask.set(project.tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java))
-                it.writeLegacyClasspathTask.set(target.main.writeLegacyClasspath)
+                minecraftVersion.set(target.minecraftVersion)
+                patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
+                extractNativesTask.set(project.tasks.named<ExtractNatives>(target.sourceSet.extractNativesTaskName))
+                downloadAssetsTask.set(project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName))
+                writeLegacyClasspathTask.set(target.main.writeLegacyClasspath)
 
-                it.configure(target.main)
+                configure(target.main)
             }
         }.withCompilation(target.main)
     }
@@ -87,39 +88,36 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
         val compilation = target.data.value
 
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
-            it.data {
-                it.modOutputs.set(project.modOutputs(compilation))
+            data {
+                modOutputs.set(project.modOutputs(compilation))
 
-                it.modId.set(project.modId)
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.mainResources.set(target.sourceSet.output.resourcesDir)
-                it.outputDirectory.set(target.datagenDirectory)
-                it.downloadAssetsTask.set(
-                    project.tasks.named(
-                        target.sourceSet.downloadAssetsTaskName,
-                        DownloadAssets::class.java
-                    )
+                modId.set(project.modId)
+                minecraftVersion.set(target.minecraftVersion)
+                patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
+                mainResources.set(target.sourceSet.output.resourcesDir)
+                outputDirectory.set(target.datagenDirectory)
+                downloadAssetsTask.set(
+                    project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
-                it.writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
+                writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
 
-                it.configure(compilation)
+                configure(compilation)
             }
         }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
 
-        project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(target.datagenDirectory)
-            it.mustRunAfter(data.runTask)
+        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
+            from(target.datagenDirectory)
+            mustRunAfter(data.runTask)
         }
 
         project.tasks.named(target.sourceSet.jarTaskName) {
-            it.dependsOn(data.runTask)
+            dependsOn(data.runTask)
         }
 
         target.test.onConfigured {
-            project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                it.from(target.datagenDirectory)
-                it.mustRunAfter(data.runTask)
+            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
+                from(target.datagenDirectory)
+                mustRunAfter(data.runTask)
             }
         }
 
@@ -156,41 +154,38 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
         val compilation = target.data.value
 
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
-            it.clientData {
-                it.modOutputs.set(project.modOutputs(compilation))
+            clientData {
+                modOutputs.set(project.modOutputs(compilation))
 
-                it.modId.set(project.modId)
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.outputDirectory.set(target.datagenClientDirectory)
-                it.commonOutputDirectory.set(target.datagenDirectory)
-                it.downloadAssetsTask.set(
-                    project.tasks.named(
-                        target.sourceSet.downloadAssetsTaskName,
-                        DownloadAssets::class.java
-                    )
+                modId.set(project.modId)
+                minecraftVersion.set(target.minecraftVersion)
+                patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
+                outputDirectory.set(target.datagenClientDirectory)
+                commonOutputDirectory.set(target.datagenDirectory)
+                downloadAssetsTask.set(
+                    project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
-                it.writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
+                writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
 
-                it.mainResources.set(target.sourceSet.output.resourcesDir)
+                mainResources.set(target.sourceSet.output.resourcesDir)
 
-                it.configure(compilation)
+                configure(compilation)
             }
         }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
 
-        project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(target.datagenClientDirectory)
-            it.mustRunAfter(clientData.runTask)
+        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
+            from(target.datagenClientDirectory)
+            mustRunAfter(clientData.runTask)
         }
 
         project.tasks.named(target.sourceSet.jarTaskName) {
-            it.dependsOn(clientData.runTask)
+            dependsOn(clientData.runTask)
         }
 
         target.test.onConfigured {
-            project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                it.from(target.datagenClientDirectory)
-                it.mustRunAfter(clientData.runTask)
+            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
+                from(target.datagenClientDirectory)
+                mustRunAfter(clientData.runTask)
             }
         }
 
@@ -231,14 +226,14 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
         val compilation = target.test.value
 
         create(SourceSet.TEST_SOURCE_SET_NAME) {
-            it.gameTestServer {
-                it.modOutputs.set(project.modOutputs(compilation))
+            gameTestServer {
+                modOutputs.set(project.modOutputs(compilation))
 
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                it.writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
+                minecraftVersion.set(target.minecraftVersion)
+                patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
+                writeLegacyClasspathTask.set(compilation.flatMap(ForgeCompilationImpl::writeLegacyClasspath))
 
-                it.configure(compilation)
+                configure(compilation)
             }
         }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::test.name) }
     }

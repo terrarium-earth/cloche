@@ -13,6 +13,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 abstract class ForgeMetadata @Inject internal constructor(private val target: ForgeLikeTargetImpl) : CommonMetadata {
@@ -72,9 +73,9 @@ abstract class ForgeMetadata @Inject internal constructor(private val target: Fo
         modProperties.putAll(data.mapValues { (_, value) -> convertToSerializable(objects, value) })
 
     fun loaderVersion(version: String) = loaderVersion {
-        it.start.set(version)
+        this.start.set(version)
     }
 
     fun loaderVersion(action: Action<VersionRange>) =
-        loaderVersion.set(objects.newInstance(VersionRange::class.java).also(action::execute))
+        loaderVersion.set(objects.newInstance<VersionRange>().also(action::execute))
 }

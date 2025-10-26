@@ -22,6 +22,10 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.kotlin.dsl.listProperty
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.newInstance
+import org.gradle.kotlin.dsl.register
 import org.jetbrains.kotlin.gradle.plugin.PLUGIN_CLASSPATH_CONFIGURATION_NAME
 
 private const val GENERATE_JAVA_EXPECT_STUBS_OPTION = "generateExpectStubs"
@@ -35,7 +39,7 @@ private fun convertClasspath(
         compilation.info.extraClasspathFiles.zip(compilation.finalMinecraftFile, List<RegularFile>::plus)
             .map {
                 it.map {
-                    val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
+                    val artifact = objects.newInstance<GenerateStubApi.ResolvedArtifact>()
 
                     artifact.file.set(it)
 
@@ -46,7 +50,7 @@ private fun convertClasspath(
     val artifacts = getNonProjectArtifacts(configurations.named(compilation.sourceSet.compileClasspathConfigurationName)).flatMap {
         it.artifacts.resolvedArtifacts.map { artifacts ->
             artifacts.map {
-                val artifact = objects.newInstance(GenerateStubApi.ResolvedArtifact::class.java)
+                val artifact = objects.newInstance<GenerateStubApi.ResolvedArtifact>()
 
                 artifact.id.set(it.id.componentIdentifier)
                 artifact.file.set(it.file)
@@ -73,14 +77,14 @@ internal fun createCommonTarget(
     ): FileCollection {
         val name = lowerCamelCaseGradleName("create", commonTarget.targetName, compilation.featureName, "apiStub")
 
-        val generateStub = tasks.register(name, GenerateStubApi::class.java) {
-            it.group = "minecraft-stubs"
+        val generateStub = tasks.register<GenerateStubApi>(name) {
+            group = "minecraft-stubs"
 
             val jarName = compilation.capabilitySuffix.map {
                 "${commonTarget.capabilitySuffix}-$it"
             }.orElse(commonTarget.capabilitySuffix)
 
-            it.apiFileName.set(jarName.map { "$it-api-stub.jar" } )
+            apiFileName.set(jarName.map { "$it-api-stub.jar" } )
 
             val objects = objects
             val configurations = configurations
@@ -88,7 +92,7 @@ internal fun createCommonTarget(
             val classpaths = compilations.flatMap {
                 @Suppress("UNCHECKED_CAST")
                 val classpath =
-                    objects.listProperty(List::class.java) as ListProperty<List<GenerateStubApi.ResolvedArtifact>>
+                    objects.listProperty<List<GenerateStubApi.ResolvedArtifact>>()
 
                 for (compilation in it) {
                     classpath.add(convertClasspath(compilation, configurations, objects))
@@ -97,12 +101,12 @@ internal fun createCommonTarget(
                 classpath
             }
 
-            it.classpaths.set(classpaths)
+            this.classpaths.set(classpaths)
 
-            it.dependsOn(compilations.map { it.map { it.info.extraClasspathFiles } })
-            it.dependsOn(compilations.map { it.map { it.finalMinecraftFile } })
+            dependsOn(compilations.map { it.map { it.info.extraClasspathFiles } })
+            dependsOn(compilations.map { it.map { it.finalMinecraftFile } })
 
-            it.dependsOn(files(compilations.map {
+            dependsOn(files(compilations.map {
                 it.map {
                     getRelevantSyncArtifacts(it.sourceSet.compileClasspathConfigurationName)
                 }
@@ -130,94 +134,94 @@ internal fun createCommonTarget(
 
         configureSourceSet(sourceSet, commonTarget, compilation)
 
-        components.named("java") { java ->
-            java as AdhocComponentWithVariants
+        components.named("java") {
+            this as AdhocComponentWithVariants
 
-            java.addVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) { variant ->
+            addVariantsFromConfiguration(configurations.getByName(sourceSet.runtimeElementsConfigurationName)) {
                 // Common compilations are not runnable.
-                variant.skip()
+                skip()
             }
         }
 
         val modImplementation =
             configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.modImplementation)
+                addCollectedDependencies(compilation.dependencyHandler.modImplementation)
             }
 
         val modApi = configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
-            it.addCollectedDependencies(compilation.dependencyHandler.modApi)
+            addCollectedDependencies(compilation.dependencyHandler.modApi)
         }
 
         val modCompileOnly =
             configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.modCompileOnly)
+                addCollectedDependencies(compilation.dependencyHandler.modCompileOnly)
             }
 
         val modCompileOnlyApi =
             configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.modCompileOnlyApi)
+                addCollectedDependencies(compilation.dependencyHandler.modCompileOnlyApi)
             }
 
         val modRuntimeOnly =
             configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.modRuntimeOnly)
+                addCollectedDependencies(compilation.dependencyHandler.modRuntimeOnly)
             }
 
         val modLocalRuntime =
             configurations.dependencyScope(modConfigurationName(sourceSet.localRuntimeConfigurationName)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.modLocalRuntime)
+                addCollectedDependencies(compilation.dependencyHandler.modLocalRuntime)
             }
 
         val modLocalImplementation =
             configurations.dependencyScope(modConfigurationName(sourceSet.localImplementationConfigurationName)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.modLocalImplementation)
+                addCollectedDependencies(compilation.dependencyHandler.modLocalImplementation)
             }
 
         configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)) {
-            it.addCollectedDependencies(compilation.dependencyHandler.implementation)
+            addCollectedDependencies(compilation.dependencyHandler.implementation)
 
-            it.extendsFrom(modImplementation.get())
+            extendsFrom(modImplementation.get())
         }
 
         configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)) {
-            it.addCollectedDependencies(compilation.dependencyHandler.api)
+            addCollectedDependencies(compilation.dependencyHandler.api)
 
-            it.extendsFrom(modApi.get())
+            extendsFrom(modApi.get())
         }
 
         val commonCompileOnly =
             configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME)) {
-                it.addCollectedDependencies(compilation.dependencyHandler.compileOnly)
+                addCollectedDependencies(compilation.dependencyHandler.compileOnly)
 
-                it.extendsFrom(modCompileOnly.get())
+                extendsFrom(modCompileOnly.get())
             }
 
         configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)) {
-            it.addCollectedDependencies(compilation.dependencyHandler.compileOnlyApi)
+            addCollectedDependencies(compilation.dependencyHandler.compileOnlyApi)
 
-            it.extendsFrom(modCompileOnlyApi.get())
+            extendsFrom(modCompileOnlyApi.get())
         }
 
         configurations.named(sourceSet.runtimeOnlyConfigurationName) {
-            it.addCollectedDependencies(compilation.dependencyHandler.runtimeOnly)
+            addCollectedDependencies(compilation.dependencyHandler.runtimeOnly)
 
-            it.extendsFrom(modRuntimeOnly.get())
+            extendsFrom(modRuntimeOnly.get())
         }
 
         configurations.named(sourceSet.localRuntimeConfigurationName) {
-            it.addCollectedDependencies(compilation.dependencyHandler.localRuntime)
+            addCollectedDependencies(compilation.dependencyHandler.localRuntime)
 
-            it.extendsFrom(modLocalRuntime.get())
+            extendsFrom(modLocalRuntime.get())
         }
 
         configurations.named(sourceSet.localImplementationConfigurationName) {
-            it.addCollectedDependencies(compilation.dependencyHandler.localImplementation)
+            addCollectedDependencies(compilation.dependencyHandler.localImplementation)
 
-            it.extendsFrom(modLocalImplementation.get())
+            extendsFrom(modLocalImplementation.get())
         }
 
         configurations.named(sourceSet.annotationProcessorConfigurationName) {
-            it.addCollectedDependencies(compilation.dependencyHandler.annotationProcessor)
+            addCollectedDependencies(compilation.dependencyHandler.annotationProcessor)
         }
 
         val intersectionResults = configurations.dependencyScope(
@@ -234,33 +238,33 @@ internal fun createCommonTarget(
         )
 
         compilation.attributes {
-            it.attribute(CompilationAttributes.SIDE, variant)
-            it.attribute(CompilationAttributes.DATA, data)
+            attribute(CompilationAttributes.SIDE, variant)
+            attribute(CompilationAttributes.DATA, data)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
-            afterEvaluate { project ->
+            afterEvaluate {
                 val commonType = commonTarget.commonType.getOrNull()
                 val minecraftVersion = commonTarget.minecraftVersion.getOrNull()
 
                 if (commonType != null) {
-                    it.attribute(CommonTargetAttributes.TYPE, commonType)
+                    attribute(CommonTargetAttributes.TYPE, commonType)
                 }
 
                 if (minecraftVersion != null) {
-                    it.attribute(TargetAttributes.MINECRAFT_VERSION, minecraftVersion)
+                    attribute(TargetAttributes.MINECRAFT_VERSION, minecraftVersion)
                 }
 
                 if (!onlyCommonOfType.get() && commonTarget.targetName != COMMON && !commonTarget.publish) {
-                    it.attribute(CommonTargetAttributes.NAME, commonTarget.targetName!!)
+                    attribute(CommonTargetAttributes.NAME, commonTarget.targetName!!)
                 }
             }
         }
 
         configurations.named(sourceSet.compileClasspathConfigurationName) {
-            it.extendsFrom(intersectionResults.get())
+            extendsFrom(intersectionResults.get())
 
-            it.attributes(compilation::attributes)
-            it.attributes(compilation::resolvableAttributes)
+            attributes(compilation::attributes)
+            attributes(compilation::resolvableAttributes)
         }
 
         for (name in listOf(
@@ -282,8 +286,8 @@ internal fun createCommonTarget(
             JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
         )
 
-        tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) {
-            it.options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
+        tasks.named<JavaCompile>(sourceSet.compileJavaTaskName) {
+            options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
         }
 
         plugins.withId(KOTLIN_JVM_PLUGIN_ID) {

@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target.fabric
 
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.run.RunConfigurations
@@ -26,6 +25,7 @@ import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.Action
 import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.named
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
@@ -34,7 +34,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         val run = project.extension<RunsContainer>().create(listOfNotNull(target.targetName, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
         run.defaults {
-            action.execute(it.extension<FabricRunsDefaultsContainer>())
+            action.execute(extension<FabricRunsDefaultsContainer>())
         }
 
         return run
@@ -50,9 +50,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
     override val server = project.lazyConfigurable {
         create(ClochePlugin.SERVER_RUNNABLE_NAME) {
-            it.server {
-                it.modOutputs.set(project.modOutputs(target.main))
-                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            server {
+                modOutputs.set(project.modOutputs(target.main))
+                writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
         }.withCompilation(target.main)
     }
@@ -61,22 +61,16 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         val compilation = target.client.value.map<TargetCompilation<*>> { it }.orElse(target.main)
 
         create(ClochePlugin.CLIENT_COMPILATION_NAME) {
-            it.client {
-                it.modOutputs.set(project.modOutputs(compilation))
-                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            client {
+                modOutputs.set(project.modOutputs(compilation))
+                writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.extractNativesTask.set(
-                    project.tasks.named(
-                        target.sourceSet.extractNativesTaskName,
-                        ExtractNatives::class.java
-                    )
+                minecraftVersion.set(target.minecraftVersion)
+                extractNativesTask.set(
+                    project.tasks.named<ExtractNatives>(target.sourceSet.extractNativesTaskName)
                 )
-                it.downloadAssetsTask.set(
-                    project.tasks.named(
-                        target.sourceSet.downloadAssetsTaskName,
-                        DownloadAssets::class.java
-                    )
+                downloadAssetsTask.set(
+                    project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
             }
         }.withCompilation(target, compilation) {
@@ -91,35 +85,32 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         val compilation = target.data.value
 
         val data = create(ClochePlugin.DATA_COMPILATION_NAME) {
-            it.data {
-                it.modOutputs.set(project.modOutputs(compilation))
-                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            data {
+                modOutputs.set(project.modOutputs(compilation))
+                writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(project.modId)
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.outputDirectory.set(target.datagenDirectory)
-                it.downloadAssetsTask.set(
-                    project.tasks.named(
-                        target.sourceSet.downloadAssetsTaskName,
-                        DownloadAssets::class.java
-                    )
+                modId.set(project.modId)
+                minecraftVersion.set(target.minecraftVersion)
+                outputDirectory.set(target.datagenDirectory)
+                downloadAssetsTask.set(
+                    project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
             }
         }.withCompilation(target, compilation) { quotedDescription(CommonSecondarySourceSets::data.name) }
 
-        project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(target.datagenDirectory)
-            it.mustRunAfter(data.runTask)
+        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
+            from(target.datagenDirectory)
+            mustRunAfter(data.runTask)
         }
 
         project.tasks.named(target.sourceSet.jarTaskName) {
-            it.dependsOn(data.runTask)
+            dependsOn(data.runTask)
         }
 
         target.test.onConfigured {
-            project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                it.from(target.datagenDirectory)
-                it.mustRunAfter(data.runTask)
+            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
+                from(target.datagenDirectory)
+                mustRunAfter(data.runTask)
             }
         }
 
@@ -148,18 +139,15 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         val compilation = target.client.value.flatMap { it.data.value }.orElse(target.data.value)
 
         val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
-            it.clientData {
-                it.modOutputs.set(project.modOutputs(compilation))
-                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            clientData {
+                modOutputs.set(project.modOutputs(compilation))
+                writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.modId.set(project.modId)
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.outputDirectory.set(target.datagenClientDirectory)
-                it.downloadAssetsTask.set(
-                    project.tasks.named(
-                        target.sourceSet.downloadAssetsTaskName,
-                        DownloadAssets::class.java
-                    )
+                modId.set(project.modId)
+                minecraftVersion.set(target.minecraftVersion)
+                outputDirectory.set(target.datagenClientDirectory)
+                downloadAssetsTask.set(
+                    project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
             }
         }.withCompilation(target, compilation) {
@@ -167,21 +155,21 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         }
 
         target.client.onConfigured {
-            project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                it.from(target.datagenDirectory)
-                it.from(target.datagenClientDirectory)
-                it.mustRunAfter(clientData.runTask)
+            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
+                from(target.datagenDirectory)
+                from(target.datagenClientDirectory)
+                mustRunAfter(clientData.runTask)
             }
 
             project.tasks.named(it.sourceSet.jarTaskName) {
-                it.dependsOn(clientData.runTask)
+                dependsOn(clientData.runTask)
             }
 
             it.test.onConfigured {
-                project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                    it.from(target.datagenDirectory)
-                    it.from(target.datagenClientDirectory)
-                    it.mustRunAfter(clientData.runTask)
+                project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
+                    from(target.datagenDirectory)
+                    from(target.datagenClientDirectory)
+                    mustRunAfter(clientData.runTask)
                 }
             }
 
@@ -199,19 +187,19 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         }
 
         target.onClientIncluded {
-            project.tasks.named(target.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                it.from(target.datagenClientDirectory)
-                it.mustRunAfter(clientData.runTask)
+            project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
+                from(target.datagenClientDirectory)
+                mustRunAfter(clientData.runTask)
             }
 
             project.tasks.named(target.sourceSet.jarTaskName) {
-                it.dependsOn(clientData.runTask)
+                dependsOn(clientData.runTask)
             }
 
             target.test.onConfigured {
-                project.tasks.named(it.sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-                    it.from(target.datagenClientDirectory)
-                    it.mustRunAfter(clientData.runTask)
+                project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
+                    from(target.datagenClientDirectory)
+                    mustRunAfter(clientData.runTask)
                 }
             }
 
@@ -253,9 +241,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         val compilation = target.test.value
 
         create(SourceSet.TEST_SOURCE_SET_NAME) {
-            it.gameTestServer {
-                it.modOutputs.set(project.modOutputs(compilation))
-                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            gameTestServer {
+                modOutputs.set(project.modOutputs(compilation))
+                writeRemapClasspathTask.set(target.writeRemapClasspathTask)
             }
         }.withCompilation(target, compilation) {
             quotedDescription(CommonSecondarySourceSets::test.name)
@@ -265,22 +253,16 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val clientTest = project.lazyConfigurable {
         val compilation = target.client.value.flatMap { it.test.value }.orElse(target.test.value)
         create(ClochePlugin.CLIENT_COMPILATION_NAME, SourceSet.TEST_SOURCE_SET_NAME) {
-            it.gameTestClient {
-                it.modOutputs.set(project.modOutputs(compilation))
-                it.writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+            gameTestClient {
+                modOutputs.set(project.modOutputs(compilation))
+                writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
-                it.minecraftVersion.set(target.minecraftVersion)
-                it.extractNativesTask.set(
-                    project.tasks.named(
-                        target.sourceSet.extractNativesTaskName,
-                        ExtractNatives::class.java
-                    )
+                minecraftVersion.set(target.minecraftVersion)
+                extractNativesTask.set(
+                    project.tasks.named<ExtractNatives>(target.sourceSet.extractNativesTaskName)
                 )
-                it.downloadAssetsTask.set(
-                    project.tasks.named(
-                        target.sourceSet.downloadAssetsTaskName,
-                        DownloadAssets::class.java
-                    )
+                downloadAssetsTask.set(
+                    project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
             }
         }.withCompilation(target, compilation) {

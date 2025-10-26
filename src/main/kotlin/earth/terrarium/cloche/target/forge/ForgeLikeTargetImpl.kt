@@ -36,6 +36,9 @@ import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.newInstance
+import org.gradle.kotlin.dsl.register
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
@@ -43,43 +46,33 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     MinecraftTargetInternal(name), ForgeLikeTarget {
     internal val minecraftLibrariesConfiguration: Configuration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "minecraftLibraries")) {
-            it.isCanBeConsumed = false
+            isCanBeConsumed = false
 
-            it.attributes.attribute(
+            attributes.attribute(
                 MinecraftOperatingSystemAttribute.attribute,
-                objectFactory.named(
-                    MinecraftOperatingSystemAttribute::class.java,
-                    operatingSystemName(),
-                ),
+                objectFactory.named(operatingSystemName()),
             )
 
-            it.attributes.attribute(
-                Usage.USAGE_ATTRIBUTE,
-                objectFactory.named(
-                    Usage::class.java,
-                    Usage.JAVA_RUNTIME,
-                )
-            )
+            attributes.attribute(Usage.USAGE_ATTRIBUTE, objectFactory.named(Usage.JAVA_RUNTIME))
         }
 
     private val universal = project.configurations.create(lowerCamelCaseGradleName(featureName, "forgeUniversal")) {
-        it.isCanBeConsumed = false
+        isCanBeConsumed = false
     }
 
     private val sideProvider = project.provider {
         PublicationSide.Joined
     }
 
-    internal val resolvePatchedMinecraft: TaskProvider<ResolvePatchedMinecraft> = project.tasks.register(
+    internal val resolvePatchedMinecraft = project.tasks.register<ResolvePatchedMinecraft>(
         lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft"),
-        ResolvePatchedMinecraft::class.java
     ) {
-        it.group = "minecraft-resolution"
+        group = "minecraft-resolution"
 
-        it.minecraftVersion.set(minecraftVersion)
-        it.universal.from(universal)
+        minecraftVersion.set(this@ForgeLikeTargetImpl.minecraftVersion)
+        universal.from(this@ForgeLikeTargetImpl.universal)
 
-        it.output.set(output(minecraftRemapNamespace.map {
+        output.set(output(minecraftRemapNamespace.map {
             it.ifEmpty {
                 MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE
             }
@@ -92,52 +85,46 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     final override val main: ForgeCompilationImpl
 
     final override val data: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
-        val data = run {
-            objectFactory.newInstance(
-                ForgeCompilationImpl::class.java,
-                TargetCompilationInfo(
-                    ClochePlugin.DATA_COMPILATION_NAME,
-                    this,
-                    project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                    minecraftFile,
-                    project.provider { emptyList<RegularFile>() },
-                    sideProvider,
-                    data = true,
-                    test = false,
-                    includeState = IncludeTransformationStateAttribute.None,
-                    includeJarType = JarJar::class.java,
-                ),
-            )
-        }
+        val data = objectFactory.newInstance<ForgeCompilationImpl>(
+            TargetCompilationInfo(
+                ClochePlugin.DATA_COMPILATION_NAME,
+                this,
+                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                minecraftFile,
+                project.provider { emptyList<RegularFile>() },
+                sideProvider,
+                data = true,
+                test = false,
+                includeState = IncludeTransformationStateAttribute.None,
+                includeJarType = JarJar::class.java,
+            ),
+        )
 
-        data.dependencies { dependencies ->
-            dependencies.runtimeOnly.add(project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)))
+        data.dependencies {
+            runtimeOnly.add(project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)))
         }
 
         data
     }
 
     final override val test: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
-        val data = run {
-            objectFactory.newInstance(
-                ForgeCompilationImpl::class.java,
-                TargetCompilationInfo(
-                    SourceSet.TEST_SOURCE_SET_NAME,
-                    this,
-                    project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                    minecraftFile,
-                    project.provider { emptyList() },
-                    sideProvider,
-                    data = false,
-                    test = true,
-                    includeState = IncludeTransformationStateAttribute.None,
-                    includeJarType = JarJar::class.java,
-                ),
-            )
-        }
+        val data = objectFactory.newInstance<ForgeCompilationImpl>(
+            TargetCompilationInfo(
+                SourceSet.TEST_SOURCE_SET_NAME,
+                this,
+                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+                minecraftFile,
+                project.provider { emptyList() },
+                sideProvider,
+                data = false,
+                test = true,
+                includeState = IncludeTransformationStateAttribute.None,
+                includeJarType = JarJar::class.java,
+            ),
+        )
 
-        data.dependencies { dependencies ->
-            dependencies.runtimeOnly.add(project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)))
+        data.dependencies {
+            runtimeOnly.add(project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra)))
         }
 
         data
@@ -149,31 +136,29 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     override val hasSeparateClient: Provider<Boolean> =
         providerFactory.provider { false }
 
-    override val runs: ForgeRunConfigurations<out ForgeLikeTargetImpl> =
-        objectFactory.newInstance(ForgeRunConfigurations::class.java, this)
+    override val runs = objectFactory.newInstance<ForgeRunConfigurations<out ForgeLikeTargetImpl>>(this)
 
     abstract val group: String
     abstract val artifact: String
 
     override val commonType get() = FORGE
 
-    override val metadata: ForgeMetadata = objectFactory.newInstance(ForgeMetadata::class.java, this)
+    override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
 
-    private val remapTask = project.tasks.register(
+    private val remapTask = project.tasks.register<RemapTask>(
         lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
-        RemapTask::class.java,
     ) {
-        it.group = "minecraft-transforms"
+        group = "minecraft-transforms"
 
-        it.inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
+        inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
 
-        it.classpath.from(minecraftLibrariesConfiguration)
+        classpath.from(minecraftLibrariesConfiguration)
 
-        it.mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
+        mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
 
-        it.sourceNamespace.set(minecraftRemapNamespace)
+        sourceNamespace.set(minecraftRemapNamespace)
 
-        it.outputFile.set(output(project.provider { MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE }))
+        outputFile.set(output(project.provider { MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE }))
     }
 
     private val minecraftFile = minecraftRemapNamespace.flatMap {
@@ -187,7 +172,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     init {
         project.dependencies.add(minecraftLibrariesConfiguration.name, forgeDependency {
             capabilities {
-                it.requireFeature("dependencies")
+                requireFeature("dependencies")
             }
         })
 
@@ -195,8 +180,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         metadata.modLoader.set("javafml")
 
-        main = objectFactory.newInstance(
-            ForgeCompilationImpl::class.java,
+        main = objectFactory.newInstance<ForgeCompilationImpl>(
             TargetCompilationInfo(
                 SourceSet.MAIN_SOURCE_SET_NAME,
                 this,
@@ -214,7 +198,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
-            it.extendsFrom(minecraftLibrariesConfiguration)
+            extendsFrom(minecraftLibrariesConfiguration)
         }
 
         project.dependencies.add(
@@ -224,15 +208,15 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         val userdev = forgeDependency {
             capabilities {
-                it.requireFeature("moddev-bundle")
+                requireFeature("moddev-bundle")
             }
         }
 
         project.dependencies.addProvider(sourceSet.patchesConfigurationName, userdev)
 
         resolvePatchedMinecraft.configure {
-            it.patches.from(project.configurations.named(sourceSet.patchesConfigurationName))
-            it.libraries.from(minecraftLibrariesConfiguration)
+            patches.from(project.configurations.named(sourceSet.patchesConfigurationName))
+            libraries.from(minecraftLibrariesConfiguration)
         }
 
         project.dependencies.addProvider(sourceSet.mappingsConfigurationName, userdev)
@@ -247,7 +231,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     }
 
     internal fun loaderVersionRange(version: String): CommonMetadata.VersionRange =
-        objectFactory.newInstance(CommonMetadata.VersionRange::class.java).apply {
+        objectFactory.newInstance<CommonMetadata.VersionRange>().apply {
             start.set(version)
         }
 
@@ -255,8 +239,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         minecraftVersion.flatMap { minecraftVersion ->
             loaderVersion.map { forgeVersion ->
                 module(group, artifact, null).apply {
-                    version { version ->
-                        version.strictly(version(minecraftVersion, forgeVersion))
+                    version {
+                        strictly(version(minecraftVersion, forgeVersion))
                     }
 
                     configure()
@@ -271,30 +255,29 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             return
         }
 
-        val task = project.tasks.register(
+        val task = project.tasks.register<GenerateAccessTransformer>(
             lowerCamelCaseGradleName("generate", name, compilation.featureName, "accessTransformer"),
-            GenerateAccessTransformer::class.java
         ) {
-            it.input.from(accessWideners)
+            input.from(accessWideners)
 
             val output = project.layout.buildDirectory.dir("generated")
                 .map { directory ->
                     directory.dir("accessTransformers").dir(compilation.sourceSet.name).file("accesstransformer.cfg")
                 }
 
-            it.output.set(output)
+            this.output.set(output)
         }
 
-        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
-            it.from(task.flatMap(GenerateAccessTransformer::output)) {
-                it.into("META-INF")
+        project.tasks.named<Jar>(compilation.sourceSet.jarTaskName) {
+            from(task.flatMap(GenerateAccessTransformer::output)) {
+                into("META-INF")
             }
         }
     }
 
     override fun addAnnotationProcessors(compilation: CompilationInternal) {
         project.configurations.named(compilation.sourceSet.annotationProcessorConfigurationName) {
-            it.extendsFrom(minecraftLibrariesConfiguration)
+            extendsFrom(minecraftLibrariesConfiguration)
         }
 
         // TODO Add forge mixin arguments

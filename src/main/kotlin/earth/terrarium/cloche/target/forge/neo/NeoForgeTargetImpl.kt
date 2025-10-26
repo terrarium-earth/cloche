@@ -20,6 +20,7 @@ import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.kotlin.dsl.named
 import java.util.jar.JarFile
 import javax.inject.Inject
 import kotlin.io.path.exists
@@ -57,16 +58,16 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
     init {
         minecraftLibrariesConfiguration.attributes {
-            it.attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
+            attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
 
-            it.attribute(
+            attribute(
                 NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE,
                 operatingSystemName(),
             )
         }
 
         resolvePatchedMinecraft.configure {
-            it.neoforge.set(true)
+            neoforge.set(true)
         }
 
         resolvableAttributes(::addAttributes)
@@ -95,11 +96,11 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
             return
         }
 
-        project.tasks.named(compilation.sourceSet.jarTaskName, Jar::class.java) {
-            it.doLast {
-                it as Jar
+        project.tasks.named<Jar>(compilation.sourceSet.jarTaskName) {
+            doLast {
+                this as Jar
 
-                zipFileSystem(it.archiveFile.get().asFile.toPath()).use {
+                zipFileSystem(archiveFile.get().asFile.toPath()).use {
                     val accessTransformerPathName = "META-INF/accesstransformer.cfg"
                     val accessTransformerPath = it.getPath(accessTransformerPathName)
                     val tomlPath = it.getPath("META-INF", "neoforge.mods.toml")

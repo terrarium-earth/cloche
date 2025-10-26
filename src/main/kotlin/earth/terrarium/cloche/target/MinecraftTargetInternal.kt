@@ -26,6 +26,8 @@ import org.gradle.api.file.Directory
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskProvider
+import org.gradle.kotlin.dsl.domainObjectSet
+import org.gradle.kotlin.dsl.register
 
 internal fun Configuration.addCollectedDependencies(collector: DependencyCollector) {
     dependencies.addAllLater(collector.dependencies)
@@ -42,7 +44,7 @@ internal abstract class MinecraftTargetInternal(
     abstract val commonType: String
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
-        project.objects.domainObjectSet(CommonTarget::class.java)
+        project.objects.domainObjectSet(CommonTarget::class)
 
     open val modRemapNamespace: Provider<String>
         @Internal get() = minecraftRemapNamespace
@@ -53,10 +55,10 @@ internal abstract class MinecraftTargetInternal(
     abstract val runs: RunConfigurations
 
     val loadMappingsTask: TaskProvider<LoadMappings> =
-        project.tasks.register(lowerCamelCaseGradleName("load", featureName, "mappings"), LoadMappings::class.java) {
-            it.mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
+        project.tasks.register<LoadMappings>(lowerCamelCaseGradleName("load", featureName, "mappings")) {
+            mappings.from(project.configurations.named(sourceSet.mappingsConfigurationName))
 
-            it.javaExecutable.set(project.javaExecutableFor(minecraftVersion, it.cacheParameters))
+            javaExecutable.set(project.javaExecutableFor(minecraftVersion, cacheParameters))
         }
 
     val mappingsBuildDependenciesHolder: Configuration =
@@ -79,11 +81,13 @@ internal abstract class MinecraftTargetInternal(
 
     @Suppress("UNCHECKED_CAST")
     private val mappingActions =
-        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<MappingsBuilder>>
+        project.objects.domainObjectSet(Action::class) as DomainObjectCollection<Action<MappingsBuilder>>
 
     init {
-        dependsOn.all { dependency ->
-            useCommonMetadata(dependency as CommonTargetInternal)
+        dependsOn.all {
+            this as CommonTargetInternal
+
+            useCommonMetadata()
         }
 
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
@@ -103,13 +107,15 @@ internal abstract class MinecraftTargetInternal(
         }
     }
 
-    private fun useCommonMetadata(commonTarget: CommonTargetInternal) {
-        commonTarget.dependsOn.all {
-            useCommonMetadata(it as CommonTargetInternal)
+    private fun CommonTargetInternal.useCommonMetadata() {
+        dependsOn.all {
+            this as CommonTargetInternal
+
+            useCommonMetadata()
         }
 
-        commonTarget.metadataActions.all { metadataAction ->
-            metadataAction.execute(metadata)
+        metadataActions.all {
+            execute(metadata)
         }
     }
 
@@ -139,16 +145,16 @@ internal abstract class MinecraftTargetInternal(
     }
 
     protected fun registerMappings() {
-        mappingActions.all { action ->
-            action.execute(mappings)
+        mappingActions.all {
+            execute(mappings)
         }
 
         project.configurations.named(sourceSet.mappingsConfigurationName) {
-            it.dependencies.addAllLater(mappings.isConfigured.map {
+            dependencies.addAllLater(mappings.isConfigured.map {
                 if (it) {
                     emptyList()
                 } else {
-                    listOf(project.dependencies.create(officialMappingsDependency(project, this)))
+                    listOf(project.dependencies.create(officialMappingsDependency(project, this@MinecraftTargetInternal)))
                 }
             })
         }
