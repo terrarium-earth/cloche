@@ -95,6 +95,6 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
         const val KOTLIN_JVM_PLUGIN_ID = "org.jetbrains.kotlin.jvm"
 
         @JvmField
-        val MINIMUM_GRADLE: GradleVersion = GradleVersion.version("8.11")
+        val MINIMUM_GRADLE: GradleVersion = GradleVersion.version("9.0.0")
     }
 }
