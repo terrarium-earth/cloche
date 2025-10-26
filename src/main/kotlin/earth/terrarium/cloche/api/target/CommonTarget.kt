@@ -4,7 +4,6 @@ import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Optional

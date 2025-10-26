@@ -53,7 +53,6 @@ context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
     getNonProjectArtifacts(configurations.named(configurationName)).map(ArtifactView::getFiles)
 
-@JvmDefaultWithoutCompatibility
 internal abstract class CompilationInternal : Compilation, Dependencies {
     abstract val isTest: Boolean
 

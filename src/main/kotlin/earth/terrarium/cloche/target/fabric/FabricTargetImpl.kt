@@ -6,12 +6,12 @@ import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
-import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
 import earth.terrarium.cloche.api.target.isSingleTarget
 import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.metadata.FabricConfigurationMetadata
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
@@ -295,7 +295,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         registerCommonCompilation(SourceSet.TEST_SOURCE_SET_NAME)
     }
 
-    override val metadata = project.objects.newInstance<FabricMetadata>(this)
+    override val metadata = project.objects.newInstance<FabricConfigurationMetadata>(this)
 
     protected abstract val providerFactory: ProviderFactory
         @Inject get
@@ -313,7 +313,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     private val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
 
     private val fabricLoader = loaderVersion.map {
-        main.dependencyHandler.module("net.fabricmc", "fabric-loader", it)
+        project.dependencyFactory.create("net.fabricmc", "fabric-loader", it)
     }
 
     init {
@@ -580,7 +580,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     override fun addAnnotationProcessors(compilation: CompilationInternal) {
         compilation.dependencyHandler.annotationProcessor.add(fabricLoader)
         compilation.dependencyHandler.annotationProcessor.add(project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
-        compilation.dependencyHandler.annotationProcessor.add(main.dependencyHandler.module("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
+        compilation.dependencyHandler.annotationProcessor.add(project.dependencyFactory.create("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
 
         project.tasks.named<JavaCompile>(compilation.sourceSet.compileJavaTaskName) {
             val inMapFile = lowerCamelCaseGradleName(

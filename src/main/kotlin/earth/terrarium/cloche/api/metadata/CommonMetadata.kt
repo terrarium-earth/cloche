@@ -87,6 +87,20 @@ interface CommonMetadata {
         metadata.custom.putAll(custom)
     }
 
+    fun set(other: CommonMetadata) {
+        name.set(other.name)
+        description.set(other.description)
+        license.set(other.license)
+        icon.set(other.icon)
+        url.set(other.url)
+        issues.set(other.issues)
+        sources.set(other.sources)
+        authors.set(other.authors)
+        contributors.set(other.contributors)
+        dependencies.set(other.dependencies)
+        custom.set(other.custom)
+    }
+
     fun contributor(name: String) = contributor {
         this.name.set(name)
     }

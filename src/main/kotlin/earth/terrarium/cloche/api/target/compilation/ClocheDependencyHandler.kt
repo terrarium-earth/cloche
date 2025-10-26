@@ -10,7 +10,6 @@ import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
-@JvmDefaultWithoutCompatibility
 abstract class ClocheDependencyHandler @Inject constructor(private val minecraftVersion: Provider<String>) : JvmComponentDependencies {
     abstract val include: DependencyCollector
 
@@ -71,7 +70,7 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
     }
 
     private fun fabricApiDependency(apiVersion: String, minecraftVersion: String) =
-        module("net.fabricmc.fabric-api", "fabric-api", "$apiVersion+$minecraftVersion")
+        dependencyFactory.create("net.fabricmc.fabric-api", "fabric-api", "$apiVersion+$minecraftVersion")
 
     abstract class SkipIncludeTransformationDependencyModifier : DependencyModifier() {
         override fun modifyImplementation(dependency: ModuleDependency) {

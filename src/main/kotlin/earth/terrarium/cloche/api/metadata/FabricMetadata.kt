@@ -1,32 +1,23 @@
 package earth.terrarium.cloche.api.metadata
 
 import earth.terrarium.cloche.api.metadata.CommonMetadata.Environment
-import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.LazyConfigurableInternal
-import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.gradle.api.Action
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 import org.gradle.kotlin.dsl.listProperty
 import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
-abstract class FabricMetadata @Inject internal constructor(private val target: FabricTargetImpl) : CommonMetadata {
+abstract class FabricMetadata : CommonMetadata {
     abstract val environment: Property<Environment>
         @Optional
         @Input
-        get
-
-    abstract var entrypoints: MutableMap<String, ListProperty<Entrypoint>>?
-        @Input
-        @Optional
         get
 
     abstract val languageAdapters: MapProperty<String, String>
@@ -34,27 +25,7 @@ abstract class FabricMetadata @Inject internal constructor(private val target: F
         @Optional
         get
 
-    fun withJson(action: Action<MetadataFileProvider<JsonObject>>) {
-        target.withMetadataJson(action)
-
-        target.data.onConfigured {
-            it.withMetadataJson(action)
-        }
-
-        target.test.onConfigured {
-            it.withMetadataJson(action)
-        }
-
-        target.client.onConfigured {
-            it.data.onConfigured {
-                it.withMetadataJson(action)
-            }
-
-            it.test.onConfigured {
-                it.withMetadataJson(action)
-            }
-        }
-    }
+    abstract fun withJson(action: Action<MetadataFileProvider<JsonObject>>)
 
     fun entrypoint(name: String, value: String) = entrypoint(name) {
         this.value.set(value)
@@ -63,16 +34,13 @@ abstract class FabricMetadata @Inject internal constructor(private val target: F
     fun entrypoint(name: String, action: Action<Entrypoint>) =
         entrypoint(name, listOf(action))
 
-    fun entrypoint(name: String, actions: List<Action<Entrypoint>>) {
-        if (entrypoints == null) {
-            entrypoints = mutableMapOf()
-        }
+    abstract fun entrypoint(name: String, actions: List<Action<Entrypoint>>)
 
-        entrypoints!!.computeIfAbsent(name) { _ ->
-            objects.listProperty<Entrypoint>()
-        }.addAll(actions.map {
-            objects.newInstance<Entrypoint>().also(it::execute)
-        })
+    fun set(other: FabricMetadata) {
+        super.set(other)
+
+        environment.set(other.environment)
+        languageAdapters.set(other.languageAdapters)
     }
 
     interface Entrypoint {

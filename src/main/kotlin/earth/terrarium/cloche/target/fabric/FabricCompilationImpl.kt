@@ -29,7 +29,7 @@ internal abstract class FabricCompilationImpl @Inject constructor(info: TargetCo
             it.file(MinecraftCodevFabricPlugin.MOD_JSON)
         })
 
-        targetMetadata.set(target.metadata)
+        metadata.set(target.metadata)
 
         mixinConfigs.from(mixins)
 

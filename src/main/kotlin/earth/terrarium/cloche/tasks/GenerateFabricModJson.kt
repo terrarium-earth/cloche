@@ -3,6 +3,7 @@ package earth.terrarium.cloche.tasks
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.metadata.custom.convertToJsonFromSerializable
+import earth.terrarium.cloche.metadata.FabricTaskMetadata
 import earth.terrarium.cloche.metadata.fabricJsonMetadataAction
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.tasks.data.FabricMod
@@ -39,7 +40,7 @@ abstract class GenerateFabricModJson : DefaultTask() {
     abstract val modId: Property<String>
         @Internal get
 
-    abstract val targetMetadata: Property<FabricMetadata>
+    abstract val metadata: FabricTaskMetadata
         @Nested get
 
     abstract val modVersion: Property<String>
@@ -116,7 +117,6 @@ abstract class GenerateFabricModJson : DefaultTask() {
     @TaskAction
     fun makeJson() {
         val modId = modId.get()
-        val metadata = targetMetadata.get()
 
         val authors = metadata.authors.get().map(::convertPerson)
         val contributors = metadata.contributors.get().map(::convertPerson)
@@ -140,14 +140,14 @@ abstract class GenerateFabricModJson : DefaultTask() {
             FabricMod.Mixin(it, "client")
         }
 
-        val entrypoints = metadata.entrypoints?.mapValues { (_, values) ->
+        val entrypoints = metadata.entrypoints.mapValues { (_, values) ->
             values.get().map { entrypoint ->
                 FabricMod.Entrypoint(
                     value = entrypoint.value.get(),
                     adapter = entrypoint.adapter.orNull,
                 )
             }
-        } ?: emptyMap()
+        }
 
         val dependencies = metadata.dependencies.get()
 

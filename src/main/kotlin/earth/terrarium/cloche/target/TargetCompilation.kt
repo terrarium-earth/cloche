@@ -237,7 +237,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             lowerCamelCaseGradleName(
                 target.featureName,
                 featureName,
-                "includeFiles"
+                "includeFiles",
             )
         ) {
             extendsFrom(includeBucketConfiguration.get())

@@ -124,7 +124,7 @@ minecraftVersion = "1.21.1"
 common {
     // common is implicit if not in single target mode, but can be additionally configured
     dependencies {
-        implementation(module(group = "some.module", name = "my-library", version = "1.0.0"))
+        implementation(dependencyFactory.create(group = "some.module", name = "my-library", version = "1.0.0"))
     }
 }
 
