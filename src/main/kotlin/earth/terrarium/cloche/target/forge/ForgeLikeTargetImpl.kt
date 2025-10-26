@@ -34,7 +34,6 @@ import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
-import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
@@ -82,7 +81,44 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     override val finalJar
         get() = main.includeJarTask!!
 
-    final override val main: ForgeCompilationImpl
+    private val remapTask = project.tasks.register<RemapTask>(
+        lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
+    ) {
+        group = "minecraft-transforms"
+
+        inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
+
+        classpath.from(minecraftLibrariesConfiguration)
+
+        mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
+
+        sourceNamespace.set(minecraftRemapNamespace)
+
+        outputFile.set(output(project.provider { MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE }))
+    }
+
+    private val minecraftFile = minecraftRemapNamespace.flatMap {
+        if (it.isEmpty()) {
+            resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
+        } else {
+            remapTask.flatMap(RemapTask::outputFile)
+        }
+    }
+
+    final override val main: ForgeCompilationImpl = objectFactory.newInstance<ForgeCompilationImpl>(
+        TargetCompilationInfo(
+            SourceSet.MAIN_SOURCE_SET_NAME,
+            this,
+            project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
+            minecraftFile,
+            project.provider { emptyList() },
+            sideProvider,
+            data = false,
+            test = false,
+            includeState = IncludeTransformationStateAttribute.None,
+            includeJarType = JarJar::class.java,
+        ),
+    )
 
     final override val data: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
         val data = objectFactory.newInstance<ForgeCompilationImpl>(
@@ -144,30 +180,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     override val commonType get() = FORGE
 
     override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
-
-    private val remapTask = project.tasks.register<RemapTask>(
-        lowerCamelCaseGradleName("remap", name, "minecraftNamed"),
-    ) {
-        group = "minecraft-transforms"
-
-        inputFile.set(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output))
-
-        classpath.from(minecraftLibrariesConfiguration)
-
-        mappings.set(loadMappingsTask.flatMap(LoadMappings::output))
-
-        sourceNamespace.set(minecraftRemapNamespace)
-
-        outputFile.set(output(project.provider { MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE }))
-    }
-
-    private val minecraftFile = minecraftRemapNamespace.flatMap {
-        if (it.isEmpty()) {
-            resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)
-        } else {
-            remapTask.flatMap(RemapTask::outputFile)
-        }
-    }
+    override val legacyClasspath = main.legacyClasspath
 
     init {
         project.dependencies.add(minecraftLibrariesConfiguration.name, forgeDependency {
@@ -179,21 +192,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         project.dependencies.add(universal.name, forgeDependency {})
 
         metadata.modLoader.set("javafml")
-
-        main = objectFactory.newInstance<ForgeCompilationImpl>(
-            TargetCompilationInfo(
-                SourceSet.MAIN_SOURCE_SET_NAME,
-                this,
-                project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
-                minecraftFile,
-                project.provider { emptyList() },
-                sideProvider,
-                data = false,
-                test = false,
-                includeState = IncludeTransformationStateAttribute.None,
-                includeJarType = JarJar::class.java,
-            ),
-        )
 
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 

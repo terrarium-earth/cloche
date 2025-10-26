@@ -272,6 +272,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         client
     }
 
+    // TODO Use FabricIncludedClient::mixins
     final override val includedClient: LazyConfigurableInternal<FabricIncludedClient> = project.lazyConfigurable {
         if (client.isConfiguredValue) {
             throw InvalidUserCodeException("Used 'includedClient' in target $name after already configuring client compilation")
