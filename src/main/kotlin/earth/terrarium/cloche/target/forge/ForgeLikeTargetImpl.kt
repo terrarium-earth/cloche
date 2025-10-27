@@ -7,7 +7,6 @@ import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
-import earth.terrarium.cloche.metadata.ForgeConfigurationMetadata
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
@@ -180,7 +179,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     override val commonType get() = FORGE
 
-    override val metadata = objectFactory.newInstance<ForgeConfigurationMetadata>(this)
+    override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
     override val legacyClasspath = main.legacyClasspath
 
     init {
@@ -192,7 +191,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         project.dependencies.add(universal.name, forgeDependency {})
 
-        metadata.modLoader.set("javafml")
+        metadata.modLoader.convention("javafml")
 
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 

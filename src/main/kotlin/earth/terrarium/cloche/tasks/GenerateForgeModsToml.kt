@@ -38,7 +38,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
     abstract val modId: Property<String>
         @Internal get
 
-    abstract val metadata: ForgeMetadata
+    abstract val metadata: Property<ForgeMetadata>
         @Nested get
 
     abstract val modVersion: Property<String>
@@ -119,6 +119,8 @@ abstract class GenerateForgeModsToml : DefaultTask() {
     fun makeToml() {
         val output = output.getAsPath()
         val modId = modId.get()
+        val metadata = metadata.get()
+
         val loaderVersionRange = buildVersionRange(loaderDependencyVersion.get())
         val dependencies: MutableList<Map<String, Any>> = mutableListOf()
 

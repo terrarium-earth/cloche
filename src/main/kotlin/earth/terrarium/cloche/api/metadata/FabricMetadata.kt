@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.api.metadata
 
 import earth.terrarium.cloche.api.metadata.CommonMetadata.Environment
+import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import kotlinx.serialization.json.JsonObject
 import org.gradle.api.Action
@@ -14,10 +15,18 @@ import org.gradle.kotlin.dsl.listProperty
 import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
-abstract class FabricMetadata : CommonMetadata {
+abstract class FabricMetadata @Inject internal constructor(
+    @Transient
+    private val target: FabricTargetImpl,
+) : CommonMetadata {
     abstract val environment: Property<Environment>
         @Optional
         @Input
+        get
+
+    val entrypoints = mutableMapOf<String, ListProperty<Entrypoint>>()
+        @Input
+        @Optional
         get
 
     abstract val languageAdapters: MapProperty<String, String>
@@ -25,7 +34,27 @@ abstract class FabricMetadata : CommonMetadata {
         @Optional
         get
 
-    abstract fun withJson(action: Action<MetadataFileProvider<JsonObject>>)
+    fun withJson(action: Action<MetadataFileProvider<JsonObject>>) {
+        target.withMetadataJson(action)
+
+        target.data.onConfigured {
+            it.withMetadataJson(action)
+        }
+
+        target.test.onConfigured {
+            it.withMetadataJson(action)
+        }
+
+        target.client.onConfigured {
+            it.data.onConfigured {
+                it.withMetadataJson(action)
+            }
+
+            it.test.onConfigured {
+                it.withMetadataJson(action)
+            }
+        }
+    }
 
     fun entrypoint(name: String, value: String) = entrypoint(name) {
         this.value.set(value)
@@ -34,14 +63,11 @@ abstract class FabricMetadata : CommonMetadata {
     fun entrypoint(name: String, action: Action<Entrypoint>) =
         entrypoint(name, listOf(action))
 
-    abstract fun entrypoint(name: String, actions: List<Action<Entrypoint>>)
-
-    fun set(other: FabricMetadata) {
-        super.set(other)
-
-        environment.set(other.environment)
-        languageAdapters.set(other.languageAdapters)
-    }
+    fun entrypoint(name: String, actions: List<Action<Entrypoint>>) = entrypoints.computeIfAbsent(name) { _ ->
+        objects.listProperty<Entrypoint>()
+    }.addAll(actions.map {
+        objects.newInstance<Entrypoint>().also(it::execute)
+    })
 
     interface Entrypoint {
         val value: Property<String>
