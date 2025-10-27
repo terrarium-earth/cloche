@@ -13,7 +13,6 @@ import org.gradle.api.artifacts.ConfigurationVariant
 import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSet
-import org.gradle.kotlin.dsl.named
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.9"
 const val JAVA_CLASS_EXTENSIONS_ANNOTATIONS = "net.msrandom:class-extension-annotations:1.0.0"
@@ -118,7 +117,7 @@ private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilat
             sourceSet.runtimeElementsConfigurationName
         )) {
             configurations.named(name) {
-                outgoing.variants.named(REMAPPED_SUBVARIANT_NAME) {
+                outgoing.variants.named(REMAPPED_VARIANT_NAME) {
                     artifact(tasks.named(dependency.sourceSet.jarTaskName))
                 }
             }
@@ -142,11 +141,11 @@ internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompi
     sourceSet.runtimeClasspath += dependency.sourceSet.output
 
     val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
-        it.outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME)
+        it.outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME)
     }
 
     configurations.named(sourceSet.runtimeElementsConfigurationName) {
-        outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) {
+        outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME) {
             artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
         }
     }
@@ -171,7 +170,7 @@ internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetC
     }
 
     configurations.named(sourceSet.runtimeElementsConfigurationName) {
-        outgoing.variants.named(CLASSES_AND_RESOURCES_SUBVARIANT_NAME) {
+        outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME) {
             artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
         }
     }

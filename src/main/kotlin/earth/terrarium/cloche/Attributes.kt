@@ -6,12 +6,21 @@ import org.gradle.api.attributes.AttributeDisambiguationRule
 import org.gradle.api.attributes.CompatibilityCheckDetails
 import org.gradle.api.attributes.MultipleCandidatesDetails
 
+/**
+ * Indicates that the variant is fully remapped
+ */
 @JvmField
 val REMAPPED_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.remapped", Boolean::class.javaObjectType)
 
+/**
+ * Indicates that the variant has includes fully resolved/handled
+ */
 @JvmField
 val INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.includeTransformedOutput", Boolean::class.javaObjectType)
 
+/**
+ * Indicates that the forge mapping service has been stripped
+ */
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 

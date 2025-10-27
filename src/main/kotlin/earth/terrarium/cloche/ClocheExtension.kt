@@ -27,6 +27,7 @@ import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.PolymorphicDomainObjectContainer
 import org.gradle.api.Project
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.plugins.BasePlugin
@@ -181,16 +182,26 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     init {
         project.dependencies.registerTransform(ExtractIncludes::class) {
-            from.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
-            to.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
+            from
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+
+            to
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
         }
 
         project.dependencies.registerTransform(StripIncludes::class) {
-            from.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
-            to.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
+            from
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+
+            to
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
         }
 
-        project.plugins.withType<BasePlugin>() {
+        project.plugins.withType<BasePlugin> {
             val libs = project.extension<BasePluginExtension>().libsDirectory
 
             intermediateOutputsDirectory.convention(libs.dir("intermediates"))
@@ -207,8 +218,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
         onTargetTypeConfigured(ForgeTarget::class.java) {
             project.dependencies.registerTransform(RemoveNameMappingService::class) {
-                from.attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-                to.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+                from
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+
+                to
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
             }
         }
 

@@ -24,6 +24,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.DependencyScopeConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
@@ -68,6 +69,10 @@ private fun Project.getUnmappedClasspath(configurationName: String): FileCollect
 
     return project.files(classpath.map { classpath ->
         classpath.incoming.artifactView {
+            componentFilter {
+                it !is ProjectComponentIdentifier
+            }
+
             attributes {
                 attribute(REMAPPED_ATTRIBUTE, false)
             }
@@ -103,7 +108,7 @@ internal fun registerCompilationTransformations(
 
         with(project) {
             // TODO Export access wideners as a separate artifact
-            accessWideners.from(getRelevantSyncArtifacts(sourceSet.runtimeClasspathConfigurationName))
+            accessWideners.from(getRelevantSyncArtifacts(sourceSet.compileClasspathConfigurationName))
         }
 
         outputFile.set(outputDirectory.zip(namedMinecraftFile) { dir, file ->
@@ -158,8 +163,13 @@ private fun setupModTransformationPipeline(
         }
 
         project.dependencies.registerTransform(RemapAction::class) {
-            from.attribute(REMAPPED_ATTRIBUTE, false)
-            to.attribute(REMAPPED_ATTRIBUTE, true)
+            from
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(REMAPPED_ATTRIBUTE, false)
+
+            to
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(REMAPPED_ATTRIBUTE, true)
 
             compilation.attributes(from)
             compilation.attributes(to)
@@ -167,10 +177,13 @@ private fun setupModTransformationPipeline(
             parameters {
                 val compileClasspath =
                     project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
+
                 val runtimeClasspath =
                     project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
+
                 val modCompileClasspath =
                     project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
+
                 val modRuntimeClasspath =
                     project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
 

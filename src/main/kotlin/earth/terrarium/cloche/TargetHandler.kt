@@ -1,6 +1,7 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.util.optionalDir
@@ -37,8 +38,8 @@ import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 
 internal const val MOD_ID_CATEGORY = "mod-id"
-internal const val REMAPPED_SUBVARIANT_NAME = "remapped"
-internal const val CLASSES_AND_RESOURCES_SUBVARIANT_NAME = "classesAndResources"
+internal const val REMAPPED_VARIANT_NAME = "remapped"
+internal const val CLASSES_AND_RESOURCES_VARIANT_NAME = "classesAndResources"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -228,9 +229,19 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
                 project.artifacts.add(name, compilation.includeJarTask!!)
 
-                val remappedVariant = outgoing.variants.create(REMAPPED_SUBVARIANT_NAME) {
-                    attributes.attribute(REMAPPED_ATTRIBUTE, true)
-                    attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                val remappedVariant = outgoing.variants.create(REMAPPED_VARIANT_NAME) {
+                    attributes
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+
+                    artifact(tasks.named(sourceSet.jarTaskName))
+                }
+
+                val includesStrippedVariant = outgoing.variants.create("${REMAPPED_VARIANT_NAME}IncludesStripped") {
+                    attributes
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                        .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
 
                     artifact(tasks.named(sourceSet.jarTaskName))
                 }
@@ -239,15 +250,16 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                     this as AdhocComponentWithVariants
 
                     withVariantsFromConfiguration(configuration) {
-                        if (configurationVariant.name == remappedVariant.name) {
+                        if (configurationVariant.name in listOf(remappedVariant.name, includesStrippedVariant.name)) {
                             skip()
                         }
                     }
                 }
 
                 configuration.outgoing.variants.named { it == "classes" || it == "resources" }.configureEach {
-                    attributes.attribute(REMAPPED_ATTRIBUTE, true)
-                    attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                    attributes
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 }
             }
         }
@@ -259,9 +271,12 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                 val classesAndResourcesVariants = outgoing.variants.named { it == "classes" || it == "resources" }
 
                 val classesAndResourcesVariant = outgoing.variants.maybeCreate(
-                    CLASSES_AND_RESOURCES_SUBVARIANT_NAME
+                    CLASSES_AND_RESOURCES_VARIANT_NAME
                 ).also {
-                    it.attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
+                    it.attributes
+                        .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
 
                     classesAndResourcesVariants.configureEach {
                         artifacts.configureEach {
