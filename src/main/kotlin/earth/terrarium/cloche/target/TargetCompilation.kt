@@ -166,7 +166,7 @@ private fun setupModTransformationPipeline(
             from
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, false)
-                .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
+                .attribute(CLOCHE_TARGET_ATTRIBUTE, "none")
 
             to
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
@@ -326,7 +326,6 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
                 .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
-                .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
 
             extendsFrom(target.mappingsBuildDependenciesHolder)
         }
@@ -336,7 +335,6 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
                 .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
-                .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
 
             extendsFrom(target.mappingsBuildDependenciesHolder)
         }

@@ -221,7 +221,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                 from
                     .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                     .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-                    .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
+                    .attribute(CLOCHE_TARGET_ATTRIBUTE, "none")
 
                 to
                     .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)

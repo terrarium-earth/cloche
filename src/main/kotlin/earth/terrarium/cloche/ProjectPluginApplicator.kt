@@ -31,10 +31,10 @@ import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import org.gradle.kotlin.dsl.add
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.create
-import org.gradle.kotlin.dsl.withType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.withModule
+import org.gradle.kotlin.dsl.withType
 
 private fun propertyName(name: String) = "earth.terrarium.cloche.$name"
 
@@ -102,6 +102,7 @@ fun applyToProject(target: Project) {
                 .attribute(REMAPPED_ATTRIBUTE, false)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+                .attribute(CLOCHE_TARGET_ATTRIBUTE, "none")
         }
     }
 
