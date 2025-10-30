@@ -323,7 +323,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             attributes
-                .attribute(REMAPPED_ATTRIBUTE, true)
+                .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
                 .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
@@ -333,7 +333,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             attributes
-                .attribute(REMAPPED_ATTRIBUTE, true)
+                .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
                 .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
