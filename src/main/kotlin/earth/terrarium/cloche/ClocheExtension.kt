@@ -40,8 +40,8 @@ import org.gradle.kotlin.dsl.polymorphicDomainObjectContainer
 import org.gradle.kotlin.dsl.property
 import org.gradle.kotlin.dsl.registerTransform
 import org.gradle.kotlin.dsl.withModule
-import javax.inject.Inject
 import org.gradle.kotlin.dsl.withType
+import javax.inject.Inject
 
 internal const val FORGE = "forge"
 internal const val FABRIC = "fabric"
@@ -216,15 +216,17 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
             }
         }
 
-        onTargetTypeConfigured(ForgeTarget::class.java) {
+        onTargetTypeConfigured(ForgeTarget::class.java) { target ->
             project.dependencies.registerTransform(RemoveNameMappingService::class) {
                 from
                     .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                     .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+                    .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
 
                 to
                     .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                     .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+                    .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
             }
         }
 
