@@ -24,6 +24,8 @@ val INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("ear
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 
+val CLOCHE_TARGET_ATTRIBUTE: Attribute<String> = Attribute.of("earth.terrarium.cloche.target", String::class.java)
+
 class SideCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
     override fun execute(details: CompatibilityCheckDetails<PublicationSide>) {
         if (details.producerValue == PublicationSide.Common || details.producerValue == PublicationSide.Joined) {
