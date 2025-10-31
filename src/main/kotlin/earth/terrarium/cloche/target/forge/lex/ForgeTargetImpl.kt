@@ -1,25 +1,26 @@
 package earth.terrarium.cloche.target.forge.lex
 
+import earth.terrarium.cloche.ClocheTargetAttribute
 import earth.terrarium.cloche.NO_NAME_MAPPING_ATTRIBUTE
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
+import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import net.msrandom.minecraftcodev.forge.task.GenerateMcpToSrg
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
 import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.registerTransform
 import java.io.File
 import javax.inject.Inject
-import kotlin.io.path.exists
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
     override val runs = objectFactory.newInstance<LexForgeRunConfigurations>(this)
@@ -49,7 +50,21 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         data.onConfigured(::removeNameMappingService)
         test.onConfigured(::removeNameMappingService)
 
-        minecraftLibrariesConfiguration.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+        minecraftLibrariesConfiguration.attributes
+            .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+            .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
+
+        project.dependencies.registerTransform(RemoveNameMappingService::class) {
+            from
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+                .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
+
+            to
+                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+                .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
+        }
     }
 
     private fun removeNameMappingService(compilation: Compilation) {
