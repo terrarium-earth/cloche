@@ -18,7 +18,6 @@ import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
-import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.includes.StripIncludes
 import org.gradle.api.Action
@@ -213,34 +212,6 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                 withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class) {
                     params(CompilationAttributes.SIDE, PublicationSide.Common, PublicationSide.Client, false)
                 }
-            }
-        }
-
-        onTargetTypeConfigured(ForgeTarget::class.java) { target ->
-            project.dependencies.registerTransform(RemoveNameMappingService::class) {
-                from
-                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-                    .attribute(ClocheTargetAttribute.ATTRIBUTE, ClocheTargetAttribute.INITIAL)
-
-                to
-                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-                    .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
-            }
-        }
-
-        onTargetTypeConfigured(NeoforgeTarget::class.java) { target ->
-            project.dependencies.registerTransform(RemoveNameMappingService::class) {
-                from
-                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-                    .attribute(ClocheTargetAttribute.ATTRIBUTE, ClocheTargetAttribute.INITIAL)
-
-                to
-                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-                    .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
             }
         }
 
