@@ -1,6 +1,6 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.CLOCHE_TARGET_ATTRIBUTE
+import earth.terrarium.cloche.ClocheTargetAttribute
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
@@ -166,12 +166,12 @@ private fun setupModTransformationPipeline(
             from
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, false)
-                .attribute(CLOCHE_TARGET_ATTRIBUTE, "none")
+                .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
 
             to
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, true)
-                .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
+                .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
 
             compilation.attributes(from)
             compilation.attributes(to)
@@ -324,7 +324,6 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             attributes
                 .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
-                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
             extendsFrom(target.mappingsBuildDependenciesHolder)
@@ -333,7 +332,6 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             attributes
                 .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
-                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
             extendsFrom(target.mappingsBuildDependenciesHolder)
@@ -369,6 +367,6 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
         attributes
             .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
-            .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
+            .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
     }
 }

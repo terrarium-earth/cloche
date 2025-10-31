@@ -221,12 +221,26 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                 from
                     .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                     .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-                    .attribute(CLOCHE_TARGET_ATTRIBUTE, "none")
+                    .attribute(ClocheTargetAttribute.ATTRIBUTE, ClocheTargetAttribute.INITIAL)
 
                 to
                     .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                     .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
-                    .attribute(CLOCHE_TARGET_ATTRIBUTE, target.name)
+                    .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
+            }
+        }
+
+        onTargetTypeConfigured(NeoforgeTarget::class.java) { target ->
+            project.dependencies.registerTransform(RemoveNameMappingService::class) {
+                from
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
+                    .attribute(ClocheTargetAttribute.ATTRIBUTE, ClocheTargetAttribute.INITIAL)
+
+                to
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+                    .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
             }
         }
 
