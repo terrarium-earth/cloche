@@ -35,6 +35,7 @@ import org.gradle.kotlin.dsl.withType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.withModule
+import org.gradle.plugins.ide.idea.IdeaPlugin
 
 private fun propertyName(name: String) = "earth.terrarium.cloche.$name"
 
@@ -60,6 +61,7 @@ fun applyToProject(target: Project) {
     }
 
     target.apply<JavaLibraryPlugin>()
+    target.apply<IdeaPlugin>()
 
     target.plugins.withType<MavenPublishPlugin> {
         target.extension<PublishingExtension>().publications.configureEach {
