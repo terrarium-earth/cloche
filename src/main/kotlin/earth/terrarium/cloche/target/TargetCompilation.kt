@@ -225,6 +225,8 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
     final override val sourceSet: SourceSet = compilationSourceSet(target, info.name)
 
+    val modOutputs = project.files(sourceSet.output)
+
     private val setupFiles = registerCompilationTransformations(
         target,
         info.name,

@@ -58,7 +58,7 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
                 }
 
                 if (libraryElements?.name == LibraryElements.JAR) {
-                    // Explicitly not a JAR
+                    // Explicitly a JAR
                     return@filter false
                 }
 
@@ -89,7 +89,7 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
     val listings = objects.newInstance<OutputListings>()
 
     listings.modId.set(project.modId)
-    listings.outputs.from(compilation.sourceSet.output)
+    listings.outputs.from(compilation.modOutputs)
     listings.dependencies.set(dependencyOutputs)
 
     return listings
