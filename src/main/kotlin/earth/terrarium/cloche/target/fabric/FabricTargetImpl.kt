@@ -26,6 +26,8 @@ import earth.terrarium.cloche.tasks.data.FabricMod
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -555,14 +557,24 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                         return@use
                     }
 
-                    val metadata: FabricMod = modJsonPath.inputStream().use(json::decodeFromStream)
+                    val metadata: JsonObject = modJsonPath.inputStream().use(json::decodeFromStream)
 
-                    if (metadata.accessWidener != null) {
+                    if (metadata["accessWidener"] != null) {
                         return@use
                     }
 
+                    val newMetadata = buildJsonObject {
+                        for ((key, value) in metadata) {
+                            if (key != "accessWidener") {
+                                put(key, value)
+                            } else {
+                                put(key, JsonPrimitive(accessWidenerFileName))
+                            }
+                        }
+                    }
+
                     modJsonPath.outputStream().use {
-                        json.encodeToStream(metadata.copy(accessWidener = accessWidenerFileName), it)
+                        json.encodeToStream(newMetadata, it)
                     }
                 }
             }

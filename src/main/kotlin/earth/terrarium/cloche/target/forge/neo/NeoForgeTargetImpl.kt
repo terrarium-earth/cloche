@@ -16,6 +16,12 @@ import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
+import net.peanuuutz.tomlkt.TomlArray
+import net.peanuuutz.tomlkt.TomlTable
+import net.peanuuutz.tomlkt.asTomlArray
+import net.peanuuutz.tomlkt.asTomlTable
+import net.peanuuutz.tomlkt.buildTomlArray
+import net.peanuuutz.tomlkt.buildTomlTable
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.provider.Provider
@@ -109,20 +115,30 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
                         return@use
                     }
 
-                    val metadata: NeoForgeMods = tomlPath.inputStream().use(toml::decodeFromStream)
+                    val metadata: TomlTable = tomlPath.inputStream().use(toml::decodeFromStream)
 
-                    if (metadata.accessTransformers.any { it.file == accessTransformerPathName }) {
+                    val accessTransformers = metadata["accessTransformers"]?.asTomlArray() ?: TomlArray()
+
+                    if (accessTransformers.any { it.asTomlTable()["file"]?.content?.toString() == accessTransformerPathName }) {
                         return@use
                     }
 
+                    val newMetadata = buildTomlTable {
+                        for ((key, value) in metadata) {
+                            if (key != "accessTransformers") {
+                                element(key, value)
+                            } else {
+                                element(key, buildTomlArray {
+                                    for (accessTransformer in accessTransformers) {
+                                        element(accessTransformer)
+                                    }
+                                })
+                            }
+                        }
+                    }
+
                     tomlPath.outputStream().use {
-                        toml.encodeToStream(
-                            metadata.copy(
-                                accessTransformers = metadata.accessTransformers + NeoForgeMods.AccessTransformer(
-                                    accessTransformerPathName
-                                )
-                            ), it
-                        )
+                        toml.encodeToStream(newMetadata, it)
                     }
                 }
             }
