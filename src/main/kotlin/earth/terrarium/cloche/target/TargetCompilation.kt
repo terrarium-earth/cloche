@@ -203,7 +203,7 @@ private fun setupModTransformationPipeline(
     }
 }
 
-internal data class TargetCompilationInfo<T : MinecraftTargetInternal>(
+internal class TargetCompilationInfo<T : MinecraftTargetInternal>(
     val name: String,
     val target: T,
     val intermediaryMinecraftClasspath: FileCollection,

@@ -124,6 +124,10 @@ private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilat
         }
     }
 
+    includeBucketConfiguration.configure {
+        extendsFrom(dependency.includeBucketConfiguration.get())
+    }
+
     sourceSet.extendConfigurations(dependency.sourceSet, false)
 
     accessWideners.from(dependency.accessWideners)

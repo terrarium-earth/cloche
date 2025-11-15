@@ -254,16 +254,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             extendsFrom(clientLibrariesConfiguration)
         }
 
-        val mainJarTask = project.tasks.named<Jar>(main.sourceSet.jarTaskName)
-
-        project.tasks.named<Jar>(client.sourceSet.jarTaskName) {
-            val mainJarFile = mainJarTask.flatMap(Jar::getArchiveFile)
-
-            from(project.zipTree(mainJarFile)) {
-                exclude(JarFile.MANIFEST_NAME)
-            }
-
-            manifest.fromJars(project.serviceOf(), mainJarFile)
+        main.generateModJson.configure {
+            clientMixinConfigs.from(client.mixins)
         }
 
         client
@@ -515,6 +507,20 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         project.tasks.named<Jar>(compilation.sourceSet.jarTaskName) {
             manifest {
                 attributes["Fabric-Loom-Mixin-Remap-Type"] = "static"
+            }
+        }
+
+        if (compilation.name == ClochePlugin.CLIENT_COMPILATION_NAME) {
+            val mainJarTask = project.tasks.named<Jar>(main.sourceSet.jarTaskName)
+
+            project.tasks.named<Jar>(compilation.sourceSet.jarTaskName) {
+                val mainJarFile = mainJarTask.flatMap(Jar::getArchiveFile)
+
+                from(project.zipTree(mainJarFile)) {
+                    exclude(JarFile.MANIFEST_NAME)
+                }
+
+                manifest.fromJars(project.serviceOf(), mainJarFile)
             }
         }
     }

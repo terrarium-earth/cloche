@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.target.ClocheTarget
@@ -79,8 +80,22 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
 
     val capabilitySuffix: Provider<String>
         get() = target.hasSeparateClient.map {
+            val collapsedName = collapsedName
+
             val base = if (it) {
-                collapsedName ?: "common"
+                if (collapsedName == null) {
+                    "server"
+                } else if (collapsedName == ClochePlugin.CLIENT_COMPILATION_NAME) {
+                    null
+                } else {
+                    val prefix = "${ClochePlugin.CLIENT_COMPILATION_NAME}:"
+
+                    if (collapsedName.startsWith(prefix)) {
+                        collapsedName.substring(prefix.length)
+                    } else {
+                        "server-$collapsedName"
+                    }
+                }
             } else {
                 collapsedName
             }

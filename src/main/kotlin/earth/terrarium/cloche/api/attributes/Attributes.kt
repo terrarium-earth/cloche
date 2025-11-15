@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.api.attributes
 
+import org.gradle.api.Named
 import org.gradle.api.attributes.Attribute
 
 object CompilationAttributes {
@@ -21,17 +22,21 @@ object CommonTargetAttributes {
 
 // https://github.com/mcgradleconventions
 @Suppress("EnumEntryName")
-enum class MinecraftModLoader {
+enum class MinecraftModLoader : Named {
     fabric,
     forge,
     neoforge,
-    common,
+    common;
+
+    override fun getName() = name
 }
 
 @Suppress("EnumEntryName")
-enum class ModDistribution {
+enum class ModDistribution : Named {
     common,
     client;
+
+    override fun getName() = name
 }
 
 // Edge target attributes
