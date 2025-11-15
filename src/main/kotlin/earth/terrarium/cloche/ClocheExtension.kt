@@ -2,7 +2,9 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.metadata.RootMetadata
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.FabricTarget
@@ -43,21 +45,16 @@ import org.gradle.kotlin.dsl.withModule
 import javax.inject.Inject
 import org.gradle.kotlin.dsl.withType
 
-internal const val FORGE = "forge"
-internal const val FABRIC = "fabric"
-internal const val NEOFORGE = "neoforge"
-internal const val COMMON = "common"
-
 internal val Project.cloche
     get() = extension<ClocheExtension>()
 
 internal val Project.modId
     get() = cloche.metadata.modId
 
-internal fun loaderName(type: Class<out MinecraftTarget>) = when {
-    ForgeTarget::class.java.isAssignableFrom(type) -> FORGE
-    FabricTarget::class.java.isAssignableFrom(type) -> FABRIC
-    NeoforgeTarget::class.java.isAssignableFrom(type) -> NEOFORGE
+internal fun loader(type: Class<out MinecraftTarget>) = when {
+    ForgeTarget::class.java.isAssignableFrom(type) -> MinecraftModLoader.forge
+    FabricTarget::class.java.isAssignableFrom(type) -> MinecraftModLoader.fabric
+    NeoforgeTarget::class.java.isAssignableFrom(type) -> MinecraftModLoader.neoforge
     else -> throw IllegalArgumentException("Unknown target type $type")
 }
 
@@ -94,7 +91,7 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
     override fun neoforge(configure: Action<NeoforgeTarget>) = target(NeoForgeTargetImpl::class.java, configure)
 
     private fun <T : MinecraftTarget> target(type: Class<out T>, configure: Action<T>): T {
-        val loaderName = loaderName(type)
+        val loaderName = loader(type)
 
         extension.targets.configureEach {
             throw UnsupportedOperationException("Target '$targetName' has been configured. Can not set single target to '$loaderName'")
@@ -211,7 +208,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         onTargetTypeConfigured(FabricTarget::class.java) {
             project.dependencies.components {
                 withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class) {
-                    params(CompilationAttributes.SIDE, PublicationSide.Common, PublicationSide.Client, false)
+                    params(CompilationAttributes.DISTRIBUTION, ModDistribution.common, ModDistribution.client, false)
                 }
             }
         }
@@ -233,7 +230,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         }
 
         commonTargets
-            .named { it != COMMON }
+            .named { it != MinecraftModLoader.common.name }
             .configureEach { dependsOn(common()) }
 
         // afterEvaluate needed as we are querying the configuration of a value
@@ -245,11 +242,11 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     }
 
     // Useless to call from an outside context
-    private fun common(): CommonTarget = common(COMMON)
+    private fun common(): CommonTarget = common(MinecraftModLoader.common.name)
 
     fun common(name: String): CommonTarget = common(name) {}
-    fun common(@DelegatesTo(CommonTarget::class) configure: Closure<*>): CommonTarget = common(COMMON, configure)
-    fun common(configure: Action<CommonTarget>): CommonTarget = common(COMMON, configure)
+    fun common(@DelegatesTo(CommonTarget::class) configure: Closure<*>): CommonTarget = common(MinecraftModLoader.common.name, configure)
+    fun common(configure: Action<CommonTarget>): CommonTarget = common(MinecraftModLoader.common.name, configure)
 
     fun common(name: String, @DelegatesTo(CommonTarget::class) configure: Closure<*>): CommonTarget = common(name) {
         val owner = this@ClocheExtension
@@ -260,7 +257,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     fun common(name: String, configure: Action<CommonTarget>): CommonTarget =
         commonTargets.maybeCreate(name).also(configure::execute)
 
-    override fun fabric(configure: Action<FabricTarget>): FabricTarget = fabric(FABRIC, configure)
+    override fun fabric(configure: Action<FabricTarget>): FabricTarget = fabric(MinecraftModLoader.fabric.name, configure)
 
     fun fabric(name: String, @DelegatesTo(FabricTarget::class) configure: Closure<*>): FabricTarget = fabric(name) {
         val owner = this@ClocheExtension
@@ -270,7 +267,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     fun fabric(name: String, configure: Action<FabricTarget>): FabricTarget = target(name, configure)
 
-    override fun forge(configure: Action<ForgeTarget>): ForgeTarget = forge(FORGE, configure)
+    override fun forge(configure: Action<ForgeTarget>): ForgeTarget = forge(MinecraftModLoader.forge.name, configure)
 
     fun forge(name: String, @DelegatesTo(ForgeTarget::class) configure: Closure<*>): ForgeTarget = forge(name) {
         val owner = this@ClocheExtension
@@ -280,7 +277,7 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     fun forge(name: String, configure: Action<ForgeTarget>): ForgeTarget = target(name, configure)
 
-    override fun neoforge(configure: Action<NeoforgeTarget>): NeoforgeTarget = neoforge(NEOFORGE, configure)
+    override fun neoforge(configure: Action<NeoforgeTarget>): NeoforgeTarget = neoforge(MinecraftModLoader.neoforge.name, configure)
 
     fun neoforge(name: String, @DelegatesTo(NeoforgeTarget::class) configure: Closure<*>): NeoforgeTarget = neoforge(name) {
         val owner = this@ClocheExtension

@@ -87,7 +87,7 @@ fun applyToProject(target: Project) {
     ClocheRepositoriesExtension.register(target.repositories)
 
     target.dependencies.attributesSchema {
-        attribute(CompilationAttributes.SIDE) {
+        attribute(CompilationAttributes.DISTRIBUTION) {
             compatibilityRules.add(SideCompatibilityRule::class)
             disambiguationRules.add(SideDisambiguationRule::class)
         }

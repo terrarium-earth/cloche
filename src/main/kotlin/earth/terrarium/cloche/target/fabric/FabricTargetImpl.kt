@@ -1,8 +1,7 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.FABRIC
-import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
@@ -227,7 +226,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         val sideProvider = project.provider {
-            PublicationSide.Client
+            ModDistribution.client
         }
 
         val client =
@@ -304,8 +303,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     override val hasSeparateClient = client.isConfigured
 
     override val runs = project.objects.newInstance<FabricRunConfigurations>(this)
-
-    override val commonType get() = FABRIC
 
     private val mainTargetMinecraftName = featureName ?: SourceSet.MAIN_SOURCE_SET_NAME
     private val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
@@ -433,9 +430,9 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         val side = includedClient.isConfigured.map {
             if (it) {
-                PublicationSide.Client
+                ModDistribution.client
             } else {
-                PublicationSide.Common
+                ModDistribution.common
             }
         }
 

@@ -1,6 +1,7 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
@@ -379,7 +380,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         val variant = outgoing.variants.create("includeTransformed") {
             attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(CompilationAttributes.SIDE, PublicationSide.Client)
+                .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.client)
 
             artifact(target.finalJar)
         }

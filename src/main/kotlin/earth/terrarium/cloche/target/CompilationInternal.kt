@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
@@ -138,7 +138,7 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
 }
 
 internal fun sourceSetName(target: ClocheTarget, compilationName: String) = when {
-    target.isSingleTarget || target.targetName == COMMON -> lowerCamelCaseGradleName(compilationName)
+    target.isSingleTarget || target.targetName == MinecraftModLoader.common.name -> lowerCamelCaseGradleName(compilationName)
     compilationName == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName ?: SourceSet.MAIN_SOURCE_SET_NAME
     else -> lowerCamelCaseGradleName(target.featureName, compilationName)
 }
@@ -197,7 +197,7 @@ internal fun Project.configureSourceSet(
         return
     }
 
-    val prefix = if (target.isSingleTarget || target.targetName == COMMON) {
+    val prefix = if (target.isSingleTarget || target.targetName == MinecraftModLoader.common.name) {
         null
     } else {
         target.capabilitySuffix

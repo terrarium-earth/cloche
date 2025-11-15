@@ -1,12 +1,11 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.cloche
-import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.util.fromJars
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -210,7 +209,7 @@ internal data class TargetCompilationInfo<T : MinecraftTargetInternal>(
     val intermediaryMinecraftClasspath: FileCollection,
     val namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
-    val side: Provider<PublicationSide>,
+    val side: Provider<ModDistribution>,
     val data: Boolean,
     val test: Boolean,
     val includeState: IncludeTransformationStateAttribute,
@@ -261,7 +260,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
             attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attributeProvider(CompilationAttributes.SIDE, info.side)
+                .attributeProvider(CompilationAttributes.DISTRIBUTION, info.side)
                 .attribute(CompilationAttributes.DATA, info.data)
 
             isTransitive = false
@@ -358,7 +357,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         target.attributes(attributes)
 
         attributes
-            .attributeProvider(CompilationAttributes.SIDE, info.side)
+            .attributeProvider(CompilationAttributes.DISTRIBUTION, info.side)
             .attribute(CompilationAttributes.DATA, info.data)
     }
 

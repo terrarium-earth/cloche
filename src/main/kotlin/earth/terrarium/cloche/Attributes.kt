@@ -1,5 +1,6 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeDisambiguationRule
@@ -24,19 +25,19 @@ val INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("ear
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 
-class SideCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
-    override fun execute(details: CompatibilityCheckDetails<PublicationSide>) {
+class SideCompatibilityRule : AttributeCompatibilityRule<ModDistribution> {
+    override fun execute(details: CompatibilityCheckDetails<ModDistribution>) {
         details.compatible()
     }
 }
 
-class SideDisambiguationRule : AttributeDisambiguationRule<PublicationSide> {
-    override fun execute(details: MultipleCandidatesDetails<PublicationSide>) {
+class SideDisambiguationRule : AttributeDisambiguationRule<ModDistribution> {
+    override fun execute(details: MultipleCandidatesDetails<ModDistribution>) {
         if (details.consumerValue in details.candidateValues) {
             // Pick the requested variant
             details.closestMatch(details.consumerValue!!)
-        } else if (details.consumerValue == PublicationSide.Client && PublicationSide.Common in details.candidateValues) {
-            details.closestMatch(PublicationSide.Common)
+        } else if (details.consumerValue == ModDistribution.client && ModDistribution.common in details.candidateValues) {
+            details.closestMatch(ModDistribution.common)
         }
     }
 }

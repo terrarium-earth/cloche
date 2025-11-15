@@ -1,12 +1,11 @@
 package earth.terrarium.cloche.api.attributes
 
-import earth.terrarium.cloche.PublicationSide
 import org.gradle.api.attributes.Attribute
 
 object CompilationAttributes {
     @JvmField
-    val SIDE: Attribute<PublicationSide> =
-        Attribute.of("earth.terrarium.cloche.side", PublicationSide::class.java)
+    val DISTRIBUTION: Attribute<ModDistribution> =
+        Attribute.of("io.github.mcgradleconventions.distribution", ModDistribution::class.java)
 
     @JvmField
     val DATA: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.data", Boolean::class.javaObjectType)
@@ -20,13 +19,28 @@ object CommonTargetAttributes {
     val NAME: Attribute<String> = Attribute.of("earth.terrarium.cloche.commonName", String::class.java)
 }
 
+// https://github.com/mcgradleconventions
+@Suppress("EnumEntryName")
+enum class MinecraftModLoader {
+    fabric,
+    forge,
+    neoforge,
+    common,
+}
+
+@Suppress("EnumEntryName")
+enum class ModDistribution {
+    common,
+    client;
+}
+
 // Edge target attributes
 object TargetAttributes {
     @JvmField
-    val MINECRAFT_VERSION: Attribute<String> = Attribute.of("earth.terrarium.cloche.minecraftVersion", String::class.java)
+    val MINECRAFT_VERSION: Attribute<String> = Attribute.of("io.github.mcgradleconventions.version", String::class.java)
 
     @JvmField
-    val MOD_LOADER: Attribute<String> = Attribute.of("earth.terrarium.cloche.modLoader", String::class.java)
+    val MOD_LOADER: Attribute<MinecraftModLoader> = Attribute.of("io.github.mcgradleconventions.loader", MinecraftModLoader::class.java)
 }
 
 enum class IncludeTransformationStateAttribute {

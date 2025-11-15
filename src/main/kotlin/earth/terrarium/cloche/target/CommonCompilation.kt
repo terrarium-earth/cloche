@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
@@ -41,7 +41,7 @@ internal abstract class CommonCompilation @Inject constructor(
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
 
-        attributes.attribute(TargetAttributes.MOD_LOADER, COMMON)
+        attributes.attribute(TargetAttributes.MOD_LOADER, MinecraftModLoader.common)
     }
 }
 

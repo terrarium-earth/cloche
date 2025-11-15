@@ -1,8 +1,7 @@
 package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.FORGE
-import earth.terrarium.cloche.PublicationSide
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
@@ -60,7 +59,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     }
 
     private val sideProvider = project.provider {
-        PublicationSide.Client
+        ModDistribution.client
     }
 
     internal val resolvePatchedMinecraft = project.tasks.register<ResolvePatchedMinecraft>(
@@ -176,8 +175,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     abstract val group: String
     abstract val artifact: String
-
-    override val commonType get() = FORGE
 
     override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
     override val legacyClasspath = main.legacyClasspath
