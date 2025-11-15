@@ -379,7 +379,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         val variant = outgoing.variants.create("includeTransformed") {
             attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
+                .attribute(CompilationAttributes.SIDE, PublicationSide.Client)
 
             artifact(target.finalJar)
         }

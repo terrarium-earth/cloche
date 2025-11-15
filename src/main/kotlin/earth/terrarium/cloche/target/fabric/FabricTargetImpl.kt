@@ -2,27 +2,20 @@ package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.FABRIC
-import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
-import earth.terrarium.cloche.api.target.isSingleTarget
-import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
-import earth.terrarium.cloche.tasks.data.FabricMod
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
 import kotlinx.serialization.json.JsonObject
@@ -50,9 +43,7 @@ import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.Action
 import org.gradle.api.InvalidUserCodeException
-import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.ExternalModuleDependency
-import org.gradle.api.artifacts.ResolvableConfiguration
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
@@ -223,17 +214,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         separator.set(File.pathSeparator)
     }
 
-    val mergeJarTask: TaskProvider<Jar>
-    val mergeIncludeJarTask: TaskProvider<JarInJar>
-
-    override val finalJar: Provider<Jar>
-        get() = client.isConfigured.flatMap {
-            if (it) {
-                mergeIncludeJarTask
-            } else {
-                main.includeJarTask!!
-            }
-        }
+    override val finalJar: Provider<out Jar>
+        get() = client.value.flatMap {
+            it.includeJarTask!!
+        }.orElse(main.includeJarTask!!)
 
     final override val main: FabricCompilationImpl
 
@@ -269,6 +253,18 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         project.configurations.named(client.sourceSet.localImplementationConfigurationName) {
             extendsFrom(clientLibrariesConfiguration)
+        }
+
+        val mainJarTask = project.tasks.named<Jar>(main.sourceSet.jarTaskName)
+
+        project.tasks.named<Jar>(client.sourceSet.jarTaskName) {
+            val mainJarFile = mainJarTask.flatMap(Jar::getArchiveFile)
+
+            from(project.zipTree(mainJarFile)) {
+                exclude(JarFile.MANIFEST_NAME)
+            }
+
+            manifest.fromJars(project.serviceOf(), mainJarFile)
         }
 
         client
@@ -339,73 +335,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
 
-        val mergeIncludeResolvableConfiguration: NamedDomainObjectProvider<ResolvableConfiguration> =
-            project.configurations.resolvable(
-                lowerCamelCaseGradleName(featureName, "mergeIncludeFiles")
-            ) {
-                extendsFrom(main.includeBucketConfiguration.get())
-
-                client.onConfigured {
-                    extendsFrom(it.includeBucketConfiguration.get())
-                }
-
-                this@FabricTargetImpl.attributes(attributes)
-
-                attributes
-                    .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                    .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-                    .attribute(CompilationAttributes.DATA, false)
-
-                isTransitive = false
-            }
-
         project.dependencies.add(
             main.sourceSet.runtimeOnlyConfigurationName,
             project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)),
         )
-
-        mergeJarTask = project.tasks.register<Jar>(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "mergeJar"),
-        ) {
-            if (isSingleTarget) {
-                archiveClassifier.set("merged")
-            } else {
-                archiveClassifier.set("$capabilitySuffix-merged")
-            }
-
-            destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
-
-            val mainJar = main.remapJarTask!!.flatMap(Jar::getArchiveFile)
-            val clientJar =
-                client.value.flatMap(TargetCompilation<FabricTargetImpl>::remapJarTask).flatMap(Jar::getArchiveFile)
-
-            from(project.zipTree(mainJar)) {
-                exclude(JarFile.MANIFEST_NAME)
-            }
-
-            from(project.zipTree(clientJar)) {
-                exclude(JarFile.MANIFEST_NAME)
-            }
-
-            manifest.fromJars(project.serviceOf(), mainJar, clientJar)
-        }
-
-        mergeIncludeJarTask = project.tasks.register<JarInJar>(
-            lowerCamelCaseGradleName(target.targetName, "mergeIncludeJar"),
-        ) {
-            val jarFile = mergeJarTask.flatMap(Jar::getArchiveFile)
-
-            if (!isSingleTarget) {
-                archiveClassifier.set(capabilitySuffix)
-            }
-
-            destinationDirectory.set(project.cloche.finalOutputsDirectory)
-
-            input.set(jarFile)
-            manifest.fromJars(project.serviceOf(), jarFile)
-
-            fromResolutionResults(mergeIncludeResolvableConfiguration)
-        }
 
         commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
@@ -500,7 +433,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         val side = includedClient.isConfigured.map {
             if (it) {
-                PublicationSide.Joined
+                PublicationSide.Client
             } else {
                 PublicationSide.Common
             }

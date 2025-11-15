@@ -60,7 +60,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     }
 
     private val sideProvider = project.provider {
-        PublicationSide.Joined
+        PublicationSide.Client
     }
 
     internal val resolvePatchedMinecraft = project.tasks.register<ResolvePatchedMinecraft>(

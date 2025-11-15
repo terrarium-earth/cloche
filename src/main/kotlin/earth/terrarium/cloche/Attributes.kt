@@ -26,11 +26,7 @@ val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrariu
 
 class SideCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
     override fun execute(details: CompatibilityCheckDetails<PublicationSide>) {
-        if (details.producerValue == PublicationSide.Common || details.producerValue == PublicationSide.Joined) {
-            details.compatible()
-        } else {
-            details.incompatible()
-        }
+        details.compatible()
     }
 }
 
@@ -39,20 +35,8 @@ class SideDisambiguationRule : AttributeDisambiguationRule<PublicationSide> {
         if (details.consumerValue in details.candidateValues) {
             // Pick the requested variant
             details.closestMatch(details.consumerValue!!)
-        } else if (details.consumerValue == PublicationSide.Client) {
-            // Prefer joined if the consumer is client
-            if (PublicationSide.Joined in details.candidateValues) {
-                details.closestMatch(PublicationSide.Joined)
-            } else if (PublicationSide.Common in details.candidateValues) {
-                details.closestMatch(PublicationSide.Common)
-            }
-        } else {
-            // Prefer common otherwise
-            if (PublicationSide.Common in details.candidateValues) {
-                details.closestMatch(PublicationSide.Common)
-            } else if (PublicationSide.Joined in details.candidateValues) {
-                details.closestMatch(PublicationSide.Joined)
-            }
+        } else if (details.consumerValue == PublicationSide.Client && PublicationSide.Common in details.candidateValues) {
+            details.closestMatch(PublicationSide.Common)
         }
     }
 }
