@@ -240,6 +240,7 @@ internal fun createCommonTarget(
 
         compilation.attributes {
             attribute(CompilationAttributes.DISTRIBUTION, variant)
+            attribute(CompilationAttributes.CLOCHE_SIDE, variant.legacyName)
             attribute(CompilationAttributes.DATA, data)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
@@ -253,6 +254,7 @@ internal fun createCommonTarget(
 
                 if (minecraftVersion != null) {
                     attribute(TargetAttributes.MINECRAFT_VERSION, minecraftVersion)
+                    attribute(TargetAttributes.CLOCHE_MINECRAFT_VERSION, minecraftVersion)
                 }
 
                 if (!onlyCommonOfType.get() && commonTarget.targetName != MinecraftModLoader.common.name && !commonTarget.publish) {

@@ -41,7 +41,9 @@ internal abstract class CommonCompilation @Inject constructor(
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
 
-        attributes.attribute(TargetAttributes.MOD_LOADER, MinecraftModLoader.common)
+        attributes
+            .attribute(TargetAttributes.MOD_LOADER, MinecraftModLoader.common)
+            .attribute(TargetAttributes.CLOCHE_MOD_LOADER, MinecraftModLoader.common)
     }
 }
 

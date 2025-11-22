@@ -381,6 +381,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
                 .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.client)
+                .attribute(CompilationAttributes.CLOCHE_SIDE, ModDistribution.client.legacyName)
 
             artifact(target.finalJar)
         }

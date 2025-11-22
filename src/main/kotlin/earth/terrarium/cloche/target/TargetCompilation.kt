@@ -262,6 +262,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
                 .attributeProvider(CompilationAttributes.DISTRIBUTION, info.side)
+                .attributeProvider(CompilationAttributes.CLOCHE_SIDE, info.side.map(ModDistribution::legacyName))
                 .attribute(CompilationAttributes.DATA, info.data)
 
             isTransitive = false
@@ -366,6 +367,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
         attributes
             .attributeProvider(CompilationAttributes.DISTRIBUTION, info.side)
+            .attributeProvider(CompilationAttributes.CLOCHE_SIDE, info.side.map(ModDistribution::legacyName))
             .attribute(CompilationAttributes.DATA, info.data)
     }
 
