@@ -20,6 +20,7 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.DependencyScopeConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
@@ -320,12 +321,19 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
         val remapped = target.modRemapNamespace.map(String::isNotEmpty)
 
+        val minecraftBuildDependenciesHolder: Configuration =
+            project.configurations.detachedConfiguration(
+                project.dependencies.create(
+                    project.files().builtBy(info.intermediaryMinecraftClasspath)
+                )
+            )
+
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
             attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
-            extendsFrom(target.mappingsBuildDependenciesHolder)
+            extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
@@ -333,7 +341,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
 
-            extendsFrom(target.mappingsBuildDependenciesHolder)
+            extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }
 
         setupFiles.first.configure {
