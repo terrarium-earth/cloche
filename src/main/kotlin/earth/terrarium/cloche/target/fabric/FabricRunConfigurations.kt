@@ -57,6 +57,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 gameJar.set(target.main.commonMinecraftFile)
+                writeGameLibrariesTask.set(target.writeCommonGameLibrariesTask)
             }
         }.withCompilation(target.main)
     }
@@ -77,10 +78,12 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
 
-                gameJar.set(target.main.commonMinecraftFile!!)
+                gameJar.set(target.main.commonMinecraftFile)
 
                 clientJar.set(target.client.value.flatMap { it.finalMinecraftFile }
                     .orElse(target.main.clientMinecraftFile))
+
+                writeGameLibrariesTask.set(target.writeClientGameLibrariesTask)
             }
         }.withCompilation(target, compilation) {
             // TODO This error description is currently unused, as the fallback to target.main will *always* succeed
@@ -106,6 +109,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 )
 
                 gameJar.set(compilation.flatMap { it.commonMinecraftFile })
+                writeGameLibrariesTask.set(target.writeCommonGameLibrariesTask)
             }
         }.withCompilation(target, compilation) { quotedDescription(CommonSecondarySourceSets::data.name) }
 
@@ -163,6 +167,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
                 gameJar.set(compilation.flatMap { it.commonMinecraftFile })
                 clientJar.set(compilation.flatMap { it.clientMinecraftFile })
+
+                writeGameLibrariesTask.set(target.writeClientGameLibrariesTask)
             }
         }.withCompilation(target, compilation) {
             clientDescription(CommonSecondarySourceSets::data.name)
@@ -260,6 +266,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 writeRemapClasspathTask.set(target.writeRemapClasspathTask)
 
                 gameJar.set(compilation.flatMap { it.commonMinecraftFile })
+                writeGameLibrariesTask.set(target.writeCommonGameLibrariesTask)
             }
         }.withCompilation(target, compilation) {
             quotedDescription(CommonSecondarySourceSets::test.name)
@@ -284,6 +291,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
                 gameJar.set(compilation.flatMap { it.commonMinecraftFile })
                 clientJar.set(compilation.flatMap { it.clientMinecraftFile })
+
+                writeGameLibrariesTask.set(target.writeClientGameLibrariesTask)
             }
         }.withCompilation(target, compilation) {
             clientDescription(CommonSecondarySourceSets::test.name)
