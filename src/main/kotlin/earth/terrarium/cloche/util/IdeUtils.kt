@@ -10,7 +10,7 @@ fun isIdeDetected(): Boolean {
 /**
  * Checks if IntelliJ IDEA is detected.
  */
-private fun isIdeaDetected(): Boolean {
+fun isIdeaDetected(): Boolean {
     return System.getProperty("idea.sync.active", "false").toBoolean()
 }
 

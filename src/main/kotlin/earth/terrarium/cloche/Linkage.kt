@@ -1,11 +1,14 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.target.CommonCompilation
+import earth.terrarium.cloche.target.CommonTargetInternal
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.modConfigurationName
+import earth.terrarium.cloche.util.isIdeaDetected
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
@@ -126,6 +129,56 @@ private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilat
 
     includeBucketConfiguration.configure {
         extendsFrom(dependency.includeBucketConfiguration.get())
+    }
+
+    if (isIdeaDetected()) {
+        val modelDependencies = project.configurations.detachedConfiguration()
+
+        fun addCompilation(compilation: CommonCompilation) {
+            modelDependencies.dependencies.add(project.dependencies.create(compilation.sourceSet.output.classesDirs))
+        }
+
+        fun addDependsOn(target: ClocheTarget) {
+            target.dependsOn.configureEach {
+                this as CommonTargetInternal
+
+                modelDependencies.dependencies.add(project.dependencies.create(main.sourceSet.output.classesDirs))
+
+                when (this@extendFromDependency.name) {
+                    SourceSet.TEST_SOURCE_SET_NAME -> {
+                        test.onConfigured(::addCompilation)
+                    }
+
+                    ClochePlugin.DATA_COMPILATION_NAME -> {
+                        data.onConfigured(::addCompilation)
+                    }
+
+                    ClochePlugin.CLIENT_COMPILATION_NAME -> {
+                        client.onConfigured(::addCompilation)
+                    }
+
+                    ClochePlugin.CLIENT_TEST_COMPILATION_NAME -> {
+                        test.onConfigured(::addCompilation)
+
+                        client.onConfigured {
+                            it.test.onConfigured(::addCompilation)
+                        }
+                    }
+
+                    ClochePlugin.CLIENT_DATA_COMPILATION_NAME -> {
+                        data.onConfigured(::addCompilation)
+
+                        client.onConfigured {
+                            it.data.onConfigured(::addCompilation)
+                        }
+                    }
+                }
+            }
+        }
+
+        addDependsOn(dependency.target)
+
+        sourceSet.compileClasspath += modelDependencies
     }
 
     sourceSet.extendConfigurations(dependency.sourceSet, false)

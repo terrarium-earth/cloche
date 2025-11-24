@@ -3,12 +3,14 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.util.isIdeDetected
 import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.initialization.Settings
 import org.gradle.api.plugins.PluginAware
+import org.gradle.api.tasks.SourceSet
 import org.gradle.util.GradleVersion
 
 internal fun Project.requireGroup() {
@@ -80,8 +82,12 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
 
     internal companion object {
         const val SERVER_RUNNABLE_NAME = "server"
+
         const val CLIENT_COMPILATION_NAME = "client"
         const val DATA_COMPILATION_NAME = "data"
+
+        const val CLIENT_DATA_COMPILATION_NAME = CLIENT_COMPILATION_NAME + TARGET_NAME_PATH_SEPARATOR + DATA_COMPILATION_NAME
+        const val CLIENT_TEST_COMPILATION_NAME = CLIENT_COMPILATION_NAME + TARGET_NAME_PATH_SEPARATOR + SourceSet.TEST_SOURCE_SET_NAME
 
         const val IDE_SYNC_TASK_NAME = "clocheIdeSync"
         const val WRITE_MOD_ID_TASK_NAME = "writeModId"

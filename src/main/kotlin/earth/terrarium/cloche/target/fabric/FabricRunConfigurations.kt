@@ -28,12 +28,11 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.kotlin.dsl.named
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
-import kotlin.text.set
 
 internal abstract class FabricRunConfigurations @Inject constructor(val target: FabricTargetImpl) : RunConfigurations {
-    fun create(vararg names: String, action: Action<FabricRunsDefaultsContainer>): MinecraftRunConfiguration {
+    fun create(name: String, action: Action<FabricRunsDefaultsContainer>): MinecraftRunConfiguration {
         val run = project.extension<RunsContainer>()
-            .create(listOfNotNull(target.targetName, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
+            .create(listOfNotNull(target.targetName, name).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
         run.defaults {
             action.execute(extension<FabricRunsDefaultsContainer>())
@@ -153,7 +152,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val clientData: LazyConfigurable<MinecraftRunConfiguration> = project.lazyConfigurable {
         val compilation = target.client.value.flatMap { it.data.value }.orElse(target.data.value)
 
-        val clientData = create(ClochePlugin.CLIENT_COMPILATION_NAME, ClochePlugin.DATA_COMPILATION_NAME) {
+        val clientData = create(ClochePlugin.CLIENT_DATA_COMPILATION_NAME) {
             clientData {
                 modOutputs.set(project.modOutputs(compilation))
                 writeRemapClasspathTask.set(target.writeRemapClasspathTask)
@@ -276,7 +275,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
     override val clientTest = project.lazyConfigurable {
         val compilation = target.client.value.flatMap { it.test.value }.orElse(target.test.value)
 
-        create(ClochePlugin.CLIENT_COMPILATION_NAME, SourceSet.TEST_SOURCE_SET_NAME) {
+        create(ClochePlugin.CLIENT_TEST_COMPILATION_NAME) {
             gameTestClient {
                 modOutputs.set(project.modOutputs(compilation))
                 writeRemapClasspathTask.set(target.writeRemapClasspathTask)
