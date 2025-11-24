@@ -10,8 +10,8 @@ import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.api.target.isSingleTarget
 import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.withIdeaModel
 import earth.terrarium.cloche.util.optionalDir
-import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
 import org.gradle.api.Buildable
@@ -30,7 +30,6 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.domainObjectSet
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
-import org.gradle.plugins.ide.idea.model.IdeaModel
 
 internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
@@ -190,18 +189,9 @@ internal fun Project.configureSourceSet(
     }
 
     if (compilation is TargetCompilation<*>) {
-        if (project == rootProject) {
-            // afterEvaluate required as isDownloadSources is not lazy
-            afterEvaluate {
-                syncTask.configure {
-                    if (project.extension<IdeaModel>().module.isDownloadSources) {
-                        dependsOn(compilation.sources)
-                    }
-                }
-            }
-        } else {
+        withIdeaModel {
             syncTask.configure {
-                if (rootProject.extension<IdeaModel>().module.isDownloadSources) {
+                if (it.module.isDownloadSources) {
                     dependsOn(compilation.sources)
                 }
             }

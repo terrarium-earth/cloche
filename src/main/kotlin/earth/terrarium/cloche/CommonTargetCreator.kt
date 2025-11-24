@@ -366,7 +366,7 @@ internal fun createCommonTarget(
         commonTarget.main,
         { it.data.internalValue ?: it.main },
         { it.test.internalValue ?: it.main },
-        ModDistribution.common,
+        ModDistribution.common, // TODO Can be ModDistribution.client depending on includedClient state
         commonTarget.dependents.map {
             it.map { (it as MinecraftTargetInternal).main }
         },

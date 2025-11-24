@@ -10,7 +10,7 @@ import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.withIdeaModule
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
@@ -28,10 +28,12 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.kotlin.dsl.named
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
+import kotlin.text.set
 
 internal abstract class FabricRunConfigurations @Inject constructor(val target: FabricTargetImpl) : RunConfigurations {
     fun create(vararg names: String, action: Action<FabricRunsDefaultsContainer>): MinecraftRunConfiguration {
-        val run = project.extension<RunsContainer>().create(listOfNotNull(target.targetName, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
+        val run = project.extension<RunsContainer>()
+            .create(listOfNotNull(target.targetName, *names).joinToString(TARGET_NAME_PATH_SEPARATOR.toString()))
 
         run.defaults {
             action.execute(extension<FabricRunsDefaultsContainer>())
@@ -53,6 +55,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             server {
                 modOutputs.set(project.modOutputs(target.main))
                 writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+
+                gameJar.set(target.main.commonMinecraftFile)
             }
         }.withCompilation(target.main)
     }
@@ -72,6 +76,11 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
+
+                gameJar.set(target.main.commonMinecraftFile!!)
+
+                clientJar.set(target.client.value.flatMap { it.finalMinecraftFile }
+                    .orElse(target.main.clientMinecraftFile))
             }
         }.withCompilation(target, compilation) {
             // TODO This error description is currently unused, as the fallback to target.main will *always* succeed
@@ -95,6 +104,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
+
+                gameJar.set(compilation.flatMap { it.commonMinecraftFile })
             }
         }.withCompilation(target, compilation) { quotedDescription(CommonSecondarySourceSets::data.name) }
 
@@ -114,12 +125,12 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }
 
-        project.ideaModule(target.sourceSet) {
+        project.withIdeaModule(target.sourceSet) {
             it.resourceDirs.add(target.datagenDirectory.get().asFile)
         }
 
         target.test.onConfigured {
-            project.ideaModule(it.sourceSet) {
+            project.withIdeaModule(it.sourceSet) {
                 it.resourceDirs.add(target.datagenDirectory.get().asFile)
             }
         }
@@ -149,6 +160,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
+
+                gameJar.set(compilation.flatMap { it.commonMinecraftFile })
+                clientJar.set(compilation.flatMap { it.clientMinecraftFile })
             }
         }.withCompilation(target, compilation) {
             clientDescription(CommonSecondarySourceSets::data.name)
@@ -173,13 +187,13 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 }
             }
 
-            project.ideaModule(it.sourceSet) {
+            project.withIdeaModule(it.sourceSet) {
                 it.resourceDirs.add(target.datagenDirectory.get().asFile)
                 it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
             }
 
             it.test.onConfigured {
-                project.ideaModule(it.sourceSet) {
+                project.withIdeaModule(it.sourceSet) {
                     it.resourceDirs.add(target.datagenDirectory.get().asFile)
                     it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
                 }
@@ -203,12 +217,12 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 }
             }
 
-            project.ideaModule(target.sourceSet) {
+            project.withIdeaModule(target.sourceSet) {
                 it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
             }
 
             target.test.onConfigured {
-                project.ideaModule(it.sourceSet) {
+                project.withIdeaModule(it.sourceSet) {
                     it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
                 }
             }
@@ -244,6 +258,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             gameTestServer {
                 modOutputs.set(project.modOutputs(compilation))
                 writeRemapClasspathTask.set(target.writeRemapClasspathTask)
+
+                gameJar.set(compilation.flatMap { it.commonMinecraftFile })
             }
         }.withCompilation(target, compilation) {
             quotedDescription(CommonSecondarySourceSets::test.name)
@@ -252,6 +268,7 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
 
     override val clientTest = project.lazyConfigurable {
         val compilation = target.client.value.flatMap { it.test.value }.orElse(target.test.value)
+
         create(ClochePlugin.CLIENT_COMPILATION_NAME, SourceSet.TEST_SOURCE_SET_NAME) {
             gameTestClient {
                 modOutputs.set(project.modOutputs(compilation))
@@ -264,6 +281,9 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
+
+                gameJar.set(compilation.flatMap { it.commonMinecraftFile })
+                clientJar.set(compilation.flatMap { it.clientMinecraftFile })
             }
         }.withCompilation(target, compilation) {
             clientDescription(CommonSecondarySourceSets::test.name)

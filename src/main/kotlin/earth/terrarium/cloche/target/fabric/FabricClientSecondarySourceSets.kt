@@ -13,20 +13,20 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
-internal abstract class FabricClientSecondarySourceSets @Inject constructor(info: TargetCompilationInfo<FabricTargetImpl>) : TargetCompilation<FabricTargetImpl>(info), FabricSecondarySourceSets {
+internal abstract class FabricClientSecondarySourceSets @Inject constructor(info: FabricCompilationInfo) : TargetCompilation<FabricTargetImpl>(info), FabricSecondarySourceSets {
     override val data: LazyConfigurableInternal<FabricCompilationImpl> = project.lazyConfigurable {
         val data = project.objects.newInstance<FabricCompilationImpl>(
-            TargetCompilationInfo(
+            FabricCompilationInfo(
                 name + TARGET_NAME_PATH_SEPARATOR + ClochePlugin.DATA_COMPILATION_NAME,
                 target,
                 info.intermediaryMinecraftClasspath,
                 info.namedMinecraftFile,
-                info.extraClasspathFiles,
-                info.side,
+                info.clientMinecraftFile,
+                info.finalCommonJar,
+                target.main.finalMinecraftFile,
                 data = true,
                 test = false,
-                includeState = IncludeTransformationStateAttribute.Stripped,
-                includeJarType = JarInJar::class.java,
+                client = project.provider { true },
             ),
         )
 
@@ -41,17 +41,17 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
 
     override val test: LazyConfigurableInternal<FabricCompilationImpl> = project.lazyConfigurable {
         val test = project.objects.newInstance<FabricCompilationImpl>(
-            TargetCompilationInfo(
+            FabricCompilationInfo(
                 name + TARGET_NAME_PATH_SEPARATOR + SourceSet.TEST_SOURCE_SET_NAME,
                 target,
                 info.intermediaryMinecraftClasspath,
-                info.namedMinecraftFile,
-                info.extraClasspathFiles,
-                info.side,
+                info.commonMinecraftFile,
+                info.clientMinecraftFile,
+                info.finalCommonJar,
+                target.main.finalMinecraftFile,
                 data = false,
                 test = true,
-                includeState = IncludeTransformationStateAttribute.Stripped,
-                includeJarType = JarInJar::class.java,
+                client = project.provider { true },
             ),
         )
 

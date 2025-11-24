@@ -165,7 +165,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             from(copyMixins.map(Copy::getDestinationDir))
         }
 
-        project.ideaModule(sourceSet) {
+        project.withIdeaModule(sourceSet) {
             it.resourceDirs.add(copyMixins.get().destinationDir)
         }
 
