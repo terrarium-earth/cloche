@@ -1,15 +1,10 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.configureSourceSet
+import earth.terrarium.cloche.api.attributes.ModDistribution
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.modConfigurationName
-import earth.terrarium.cloche.target.sourceSetName
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
@@ -19,19 +14,15 @@ import net.msrandom.minecraftcodev.core.task.CachedMinecraftParameters
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.core.utils.named
 import net.msrandom.minecraftcodev.runs.downloadAssetsTaskName
 import net.msrandom.minecraftcodev.runs.extractNativesTaskName
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
-import net.msrandom.minecraftcodev.runs.task.GenerateModOutputs
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
-import org.gradle.api.artifacts.ConfigurationPublications
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
-import org.gradle.api.attributes.Category
-import org.gradle.api.attributes.Usage
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
@@ -44,10 +35,12 @@ import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.language.jvm.tasks.ProcessResources
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.register
 
-internal const val JSON_ARTIFACT_TYPE = "json"
-internal const val MOD_OUTPUTS_CATEGORY = "mod-outputs"
-internal const val REMAPPED_SUBVARIANT = "remapped"
+internal const val MOD_ID_CATEGORY = "mod-id"
+internal const val REMAPPED_VARIANT_NAME = "remapped"
+internal const val CLASSES_AND_RESOURCES_VARIANT_NAME = "classesAndResources"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -66,7 +59,7 @@ fun Project.javaExecutableFor(
     }
 
     return extension<JavaToolchainService>().launcherFor {
-        it.languageVersion.set(javaVersion)
+        languageVersion.set(javaVersion)
     }.map { it.executablePath }
 }
 
@@ -74,13 +67,13 @@ fun Project.javaExecutableFor(
 private fun TargetCompilation<*>.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
     val modImplementation =
         project.configurations.dependencyScope(modConfigurationName(configurationName)) {
-            it.addCollectedDependencies(modCollector)
+            addCollectedDependencies(modCollector)
         }
 
     project.configurations.named(configurationName) {
-        it.addCollectedDependencies(collector)
+        addCollectedDependencies(collector)
 
-        it.extendsFrom(modImplementation.get())
+        extendsFrom(modImplementation.get())
     }
 }
 
@@ -102,48 +95,48 @@ private fun TargetCompilation<*>.addDependencies() {
     }
 
     project.configurations.named(sourceSet.annotationProcessorConfigurationName) {
-        it.addCollectedDependencies(dependencyHandler.annotationProcessor)
+        addCollectedDependencies(dependencyHandler.annotationProcessor)
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
-        it.isTransitive = false
+        isTransitive = false
 
-        it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
+        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
 
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
 
         if (!isTest) {
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+            extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
+            extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
         }
     }
 
     project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
-        it.isTransitive = false
+        isTransitive = false
 
-        it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
 
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
-        it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
 
         if (!isTest) {
-            it.extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+            extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
         }
     }
 
     project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-        it.extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
     }
 
     project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-        it.extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
-        it.extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
     }
 }
 
@@ -160,20 +153,19 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
         compilation.addDependencies()
 
-        val copyMixins = tasks.register(
+        val copyMixins = tasks.register<Copy>(
             lowerCamelCaseGradleName("copy", target.featureName, compilation.featureName, "mixins"),
-            Copy::class.java
         ) {
-            it.from(compilation.mixins)
+            from(compilation.mixins)
 
-            it.destinationDir = layout.buildDirectory.dir("mixins").get().optionalDir(target.namePath).dir(compilation.namePath).asFile
+            destinationDir = layout.buildDirectory.dir("mixins").get().optionalDir(target.namePath).dir(compilation.namePath).asFile
         }
 
-        project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(copyMixins.map(Copy::getDestinationDir))
+        project.tasks.named<ProcessResources>(sourceSet.processResourcesTaskName) {
+            from(copyMixins.map(Copy::getDestinationDir))
         }
 
-        project.ideaModule(sourceSet) {
+        project.withIdeaModule(sourceSet) {
             it.resourceDirs.add(copyMixins.get().destinationDir)
         }
 
@@ -181,49 +173,6 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
         if (!compilation.isTest) {
             target.addJarInjects(compilation)
-        }
-
-        // TODO Remove modOutputs and export a variant with only the mod ID. The rest should be discoverable via an artifact view
-        val modOutputs = configurations.consumable(lowerCamelCaseGradleName(target.featureName, compilation.featureName, "modOutputs")) { modOutputs ->
-            requireGroup()
-
-            val outgoing = modOutputs.outgoing
-
-            fun ConfigurationPublications.capability(group: String, name: String, version: String) =
-                capability("$group:$name:$version")
-
-            outgoing.capability(group.toString(), "$name-mod-outputs", version.toString())
-
-            // TODO This logic is duplicated from CompilationVariantCreator. Should probably be consolidated
-            outgoing.capability(group.toString(), name, version.toString())
-
-            val baseCapabilityName = compilation.target.capabilitySuffix?.let {
-                "$name-$it"
-            } ?: name
-
-            val compilationCapability = compilation.capabilitySuffix.map {
-                "${project.group}:$baseCapabilityName-$it:${project.version}"
-            }.orElse("${project.group}:$baseCapabilityName:${project.version}")
-
-            outgoing.capability(compilationCapability)
-
-            modOutputs.attributes
-                .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(MOD_OUTPUTS_CATEGORY))
-                .attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
-
-            compilation.attributes(modOutputs.attributes)
-
-            components.named("java") { java ->
-                java as AdhocComponentWithVariants
-
-                java.addVariantsFromConfiguration(modOutputs) {
-                    it.skip()
-                }
-            }
-        }
-
-        artifacts.add(modOutputs.name, compilation.generateModOutputs.flatMap(GenerateModOutputs::output)) {
-            it.type = JSON_ARTIFACT_TYPE
         }
 
         val javaVersion = target.minecraftVersion.map {
@@ -238,13 +187,13 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         }
 
         // TODO do the same for the javadoc tasks
-        tasks.named(sourceSet.compileJavaTaskName, JavaCompile::class.java) { compile ->
-            compile.options.release.set(javaVersion)
+        tasks.named<JavaCompile>(sourceSet.compileJavaTaskName) {
+            options.release.set(javaVersion)
         }
 
         plugins.withId("org.jetbrains.kotlin.jvm") {
-            tasks.named(sourceSet.getCompileTaskName("kotlin"), KotlinCompile::class.java) {
-                it.compilerOptions.jvmTarget.set(javaVersion.map {
+            tasks.named<KotlinCompile>(sourceSet.getCompileTaskName("kotlin")) {
+                compilerOptions.jvmTarget.set(javaVersion.map {
                     JvmTarget.fromTarget(JavaVersion.toVersion(it).toString())
                 })
             }
@@ -272,47 +221,90 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                 continue
             }
 
-            configurations.named(name) { configuration ->
+            configurations.named(name) {
+                val configuration = this
+
                 // TODO Can this be avoided? maybe publishing remapped Jars in a separate variant if our named namespace is stable(like mojang mappings)?
                 //  Alternatively could we find the exact artifact by checking if the files match? or via the build dependencies?
-                configuration.artifacts.clear()
+                artifacts.clear()
 
                 project.artifacts.add(name, compilation.includeJarTask!!)
 
-                val variant = configuration.outgoing.variants.create(REMAPPED_SUBVARIANT) {
-                    it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
-                    it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                val remappedVariant = outgoing.variants.create(REMAPPED_VARIANT_NAME) {
+                    attributes
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
 
-                    it.artifact(tasks.named(sourceSet.jarTaskName))
+                    artifact(tasks.named(sourceSet.jarTaskName))
+                }
+
+                val includesStrippedVariant = outgoing.variants.create("${REMAPPED_VARIANT_NAME}IncludesStripped") {
+                    attributes
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                        .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
+
+                    artifact(tasks.named(sourceSet.jarTaskName))
                 }
 
                 components.named("java") {
-                    it as AdhocComponentWithVariants
+                    this as AdhocComponentWithVariants
 
-                    it.withVariantsFromConfiguration(configuration) {
-                        if (it.configurationVariant.name == variant.name) {
-                            it.skip()
+                    withVariantsFromConfiguration(configuration) {
+                        if (configurationVariant.name in listOf(remappedVariant.name, includesStrippedVariant.name)) {
+                            skip()
                         }
                     }
                 }
 
                 configuration.outgoing.variants.named { it == "classes" || it == "resources" }.configureEach {
-                    it.attributes.attribute(REMAPPED_ATTRIBUTE, true)
-                    it.attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                    attributes
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+                }
+            }
+        }
+
+        if (!compilation.isTest) {
+            configurations.named(sourceSet.runtimeElementsConfigurationName) {
+                val configuration = this
+
+                val classesAndResourcesVariants = outgoing.variants.named { it == "classes" || it == "resources" }
+
+                val classesAndResourcesVariant = outgoing.variants.maybeCreate(
+                    CLASSES_AND_RESOURCES_VARIANT_NAME
+                ).also {
+                    it.attributes
+                        .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
+                        .attribute(REMAPPED_ATTRIBUTE, true)
+                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+
+                    classesAndResourcesVariants.configureEach {
+                        artifacts.configureEach {
+                            it.artifact(this)
+                        }
+                    }
+                }
+
+                components.named("java") {
+                    this as AdhocComponentWithVariants
+
+                    withVariantsFromConfiguration(configuration) {
+                        if (configurationVariant.name == classesAndResourcesVariant.name) {
+                            skip()
+                        }
+                    }
                 }
             }
         }
 
         for (name in resolvableConfigurationNames) {
-            configurations.named(name) { configuration ->
-                configuration.attributes(compilation::resolvableAttributes)
+            configurations.named(name) {
+                attributes(compilation::resolvableAttributes)
 
-                configuration.attributes.attribute(
+                attributes.attribute(
                     MinecraftOperatingSystemAttribute.attribute,
-                    objects.named(
-                        MinecraftOperatingSystemAttribute::class.java,
-                        operatingSystemName(),
-                    ),
+                    objects.named(operatingSystemName()),
                 )
             }
         }
@@ -325,10 +317,10 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             val sourceSetName = sourceSetName(target, testName)
 
             project.extension<SourceSetContainer>().named { it == sourceSetName }.configureEach {
-                for (name in listOf(it.compileClasspathConfigurationName, it.runtimeClasspathConfigurationName)) {
+                for (name in listOf(compileClasspathConfigurationName, runtimeClasspathConfigurationName)) {
                     project.configurations.named(name) {
-                        it.attributes(compilation::attributes)
-                        it.attributes(compilation::resolvableAttributes)
+                        attributes(compilation::attributes)
+                        attributes(compilation::resolvableAttributes)
                     }
                 }
             }
@@ -349,7 +341,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
-            addCompilation(client, "${ClochePlugin.CLIENT_COMPILATION_NAME}:${SourceSet.TEST_SOURCE_SET_NAME}")
+            addCompilation(client, ClochePlugin.CLIENT_TEST_COMPILATION_NAME)
             client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->
@@ -374,29 +366,32 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         }
     }
 
-    tasks.named(target.sourceSet.downloadAssetsTaskName, DownloadAssets::class.java) {
-        it.minecraftVersion.set(target.minecraftVersion)
+    tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName) {
+        minecraftVersion.set(target.minecraftVersion)
     }
 
-    tasks.named(target.sourceSet.extractNativesTaskName, ExtractNatives::class.java) {
-        it.minecraftVersion.set(target.minecraftVersion)
+    tasks.named<ExtractNatives>(target.sourceSet.extractNativesTaskName) {
+        minecraftVersion.set(target.minecraftVersion)
     }
 
-    configurations.named(target.sourceSet.runtimeElementsConfigurationName) { configuration ->
-        val variant = configuration.outgoing.variants.create("includeTransformed") {
-            it.attributes
+    configurations.named(target.sourceSet.runtimeElementsConfigurationName) {
+        val configuration = this
+
+        val variant = outgoing.variants.create("includeTransformed") {
+            attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
+                .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.client)
+                .attribute(CompilationAttributes.CLOCHE_SIDE, ModDistribution.client.legacyName)
 
-            it.artifact(target.finalJar)
+            artifact(target.finalJar)
         }
 
         components.named("java") {
-            it as AdhocComponentWithVariants
+            this as AdhocComponentWithVariants
 
-            it.withVariantsFromConfiguration(configuration) {
-                if (it.configurationVariant.name == variant.name) {
-                    it.skip()
+            withVariantsFromConfiguration(configuration) {
+                if (configurationVariant.name == variant.name) {
+                    skip()
                 }
             }
         }

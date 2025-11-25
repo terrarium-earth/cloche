@@ -1,28 +1,30 @@
 package earth.terrarium.cloche.api.metadata
 
 import earth.terrarium.cloche.api.metadata.CommonMetadata.Environment
-import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.tasks.GenerateFabricModJson
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.gradle.api.Action
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
+import org.gradle.kotlin.dsl.listProperty
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
-abstract class FabricMetadata @Inject internal constructor(private val target: FabricTargetImpl) : CommonMetadata {
+abstract class FabricMetadata @Inject internal constructor(
+    @Transient
+    private val target: FabricTargetImpl,
+) : CommonMetadata {
     abstract val environment: Property<Environment>
         @Optional
         @Input
         get
 
-    abstract var entrypoints: MutableMap<String, ListProperty<Entrypoint>>?
+    val entrypoints = mutableMapOf<String, ListProperty<Entrypoint>>()
         @Input
         @Optional
         get
@@ -55,23 +57,17 @@ abstract class FabricMetadata @Inject internal constructor(private val target: F
     }
 
     fun entrypoint(name: String, value: String) = entrypoint(name) {
-        it.value.set(value)
+        this.value.set(value)
     }
 
     fun entrypoint(name: String, action: Action<Entrypoint>) =
         entrypoint(name, listOf(action))
 
-    fun entrypoint(name: String, actions: List<Action<Entrypoint>>) {
-        if (entrypoints == null) {
-            entrypoints = mutableMapOf()
-        }
-
-        entrypoints!!.computeIfAbsent(name) { _ ->
-            objects.listProperty(Entrypoint::class.java)
-        }.addAll(actions.map {
-            objects.newInstance(Entrypoint::class.java).also(it::execute)
-        })
-    }
+    fun entrypoint(name: String, actions: List<Action<Entrypoint>>) = entrypoints.computeIfAbsent(name) { _ ->
+        objects.listProperty<Entrypoint>()
+    }.addAll(actions.map {
+        objects.newInstance<Entrypoint>().also(it::execute)
+    })
 
     interface Entrypoint {
         val value: Property<String>

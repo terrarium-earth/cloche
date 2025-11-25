@@ -1,49 +1,62 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeDisambiguationRule
 import org.gradle.api.attributes.CompatibilityCheckDetails
 import org.gradle.api.attributes.MultipleCandidatesDetails
 
+/**
+ * Indicates that the variant is fully remapped
+ */
 @JvmField
 val REMAPPED_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.remapped", Boolean::class.javaObjectType)
 
+/**
+ * Indicates that the variant has includes fully resolved/handled
+ */
 @JvmField
 val INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.includeTransformedOutput", Boolean::class.javaObjectType)
 
+/**
+ * Indicates that the forge mapping service has been stripped
+ */
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 
-class SideCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
-    override fun execute(details: CompatibilityCheckDetails<PublicationSide>) {
-        if (details.producerValue == PublicationSide.Common || details.producerValue == PublicationSide.Joined) {
-            details.compatible()
-        } else {
-            details.incompatible()
+class DistributionCompatibilityRule : AttributeCompatibilityRule<ModDistribution> {
+    override fun execute(details: CompatibilityCheckDetails<ModDistribution>) {
+        details.compatible()
+    }
+}
+
+class DistributionDisambiguationRule : AttributeDisambiguationRule<ModDistribution> {
+    override fun execute(details: MultipleCandidatesDetails<ModDistribution>) {
+        if (details.consumerValue in details.candidateValues) {
+            // Pick the requested variant
+            details.closestMatch(details.consumerValue!!)
+        } else if (details.consumerValue == ModDistribution.client && ModDistribution.common in details.candidateValues) {
+            details.closestMatch(ModDistribution.common)
         }
     }
 }
 
-class SideDisambiguationRule : AttributeDisambiguationRule<PublicationSide> {
-    override fun execute(details: MultipleCandidatesDetails<PublicationSide>) {
+@Deprecated("Stop-gap for migration to DISTRIBUTION attribute")
+class ClocheSideCompatibilityRule : AttributeCompatibilityRule<String> {
+    override fun execute(details: CompatibilityCheckDetails<String>) {
+        details.compatible()
+    }
+}
+
+@Deprecated("Stop-gap for migration to DISTRIBUTION attribute")
+class ClocheSideDisambiguationRule : AttributeDisambiguationRule<String> {
+    override fun execute(details: MultipleCandidatesDetails<String>) {
         if (details.consumerValue in details.candidateValues) {
             // Pick the requested variant
             details.closestMatch(details.consumerValue!!)
-        } else if (details.consumerValue == PublicationSide.Client) {
-            // Prefer joined if the consumer is client
-            if (PublicationSide.Joined in details.candidateValues) {
-                details.closestMatch(PublicationSide.Joined)
-            } else if (PublicationSide.Common in details.candidateValues) {
-                details.closestMatch(PublicationSide.Common)
-            }
-        } else {
-            // Prefer common otherwise
-            if (PublicationSide.Common in details.candidateValues) {
-                details.closestMatch(PublicationSide.Common)
-            } else if (PublicationSide.Joined in details.candidateValues) {
-                details.closestMatch(PublicationSide.Joined)
-            }
+        } else if (details.consumerValue == ModDistribution.client.legacyName && ModDistribution.common.legacyName in details.candidateValues) {
+            details.closestMatch(ModDistribution.common.legacyName)
         }
     }
 }

@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
@@ -9,6 +9,7 @@ import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 internal interface CommonSecondarySourceSetsInternal : CommonSecondarySourceSets {
@@ -40,7 +41,9 @@ internal abstract class CommonCompilation @Inject constructor(
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
 
-        attributes.attribute(TargetAttributes.MOD_LOADER, COMMON)
+        attributes
+            .attribute(TargetAttributes.MOD_LOADER, MinecraftModLoader.common)
+            .attribute(TargetAttributes.CLOCHE_MOD_LOADER, MinecraftModLoader.common)
     }
 }
 
@@ -55,11 +58,11 @@ internal abstract class CommonTopLevelCompilation @Inject constructor(
     }
 
     override val data: LazyConfigurableInternal<CommonCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(CommonCompilation::class.java, name(ClochePlugin.DATA_COMPILATION_NAME), target, false)
+        project.objects.newInstance(name(ClochePlugin.DATA_COMPILATION_NAME), target, false)
     }
 
     override val test: LazyConfigurableInternal<CommonCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(CommonCompilation::class.java, name(SourceSet.TEST_SOURCE_SET_NAME), target, true)
+        project.objects.newInstance(name(SourceSet.TEST_SOURCE_SET_NAME), target, true)
     }
 
     override val sourceSet: SourceSet

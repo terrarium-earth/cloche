@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.target.ClocheTarget
@@ -8,19 +7,21 @@ import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.cloche
-import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.domainObjectSet
+import org.gradle.kotlin.dsl.newInstance
+import org.gradle.kotlin.dsl.setProperty
 import javax.inject.Inject
 
 private fun collectTargetDependencies(target: ClocheTarget): Set<CommonTarget> =
     (target.dependsOn + target.dependsOn.flatMap { collectTargetDependencies(it) }).toSet()
 
-private fun <T> Iterable<T>.onlyValue(): T? {
+private fun <T> Iterable<T>.sharedValue(): T? {
     val iterator = iterator()
 
     if (!iterator.hasNext()) {
@@ -44,7 +45,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
 ) : CommonTarget,
     CommonSecondarySourceSetsInternal, ClocheTargetInternal {
     val main: CommonTopLevelCompilation = run {
-        project.objects.newInstance(CommonTopLevelCompilation::class.java, SourceSet.MAIN_SOURCE_SET_NAME, this)
+        project.objects.newInstance<CommonTopLevelCompilation>(SourceSet.MAIN_SOURCE_SET_NAME, this)
     }
 
     override val mixins get() = main.mixins
@@ -55,11 +56,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
     override val target = this
 
     override val client: LazyConfigurableInternal<CommonTopLevelCompilation> = project.lazyConfigurable {
-        project.objects.newInstance(
-            CommonTopLevelCompilation::class.java,
-            ClochePlugin.CLIENT_COMPILATION_NAME,
-            this,
-        )
+        project.objects.newInstance<CommonTopLevelCompilation>(ClochePlugin.CLIENT_COMPILATION_NAME, this)
     }
 
     // Not lazy as it has to happen once at configuration time
@@ -69,10 +66,10 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     @Suppress("UNCHECKED_CAST")
     val metadataActions: DomainObjectCollection<Action<CommonMetadata>> =
-        project.objects.domainObjectSet(Action::class.java) as DomainObjectCollection<Action<CommonMetadata>>
+        project.objects.domainObjectSet(Action::class) as DomainObjectCollection<Action<CommonMetadata>>
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
-        project.objects.domainObjectSet(CommonTarget::class.java)
+        project.objects.domainObjectSet(CommonTarget::class)
 
     override val dependents: Provider<List<MinecraftTarget>> = run {
         val cloche = project.cloche
@@ -91,7 +88,7 @@ internal abstract class CommonTargetInternal @Inject constructor(
         val objects = project.objects
 
         dependents.flatMap {
-            val versions = objects.setProperty(String::class.java)
+            val versions = objects.setProperty<String>()
 
             for (dependant in it) {
                 versions.add(dependant.minecraftVersion)
@@ -103,12 +100,12 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     override val minecraftVersion: Provider<String> = minecraftVersions.map { versions ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-        versions.onlyValue()
+        versions.sharedValue()
     }
 
     val commonType: Provider<String> = dependents.map { dependants ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-        dependants.map { (it as MinecraftTargetInternal).commonType }.onlyValue()
+        dependants.map { (it as MinecraftTargetInternal).loaderName }.sharedValue()
     }
 
     override fun getName() = name

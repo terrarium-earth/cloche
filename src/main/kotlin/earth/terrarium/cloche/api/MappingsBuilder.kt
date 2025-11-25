@@ -14,16 +14,17 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+import org.gradle.kotlin.dsl.property
 
 internal fun officialMappingsDependency(project: Project, target: MinecraftTarget): FileCollection {
     val taskName = lowerCamelCaseGradleName("resolve", target.featureName, "clientMappings")
 
     val task = project.tasks.maybeRegister<ResolveMinecraftMappings>(taskName) {
-        it.group = "minecraft-resolution"
+        group = "minecraft-resolution"
 
-        it.server.set(false)
+        server.set(false)
 
-        it.minecraftVersion.set(target.minecraftVersion)
+        minecraftVersion.set(target.minecraftVersion)
     }
 
     return project.files(task.flatMap(ResolveMinecraftMappings::output))
@@ -34,17 +35,17 @@ class MappingsBuilder internal constructor(
     private val project: Project,
 ) {
     private val _isOfficialCompatible: Property<Boolean> =
-        project.objects.property(Boolean::class.javaObjectType).apply {
+        project.objects.property<Boolean>().apply {
             convention(true)
         }
 
     private val _isDefault: Property<Boolean> =
-        project.objects.property(Boolean::class.javaObjectType).apply {
+        project.objects.property<Boolean>().apply {
             convention(true)
         }
 
     private val _isConfigured: Property<Boolean> =
-        project.objects.property(Boolean::class.javaObjectType).apply {
+        project.objects.property<Boolean>().apply {
             convention(false)
         }
 

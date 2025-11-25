@@ -126,7 +126,7 @@ internal abstract class DefinedMinecraftProviders {
     fun getProvider(target: MinecraftTarget, namespace: Namespace): TargetMinecraftProvider? =
         getProvider(target)?.get()?.get(namespace)?.invoke(target)
 
-    private fun getClasspath(target: MinecraftTarget): MapProperty<Namespace, (MinecraftTarget, String) -> Classpath> {
+    internal fun getClasspath(target: MinecraftTarget): MapProperty<Namespace, (MinecraftTarget, String) -> Classpath> {
         val map = objects.mapProperty(
             String::class.java,
             java.lang.Object::class.java as Class<(MinecraftTarget, String) -> FileCollection>
@@ -172,17 +172,17 @@ internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
                     namespace
                 )
             ) {
-                it.group = "minecraft-transforms"
+                group = "minecraft-transforms"
 
-                it.inputFile.set(input)
-                it.sourceNamespace.set(intermediaryNamespace)
-                it.targetNamespace.set(namespace)
+                inputFile.set(input)
+                sourceNamespace.set(intermediaryNamespace)
+                targetNamespace.set(namespace)
 
-                it.classpath.from(providers.getClasspath(this, namespace))
+                classpath.from(providers.getClasspath(this@getRemappedMinecraftByNamespace, namespace))
 
-                it.mappings.set(loadMappingsTask.flatMap { it.output })
+                mappings.set(loadMappingsTask.flatMap { it.output })
 
-                it.outputFile.set(outputDirectory.zip(minecraftVersion) { dir, version ->
+                outputFile.set(outputDirectory.zip(minecraftVersion) { dir, version ->
                     dir.file(buildString {
                         append("minecraft")
                         append("-")
@@ -199,7 +199,7 @@ internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
             }
 
             project.tasks.named(ClochePlugin.IDE_SYNC_TASK_NAME) {
-                it.dependsOn(task)
+                dependsOn(task)
             }
 
             intermediaryJars.add(task.flatMap { it.outputFile })

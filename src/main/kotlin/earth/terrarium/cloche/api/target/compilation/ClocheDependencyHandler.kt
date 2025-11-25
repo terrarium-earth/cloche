@@ -6,10 +6,10 @@ import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.artifacts.dsl.DependencyModifier
 import org.gradle.api.plugins.jvm.JvmComponentDependencies
 import org.gradle.api.provider.Provider
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 @Suppress("UnstableApiUsage")
-@JvmDefaultWithoutCompatibility
 abstract class ClocheDependencyHandler @Inject constructor(private val minecraftVersion: Provider<String>) : JvmComponentDependencies {
     abstract val include: DependencyCollector
 
@@ -26,9 +26,9 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
     abstract val modLocalRuntime: DependencyCollector
     abstract val modLocalImplementation: DependencyCollector
 
-    val skipIncludeTransformation: SkipIncludeTransformationDependencyModifier = objectFactory.newInstance(SkipIncludeTransformationDependencyModifier::class.java)
-    val extractIncludes: ExtractIncludesDependencyModifier = objectFactory.newInstance(ExtractIncludesDependencyModifier::class.java)
-    val stripIncludes: StripIncludesDependencyModifier = objectFactory.newInstance(StripIncludesDependencyModifier::class.java)
+    val skipIncludeTransformation: SkipIncludeTransformationDependencyModifier = objectFactory.newInstance<SkipIncludeTransformationDependencyModifier>()
+    val extractIncludes: ExtractIncludesDependencyModifier = objectFactory.newInstance<ExtractIncludesDependencyModifier>()
+    val stripIncludes: StripIncludesDependencyModifier = objectFactory.newInstance<StripIncludesDependencyModifier>()
 
     fun fabricApi(apiVersion: String) {
         modImplementation.add(minecraftVersion.map {
@@ -70,26 +70,29 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
     }
 
     private fun fabricApiDependency(apiVersion: String, minecraftVersion: String) =
-        module("net.fabricmc.fabric-api", "fabric-api", "$apiVersion+$minecraftVersion")
+        dependencyFactory.create("net.fabricmc.fabric-api", "fabric-api", "$apiVersion+$minecraftVersion")
 
     abstract class SkipIncludeTransformationDependencyModifier : DependencyModifier() {
         override fun modifyImplementation(dependency: ModuleDependency) {
-            dependency.attributes
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+            dependency.attributes {
+                attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+            }
         }
     }
 
     abstract class ExtractIncludesDependencyModifier : DependencyModifier() {
         override fun modifyImplementation(dependency: ModuleDependency) {
-            dependency.attributes
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
+            dependency.attributes {
+                attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
+            }
         }
     }
 
     abstract class StripIncludesDependencyModifier : DependencyModifier() {
         override fun modifyImplementation(dependency: ModuleDependency) {
-            dependency.attributes
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
+            dependency.attributes {
+                attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
+            }
         }
     }
 }

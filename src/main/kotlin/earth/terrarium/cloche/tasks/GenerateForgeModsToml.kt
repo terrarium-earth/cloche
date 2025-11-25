@@ -120,6 +120,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         val output = output.getAsPath()
         val modId = modId.get()
         val metadata = metadata.get()
+
         val loaderVersionRange = buildVersionRange(loaderDependencyVersion.get())
         val dependencies: MutableList<Map<String, Any>> = mutableListOf()
 

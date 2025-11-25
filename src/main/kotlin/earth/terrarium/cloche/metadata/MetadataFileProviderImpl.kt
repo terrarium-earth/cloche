@@ -54,7 +54,9 @@ private class MetadataFileProviderImpl<ElementT : Any>(
     }
 
     override fun withContents(closure: Closure<*>) = withContents {
-        closure.rehydrate(it, this, this).call()
+        val owner = this@MetadataFileProviderImpl
+
+        closure.rehydrate(this, owner, owner).call()
     }
 
     override fun withElement(action: ElementT.() -> ElementT) {

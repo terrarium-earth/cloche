@@ -4,7 +4,7 @@ import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
-import earth.terrarium.cloche.loaderName
+import earth.terrarium.cloche.loader
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
 import org.gradle.api.Action
@@ -26,7 +26,7 @@ interface MinecraftTarget : ClocheTarget, CommonSecondarySourceSets, PlatformDep
         @Input get
 
     override val loaderName
-        get() = loaderName(javaClass)
+        get() = loader(javaClass).name
 
     val metadata: CommonMetadata
 
@@ -52,6 +52,8 @@ interface MinecraftTarget : ClocheTarget, CommonSecondarySourceSets, PlatformDep
     fun runs(action: Action<RunConfigurations>)
 
     fun runs(@DelegatesTo(RunConfigurations::class) closure: Closure<*>) = runs {
-        closure.rehydrate(it, this, this).call()
+        val owner = this@MinecraftTarget
+
+        closure.rehydrate(this, owner, owner).call()
     }
 }

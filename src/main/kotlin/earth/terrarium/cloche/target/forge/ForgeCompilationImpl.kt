@@ -1,91 +1,126 @@
 package earth.terrarium.cloche.target.forge
 
+import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.target.compilation.ForgeCompilation
-import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.withIdeaModule
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.addCollectedDependencies
+import earth.terrarium.cloche.target.compilationSourceSet
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
+import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.forge.task.JarJar
 import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import net.peanuuutz.tomlkt.TomlTable
 import org.gradle.api.Action
-import org.gradle.api.tasks.TaskProvider
+import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFile
+import org.gradle.api.provider.Provider
+import org.gradle.api.provider.ProviderFactory
+import org.gradle.api.tasks.SourceSet
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.register
 import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
-internal abstract class ForgeCompilationImpl @Inject constructor(info: TargetCompilationInfo<ForgeLikeTargetImpl>) : TargetCompilation<ForgeLikeTargetImpl>(info), ForgeCompilation {
+internal class ForgeCompilationInfo(
+    name: String,
+    target: ForgeLikeTargetImpl,
+    intermediaryMinecraftClasspath: FileCollection,
+    namedMinecraftFile: Provider<RegularFile>,
+    mainJar: Provider<RegularFile>,
+    data: Boolean,
+    test: Boolean,
+    providerFactory: ProviderFactory,
+) : TargetCompilationInfo<ForgeLikeTargetImpl>(
+    name,
+    target,
+    intermediaryMinecraftClasspath,
+    namedMinecraftFile,
+    if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
+        providerFactory.provider { emptyList() }
+    } else {
+        mainJar.map(::listOf)
+    },
+    providerFactory.provider { ModDistribution.client },
+    data,
+    test,
+    IncludeTransformationStateAttribute.None,
+    JarJar::class.java,
+)
+
+internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeCompilationInfo) : TargetCompilation<ForgeLikeTargetImpl>(info), ForgeCompilation {
     private val legacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, featureName, "legacyClasspath")) {
-        it.addCollectedDependencies(legacyClasspath)
+        addCollectedDependencies(legacyClasspath)
 
-        attributes(it.attributes)
+        this@ForgeCompilationImpl.attributes(attributes)
 
-        it.isCanBeConsumed = false
+        isCanBeConsumed = false
 
-        it.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
     }
 
-    internal val writeLegacyClasspath = project.tasks.register(
+    internal val writeLegacyClasspath = project.tasks.register<WriteClasspathFile>(
         lowerCamelCaseGradleName("write", target.featureName, featureName, "legacyClasspath"),
-        WriteClasspathFile::class.java,
-    ) { task ->
-        task.classpath.from(target.minecraftLibrariesConfiguration)
-        task.classpath.from(target.resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
-        task.classpath.from(legacyClasspathConfiguration)
+    ) {
+        classpath.from(target.minecraftLibrariesConfiguration)
+        classpath.from(target.resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
+        classpath.from(legacyClasspathConfiguration)
 
         if (target is ForgeTargetImpl) {
-            task.classpath.from(finalMinecraftFile)
+            classpath.from(finalMinecraftFile)
         }
     }
 
-    internal val generateModsToml: TaskProvider<GenerateForgeModsToml> = project.tasks.register(
+    internal val generateModsToml = project.tasks.register<GenerateForgeModsToml>(
         lowerCamelCaseGradleName("generate", target.featureName, featureName, "modsToml"),
-        GenerateForgeModsToml::class.java
     ) {
-        it.metadata.set(target.metadata)
-        it.loaderName.set(target.loaderName)
+        metadata.set(target.metadata)
+        loaderName.set(target.loaderName)
 
         if (target is ForgeTargetImpl) {
-            it.neoforge.set(false)
+            neoforge.set(false)
 
-            it.loaderDependencyVersion.set(
+            loaderDependencyVersion.set(
                 target.metadata.loaderVersion.orElse(target.loaderVersion.map {
                     target.loaderVersionRange(it.substringBefore('.'))
                 }),
             )
 
-            it.output.set(metadataDirectory.map {
+            output.set(metadataDirectory.map {
                 it.dir("META-INF").file("mods.toml")
             })
         } else {
-            it.neoforge.set(true)
+            neoforge.set(true)
 
-            it.loaderDependencyVersion.set(target.metadata.loaderVersion.orElse(target.loaderVersionRange("1")))
+            loaderDependencyVersion.set(target.metadata.loaderVersion.orElse(target.loaderVersionRange("1")))
 
-            it.output.set(metadataDirectory.map {
+            output.set(metadataDirectory.map {
                 it.dir("META-INF").file("neoforge.mods.toml")
             })
 
-            it.mixinConfigs.from(mixins)
+            mixinConfigs.from(mixins)
         }
     }
 
     init {
-        project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(metadataDirectory)
+        project.tasks.named<ProcessResources>(sourceSet.processResourcesTaskName) {
+            from(metadataDirectory)
 
-            it.dependsOn(generateModsToml)
+            dependsOn(generateModsToml)
         }
 
-        project.ideaModule(sourceSet) {
+        project.withIdeaModule(sourceSet) {
             it.resourceDirs.add(metadataDirectory.get().asFile)
         }
     }
 
     override fun withMetadataToml(action: Action<MetadataFileProvider<TomlTable>>) = generateModsToml.configure {
-        it.withToml(action)
+        withToml(action)
     }
 }

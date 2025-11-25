@@ -14,10 +14,11 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 private fun ObjectFactory.serializable(type: JsonType, builder: (JsonSerializable.() -> Unit)? = null) =
-    newInstance(JsonSerializable::class.java).also {
+    newInstance<JsonSerializable>().also {
         it.type.set(type)
 
         builder?.invoke(it)

@@ -28,9 +28,9 @@ internal class LazyConfigurableInternal<out T : Any>(
 
     private val listeners = mutableListOf<Action<T>>()
 
-    fun onConfigured(action: Action<@UnsafeVariance T>) {
+    fun onConfigured(action: (T) -> Unit) {
         internalValue?.let {
-            action.execute(it)
+            action(it)
 
             return
         }

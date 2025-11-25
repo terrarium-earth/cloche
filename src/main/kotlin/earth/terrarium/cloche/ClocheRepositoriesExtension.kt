@@ -2,10 +2,12 @@ package earth.terrarium.cloche
 
 import groovy.lang.Closure
 import groovy.lang.DelegatesTo
+import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.Action
 import org.gradle.api.artifacts.dsl.RepositoryHandler
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.plugins.ExtensionAware
+import org.gradle.kotlin.dsl.create
 import javax.inject.Inject
 
 private const val NEOFORGE_RELEASES_CHANNEL = "releases"
@@ -14,18 +16,19 @@ private const val NEOFORGE_MOJANG_META = "mojang-meta"
 open class ClocheRepositoriesExtension @Inject constructor(private val repositoryHandler: RepositoryHandler) {
     private fun apply(url: String, configure: Action<in MavenArtifactRepository>?): MavenArtifactRepository =
         repositoryHandler.maven {
-            it.setUrl("https://$url/")
+            setUrl("https://$url/")
 
-            configure?.execute(it)
+            configure?.execute(this)
         }
 
     @JvmOverloads
+    @Deprecated("Define repositories as needed instead of adding every relevant repository")
     fun all(configure: Action<in MavenArtifactRepository>? = null) {
         librariesMinecraft(configure)
         mavenNeoforgedMeta(configure)
 
         repositoryHandler.mavenCentral {
-            configure?.execute(it)
+            configure?.execute(this)
         }
 
         main(configure)
@@ -34,8 +37,12 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
         mavenForge(configure)
     }
 
+    @Suppress("DEPRECATION")
+    @Deprecated("Define repositories as needed instead of adding every relevant repository")
     fun all(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = all {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     @JvmOverloads
@@ -43,7 +50,9 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
         apply("maven.msrandom.net/repository/root", configure)
 
     fun main(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = main {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     @JvmOverloads
@@ -51,21 +60,27 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
         apply("libraries.minecraft.net", configure)
 
     fun librariesMinecraft(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = librariesMinecraft {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     @JvmOverloads
     fun mavenFabric(configure: Action<in MavenArtifactRepository>? = null) = apply("maven.fabricmc.net", configure)
 
     fun mavenFabric(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenFabric {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     @JvmOverloads
     fun mavenForge(configure: Action<in MavenArtifactRepository>? = null) = apply("maven.minecraftforge.net", configure)
 
     fun mavenForge(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenForge {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     @JvmOverloads
@@ -79,28 +94,34 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
         channel: String = NEOFORGE_RELEASES_CHANNEL,
         @DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>
     ) = mavenNeoforged(channel) {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     @JvmOverloads
     fun mavenNeoforgedMeta(configure: Action<in MavenArtifactRepository>? = null) = mavenNeoforged(NEOFORGE_MOJANG_META)
 
     fun mavenNeoforgedMeta(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenNeoforged(NEOFORGE_MOJANG_META) {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     @JvmOverloads
     fun mavenParchment(configure: Action<in MavenArtifactRepository>? = null) = apply("maven.parchmentmc.org", configure)
 
     fun mavenParchment(@DelegatesTo(MavenArtifactRepository::class) configure: Closure<*>) = mavenParchment {
-        configure.rehydrate(it, this, this).call()
+        val owner = this@ClocheRepositoriesExtension
+
+        configure.rehydrate(this, owner, owner).call()
     }
 
     companion object {
         fun register(repositoryHandler: RepositoryHandler) {
             (repositoryHandler as ExtensionAware).extensions.create(
                 "cloche",
-                ClocheRepositoriesExtension::class.java,
+                ClocheRepositoriesExtension::class,
                 repositoryHandler
             )
         }
@@ -108,7 +129,7 @@ open class ClocheRepositoriesExtension @Inject constructor(private val repositor
 }
 
 val RepositoryHandler.cloche: ClocheRepositoriesExtension
-    get() = (this as ExtensionAware).extensions.getByType(ClocheRepositoriesExtension::class.java)
+    get() = (this as ExtensionAware).extension<ClocheRepositoriesExtension>()
 
 fun RepositoryHandler.cloche(action: Action<ClocheRepositoriesExtension>) =
     action.execute(cloche)
@@ -122,6 +143,6 @@ class RepositoryHandlerGroovyExtensions {
         repositoryHandler: RepositoryHandler,
         @DelegatesTo(ClocheRepositoriesExtension::class) configure: Closure<*>,
     ) = repositoryHandler.cloche {
-        configure.rehydrate(it, repositoryHandler, repositoryHandler).call()
+        configure.rehydrate(this, repositoryHandler, repositoryHandler).call()
     }
 }

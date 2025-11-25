@@ -4,6 +4,7 @@ import earth.terrarium.cloche.api.metadata.CommonMetadata.VersionRange
 import earth.terrarium.cloche.api.metadata.custom.JsonSerializable
 import earth.terrarium.cloche.api.metadata.custom.convertToSerializable
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
+import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import net.peanuuutz.tomlkt.TomlTable
 import org.gradle.api.Action
@@ -13,9 +14,13 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
-abstract class ForgeMetadata @Inject internal constructor(private val target: ForgeLikeTargetImpl) : CommonMetadata {
+abstract class ForgeMetadata @Inject internal constructor(
+    @Transient
+    private val target: ForgeLikeTargetImpl,
+) : CommonMetadata {
     abstract val modLoader: Property<String>
         @Optional
         @Input
@@ -72,9 +77,9 @@ abstract class ForgeMetadata @Inject internal constructor(private val target: Fo
         modProperties.putAll(data.mapValues { (_, value) -> convertToSerializable(objects, value) })
 
     fun loaderVersion(version: String) = loaderVersion {
-        it.start.set(version)
+        this.start.set(version)
     }
 
     fun loaderVersion(action: Action<VersionRange>) =
-        loaderVersion.set(objects.newInstance(VersionRange::class.java).also(action::execute))
+        loaderVersion.set(objects.newInstance<VersionRange>().also(action::execute))
 }

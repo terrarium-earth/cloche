@@ -1,66 +1,61 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.PublicationSide
-import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
-import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.FabricSecondarySourceSets
-import earth.terrarium.cloche.ideaModule
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.target.lazyConfigurable
-import net.msrandom.minecraftcodev.fabric.task.JarInJar
-import org.gradle.api.tasks.SourceSet
-import org.gradle.language.jvm.tasks.ProcessResources
+import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
-internal abstract class FabricClientSecondarySourceSets @Inject constructor(info: TargetCompilationInfo<FabricTargetImpl>) : TargetCompilation<FabricTargetImpl>(info), FabricSecondarySourceSets {
+internal abstract class FabricClientSecondarySourceSets @Inject constructor(info: FabricCompilationInfo) : TargetCompilation<FabricTargetImpl>(info), FabricSecondarySourceSets {
     override val data: LazyConfigurableInternal<FabricCompilationImpl> = project.lazyConfigurable {
-        project.objects.newInstance(
-            FabricCompilationImpl::class.java,
-            TargetCompilationInfo(
-                name + TARGET_NAME_PATH_SEPARATOR + ClochePlugin.DATA_COMPILATION_NAME,
+        val data = project.objects.newInstance<FabricCompilationImpl>(
+            FabricCompilationInfo(
+                ClochePlugin.CLIENT_DATA_COMPILATION_NAME,
                 target,
                 info.intermediaryMinecraftClasspath,
                 info.namedMinecraftFile,
-                info.extraClasspathFiles,
-                info.side,
+                info.clientMinecraftFile,
+                info.finalCommonJar,
+                target.main.finalMinecraftFile,
                 data = true,
                 test = false,
-                includeState = IncludeTransformationStateAttribute.Stripped,
-                includeJarType = JarInJar::class.java,
+                client = project.provider { true },
             ),
         )
+
+        target.data.onConfigured {
+            it.generateModJson.configure {
+                clientMixinConfigs.from(data.mixins)
+            }
+        }
+
+        data
     }
 
     override val test: LazyConfigurableInternal<FabricCompilationImpl> = project.lazyConfigurable {
-        project.objects.newInstance(
-            FabricCompilationImpl::class.java,
-            TargetCompilationInfo(
-                name + TARGET_NAME_PATH_SEPARATOR + SourceSet.TEST_SOURCE_SET_NAME,
+        val test = project.objects.newInstance<FabricCompilationImpl>(
+            FabricCompilationInfo(
+                ClochePlugin.CLIENT_TEST_COMPILATION_NAME,
                 target,
                 info.intermediaryMinecraftClasspath,
-                info.namedMinecraftFile,
-                info.extraClasspathFiles,
-                info.side,
+                info.commonMinecraftFile,
+                info.clientMinecraftFile,
+                info.finalCommonJar,
+                target.main.finalMinecraftFile,
                 data = false,
                 test = true,
-                includeState = IncludeTransformationStateAttribute.Stripped,
-                includeJarType = JarInJar::class.java,
+                client = project.provider { true },
             ),
         )
-    }
 
-    init {
-        project.tasks.named(sourceSet.processResourcesTaskName, ProcessResources::class.java) {
-            it.from(target.main.metadataDirectory)
-
-            it.dependsOn(target.main.generateModJson)
+        target.test.onConfigured {
+            it.generateModJson.configure {
+                clientMixinConfigs.from(test.mixins)
+            }
         }
 
-        project.ideaModule(sourceSet) {
-            it.resourceDirs.add(target.main.metadataDirectory.get().asFile)
-        }
+        test
     }
 }

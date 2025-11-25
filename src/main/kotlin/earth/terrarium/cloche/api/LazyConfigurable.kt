@@ -11,8 +11,11 @@ interface LazyConfigurable<out T : Any> {
     operator fun invoke(action: Action<@UnsafeVariance T>) = configure(action)
 
     fun call() = configure()
+
     fun call(closure: Closure<*>) = configure {
-        closure.rehydrate(it, this, this).call()
+        val owner = this@LazyConfigurable
+
+        closure.rehydrate(this, owner, owner).call()
     }
 
     fun configure(action: Action<@UnsafeVariance T>? = null): T
