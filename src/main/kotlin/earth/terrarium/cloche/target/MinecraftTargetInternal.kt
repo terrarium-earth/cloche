@@ -76,7 +76,7 @@ internal abstract class MinecraftTargetInternal(
     val outputDirectory: Provider<Directory> =
         project.layout.buildDirectory.dir("minecraft").map { it.optionalDir(capabilitySuffix) }
 
-    protected val mappings = MappingsBuilder(this, project)
+    internal val mappings = MappingsBuilder(this, project)
 
     @Suppress("UNCHECKED_CAST")
     private val mappingActions =

@@ -157,6 +157,8 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, (target: MinecraftTarget) -> Unit>()
 
+    internal val intermediaryMinecraftProviders = project.objects.newInstance(DefinedMinecraftProviders::class.java)
+
     private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: (target: MinecraftTarget) -> Unit) {
         var configured = false
 
