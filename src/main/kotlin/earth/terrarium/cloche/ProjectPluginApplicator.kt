@@ -104,6 +104,10 @@ fun applyToProject(target: Project) {
             disambiguationRules.add(DataDisambiguationRule::class)
         }
 
+        attribute(ClocheTargetAttribute.ATTRIBUTE) {
+            compatibilityRules.add(ClocheTargetAttribute.CompatibilityRule::class)
+        }
+
         attribute(TargetAttributes.MOD_LOADER)
         attribute(TargetAttributes.CLOCHE_MOD_LOADER)
         attribute(TargetAttributes.MINECRAFT_VERSION)
@@ -116,6 +120,7 @@ fun applyToProject(target: Project) {
         attribute(NO_NAME_MAPPING_ATTRIBUTE)
         attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE)
         attribute(IncludeTransformationStateAttribute.ATTRIBUTE)
+
     }
 
     target.dependencies.artifactTypes {
@@ -124,6 +129,7 @@ fun applyToProject(target: Project) {
                 .attribute(REMAPPED_ATTRIBUTE, false)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+                .attribute(ClocheTargetAttribute.ATTRIBUTE, ClocheTargetAttribute.INITIAL)
         }
     }
 
