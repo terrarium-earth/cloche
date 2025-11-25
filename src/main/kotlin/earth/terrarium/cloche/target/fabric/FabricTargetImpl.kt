@@ -216,16 +216,12 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         lowerCamelCaseGradleName("write", featureName, "commonGameLibraries"),
     ) {
         classpath.from(commonLoaderLibrariesConfiguration)
-
-        separator.set(File.pathSeparator)
     }
 
     val writeClientGameLibrariesTask: TaskProvider<WriteClasspathFile> = project.tasks.register<WriteClasspathFile>(
         lowerCamelCaseGradleName("write", featureName, "clientGameLibraries"),
     ) {
         classpath.from(clientLoaderLibrariesConfiguration)
-
-        separator.set(File.pathSeparator)
     }
 
     override val finalJar: Provider<out Jar>
