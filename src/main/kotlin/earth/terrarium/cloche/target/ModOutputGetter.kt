@@ -49,7 +49,22 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
                 it.id.componentIdentifier
             }
 
-            val groupedFiles = projectFiles.groupBy {
+            val groupedFiles = projectFiles.filter {
+                val libraryElements = it.variant.attributes.getAttribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE)
+                val isDirectory = libraryElements?.name == LibraryElements.CLASSES_AND_RESOURCES || libraryElements?.name == LibraryElements.CLASSES || libraryElements?.name == LibraryElements.RESOURCES
+
+                if (isDirectory) {
+                    return@filter true
+                }
+
+                if (libraryElements?.name == LibraryElements.JAR) {
+                    // Explicitly a JAR
+                    return@filter false
+                }
+
+                // Fallback to filename checking
+                '.' !in it.file.name
+            }.groupBy {
                 it.id.componentIdentifier
             }
 
@@ -74,7 +89,7 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
     val listings = objects.newInstance<OutputListings>()
 
     listings.modId.set(project.modId)
-    listings.outputs.from(compilation.sourceSet.output)
+    listings.outputs.from(compilation.modOutputs)
     listings.dependencies.set(dependencyOutputs)
 
     return listings

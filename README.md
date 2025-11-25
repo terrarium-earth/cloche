@@ -124,7 +124,7 @@ minecraftVersion = "1.21.1"
 common {
     // common is implicit if not in single target mode, but can be additionally configured
     dependencies {
-        implementation(dependencyFactory.create(group = "some.module", name = "my-library", version = "1.0.0"))
+        implementation("some.module:my-library:1.0.0")
     }
 }
 
@@ -136,7 +136,7 @@ fabric {
     loaderVersion = "0.16.2"
 
     dependencies {
-        fabricApi("0.102.1+1.21.1") // Optional
+        fabricApi("0.102.1") // Optional
     }
 }
 ```
@@ -150,7 +150,7 @@ fabric("1.21.1") {
     loaderVersion = "0.16.2"
 
     dependencies {
-        fabricApi("0.102.1+1.21.1")
+        fabricApi("0.102.1")
     }
 }
 
@@ -160,7 +160,7 @@ fabric("1.19.4") {
     loaderVersion = "0.14.19"
 
     dependencies {
-        fabricApi("0.79.0+1.19.4")
+        fabricApi("0.79.0")
     }
 }
 ```

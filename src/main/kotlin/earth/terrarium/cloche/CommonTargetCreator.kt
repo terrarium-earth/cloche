@@ -5,6 +5,8 @@ package earth.terrarium.cloche
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
+import earth.terrarium.cloche.api.attributes.ModDistribution
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.target.*
@@ -18,7 +20,6 @@ import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.plugins.JavaPlugin
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.compile.JavaCompile
@@ -118,7 +119,7 @@ internal fun createCommonTarget(
 
     fun addCompilation(
         compilation: CommonCompilation,
-        variant: PublicationSide,
+        variant: ModDistribution,
         data: Boolean,
         targetCompilations: Provider<List<TargetCompilation<*>>>,
     ) {
@@ -129,7 +130,7 @@ internal fun createCommonTarget(
         createCompilationVariants(
             compilation,
             sourceSet,
-            commonTarget.targetName == COMMON || commonTarget.publish
+            commonTarget.targetName == MinecraftModLoader.common.name || commonTarget.publish
         )
 
         configureSourceSet(sourceSet, commonTarget, compilation)
@@ -238,7 +239,8 @@ internal fun createCommonTarget(
         )
 
         compilation.attributes {
-            attribute(CompilationAttributes.SIDE, variant)
+            attribute(CompilationAttributes.DISTRIBUTION, variant)
+            attribute(CompilationAttributes.CLOCHE_SIDE, variant.legacyName)
             attribute(CompilationAttributes.DATA, data)
 
             // afterEvaluate needed as the attributes existing(not just their values) depend on configurable info
@@ -252,9 +254,10 @@ internal fun createCommonTarget(
 
                 if (minecraftVersion != null) {
                     attribute(TargetAttributes.MINECRAFT_VERSION, minecraftVersion)
+                    attribute(TargetAttributes.CLOCHE_MINECRAFT_VERSION, minecraftVersion)
                 }
 
-                if (!onlyCommonOfType.get() && commonTarget.targetName != COMMON && !commonTarget.publish) {
+                if (!onlyCommonOfType.get() && commonTarget.targetName != MinecraftModLoader.common.name && !commonTarget.publish) {
                     attribute(CommonTargetAttributes.NAME, commonTarget.targetName!!)
                 }
             }
@@ -309,7 +312,7 @@ internal fun createCommonTarget(
         compilation: CommonTopLevelCompilation,
         dataGetter: (MinecraftTargetInternal) -> TargetCompilation<*>,
         testGetter: (MinecraftTargetInternal) -> TargetCompilation<*>,
-        variant: PublicationSide,
+        variant: ModDistribution,
         targetCompilations: Provider<List<TargetCompilation<*>>>,
     ) {
         addCompilation(compilation, variant, false, targetCompilations)
@@ -363,7 +366,7 @@ internal fun createCommonTarget(
         commonTarget.main,
         { it.data.internalValue ?: it.main },
         { it.test.internalValue ?: it.main },
-        PublicationSide.Common,
+        ModDistribution.common, // TODO Can be ModDistribution.client depending on includedClient state
         commonTarget.dependents.map {
             it.map { (it as MinecraftTargetInternal).main }
         },
@@ -386,7 +389,7 @@ internal fun createCommonTarget(
                     ?: it.test.internalValue
                     ?: it.main
             },
-            PublicationSide.Client,
+            ModDistribution.client,
             commonTarget.dependents.map {
                 it.map {
                     (it as? FabricTargetImpl)?.client?.internalValue as? TargetCompilation<*>

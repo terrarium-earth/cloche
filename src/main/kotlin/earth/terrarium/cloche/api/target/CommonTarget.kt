@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.api.target
 
-import earth.terrarium.cloche.COMMON
 import earth.terrarium.cloche.api.LazyConfigurable
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import org.gradle.api.Action
@@ -11,7 +11,7 @@ import org.gradle.api.tasks.Optional
 @JvmDefaultWithoutCompatibility
 interface CommonTarget : ClocheTarget, CommonSecondarySourceSets {
     override val loaderName: String
-        get() = COMMON
+        get() = MinecraftModLoader.common.name
 
     override val featureName
         get() = super.featureName!!

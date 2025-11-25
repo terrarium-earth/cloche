@@ -1,7 +1,8 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.COMMON
+import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
@@ -9,8 +10,8 @@ import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.api.target.isSingleTarget
 import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.withIdeaModel
 import earth.terrarium.cloche.util.optionalDir
-import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
 import org.gradle.api.Buildable
@@ -29,7 +30,6 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.domainObjectSet
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
-import org.gradle.plugins.ide.idea.model.IdeaModel
 
 internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
@@ -79,8 +79,22 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
 
     val capabilitySuffix: Provider<String>
         get() = target.hasSeparateClient.map {
+            val collapsedName = collapsedName
+
             val base = if (it) {
-                collapsedName ?: "common"
+                if (collapsedName == null) {
+                    "server"
+                } else if (collapsedName == ClochePlugin.CLIENT_COMPILATION_NAME) {
+                    null
+                } else {
+                    val prefix = "${ClochePlugin.CLIENT_COMPILATION_NAME}:"
+
+                    if (collapsedName.startsWith(prefix)) {
+                        collapsedName.substring(prefix.length)
+                    } else {
+                        "server-$collapsedName"
+                    }
+                }
             } else {
                 collapsedName
             }
@@ -138,7 +152,7 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
 }
 
 internal fun sourceSetName(target: ClocheTarget, compilationName: String) = when {
-    target.isSingleTarget || target.targetName == COMMON -> lowerCamelCaseGradleName(compilationName)
+    target.isSingleTarget || target.targetName == MinecraftModLoader.common.name -> lowerCamelCaseGradleName(compilationName)
     compilationName == SourceSet.MAIN_SOURCE_SET_NAME -> target.featureName ?: SourceSet.MAIN_SOURCE_SET_NAME
     else -> lowerCamelCaseGradleName(target.featureName, compilationName)
 }
@@ -175,18 +189,9 @@ internal fun Project.configureSourceSet(
     }
 
     if (compilation is TargetCompilation<*>) {
-        if (project == rootProject) {
-            // afterEvaluate required as isDownloadSources is not lazy
-            afterEvaluate {
-                syncTask.configure {
-                    if (project.extension<IdeaModel>().module.isDownloadSources) {
-                        dependsOn(compilation.sources)
-                    }
-                }
-            }
-        } else {
+        withIdeaModel {
             syncTask.configure {
-                if (rootProject.extension<IdeaModel>().module.isDownloadSources) {
+                if (it.module.isDownloadSources) {
                     dependsOn(compilation.sources)
                 }
             }
@@ -197,7 +202,7 @@ internal fun Project.configureSourceSet(
         return
     }
 
-    val prefix = if (target.isSingleTarget || target.targetName == COMMON) {
+    val prefix = if (target.isSingleTarget || target.targetName == MinecraftModLoader.common.name) {
         null
     } else {
         target.capabilitySuffix

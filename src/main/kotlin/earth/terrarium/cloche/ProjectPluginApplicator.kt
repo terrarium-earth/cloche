@@ -2,8 +2,10 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.ClochePlugin.Companion.WRITE_MOD_ID_TASK_NAME
+import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.tasks.WriteModId
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
@@ -31,10 +33,11 @@ import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import org.gradle.kotlin.dsl.add
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.create
+import org.gradle.kotlin.dsl.withType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.withModule
-import org.gradle.kotlin.dsl.withType
+import org.gradle.plugins.ide.idea.IdeaPlugin
 
 private fun propertyName(name: String) = "earth.terrarium.cloche.$name"
 
@@ -60,6 +63,7 @@ fun applyToProject(target: Project) {
     }
 
     target.apply<JavaLibraryPlugin>()
+    target.apply<IdeaPlugin>()
 
     target.plugins.withType<MavenPublishPlugin> {
         target.extension<PublishingExtension>().publications.configureEach {
@@ -85,9 +89,14 @@ fun applyToProject(target: Project) {
     ClocheRepositoriesExtension.register(target.repositories)
 
     target.dependencies.attributesSchema {
-        attribute(CompilationAttributes.SIDE) {
-            compatibilityRules.add(SideCompatibilityRule::class)
-            disambiguationRules.add(SideDisambiguationRule::class)
+        attribute(CompilationAttributes.DISTRIBUTION) {
+            compatibilityRules.add(DistributionCompatibilityRule::class)
+            disambiguationRules.add(DistributionDisambiguationRule::class)
+        }
+
+        attribute(CompilationAttributes.CLOCHE_SIDE) {
+            compatibilityRules.add(ClocheSideCompatibilityRule::class)
+            disambiguationRules.add(ClocheSideDisambiguationRule::class)
         }
 
         attribute(CompilationAttributes.DATA) {
@@ -98,6 +107,20 @@ fun applyToProject(target: Project) {
         attribute(ClocheTargetAttribute.ATTRIBUTE) {
             compatibilityRules.add(ClocheTargetAttribute.CompatibilityRule::class)
         }
+
+        attribute(TargetAttributes.MOD_LOADER)
+        attribute(TargetAttributes.CLOCHE_MOD_LOADER)
+        attribute(TargetAttributes.MINECRAFT_VERSION)
+        attribute(TargetAttributes.CLOCHE_MINECRAFT_VERSION)
+
+        attribute(CommonTargetAttributes.TYPE)
+        attribute(CommonTargetAttributes.NAME)
+
+        attribute(REMAPPED_ATTRIBUTE)
+        attribute(NO_NAME_MAPPING_ATTRIBUTE)
+        attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE)
+        attribute(IncludeTransformationStateAttribute.ATTRIBUTE)
+
     }
 
     target.dependencies.artifactTypes {

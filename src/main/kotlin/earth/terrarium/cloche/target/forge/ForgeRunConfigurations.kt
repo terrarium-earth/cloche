@@ -8,7 +8,7 @@ import earth.terrarium.cloche.api.run.withCompilation
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.ideaModule
+import earth.terrarium.cloche.withIdeaModule
 import earth.terrarium.cloche.modId
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.lazyConfigurable
@@ -121,12 +121,12 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
 
-        project.ideaModule(target.sourceSet) {
+        project.withIdeaModule(target.sourceSet) {
             it.resourceDirs.add(target.datagenDirectory.get().asFile)
         }
 
         target.test.onConfigured {
-            project.ideaModule(it.sourceSet) {
+            project.withIdeaModule(it.sourceSet) {
                 it.resourceDirs.add(target.datagenDirectory.get().asFile)
             }
         }
@@ -189,12 +189,12 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }
 
-        project.ideaModule(target.sourceSet) {
+        project.withIdeaModule(target.sourceSet) {
             it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
         }
 
         target.test.onConfigured {
-            project.ideaModule(it.sourceSet) {
+            project.withIdeaModule(it.sourceSet) {
                 it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
             }
         }

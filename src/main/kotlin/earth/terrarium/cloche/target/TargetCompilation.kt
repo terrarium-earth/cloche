@@ -2,10 +2,10 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheTargetAttribute
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.util.fromJars
 import earth.terrarium.cloche.util.optionalDir
@@ -21,6 +21,7 @@ import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
 import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.DependencyScopeConfiguration
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
@@ -80,13 +81,24 @@ private fun Project.getUnmappedClasspath(configurationName: String): FileCollect
     })
 }
 
+data class FinalJarTasks(
+    val accessWidenTask: TaskProvider<AccessWiden>,
+    val decompileTask: TaskProvider<Decompile>,
+) {
+    val libraryArtifact
+        get() = accessWidenTask.flatMap(AccessWiden::outputFile)
+
+    val sourcesArtifact
+        get() = decompileTask.flatMap(Decompile::outputFile)
+}
+
 internal fun registerCompilationTransformations(
     target: MinecraftTargetInternal,
     compilationName: String,
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
-): Pair<TaskProvider<AccessWiden>, Provider<RegularFile>> {
+): FinalJarTasks {
     val outputDirectory = target.outputDirectory.map { it.dir(compilationName) }
 
     val collapsedName = compilationName.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals)
@@ -116,14 +128,12 @@ internal fun registerCompilationTransformations(
         })
     }
 
-    val finalMinecraftFile = accessWidenTask.flatMap(AccessWiden::outputFile)
-
     val decompile = project.tasks.register<Decompile>(
         lowerCamelCaseGradleName("decompile", target.featureName, collapsedName, "minecraft"),
     ) {
         group = "sources"
 
-        inputFile.set(finalMinecraftFile)
+        inputFile.set(accessWidenTask.flatMap(AccessWiden::outputFile))
         classpath.from(project.configurations.named(sourceSet.compileClasspathConfigurationName))
         classpath.from(extraClasspathFiles)
 
@@ -132,7 +142,7 @@ internal fun registerCompilationTransformations(
         })
     }
 
-    return accessWidenTask to decompile.flatMap(Decompile::outputFile)
+    return FinalJarTasks(accessWidenTask, decompile)
 }
 
 internal fun compilationSourceSet(target: MinecraftTargetInternal, name: String): SourceSet {
@@ -166,12 +176,10 @@ private fun setupModTransformationPipeline(
             from
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, false)
-                .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
 
             to
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, true)
-                .attribute(ClocheTargetAttribute.ATTRIBUTE, target.name)
 
             compilation.attributes(from)
             compilation.attributes(to)
@@ -206,13 +214,13 @@ private fun setupModTransformationPipeline(
     }
 }
 
-internal data class TargetCompilationInfo<T : MinecraftTargetInternal>(
+internal open class TargetCompilationInfo<T : MinecraftTargetInternal>(
     val name: String,
     val target: T,
     val intermediaryMinecraftClasspath: FileCollection,
     val namedMinecraftFile: Provider<RegularFile>,
     val extraClasspathFiles: Provider<List<RegularFile>>,
-    val side: Provider<PublicationSide>,
+    val side: Provider<ModDistribution>,
     val data: Boolean,
     val test: Boolean,
     val includeState: IncludeTransformationStateAttribute,
@@ -220,37 +228,47 @@ internal data class TargetCompilationInfo<T : MinecraftTargetInternal>(
 )
 
 @Suppress("UnstableApiUsage")
-internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject constructor(val info: TargetCompilationInfo<T>) : CompilationInternal() {
-    override val target get() = info.target
+internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject constructor(info: TargetCompilationInfo<T>) : CompilationInternal() {
+    private val _info = info
 
-    override val isTest get() = info.test
+    open val info
+        get() = _info
 
-    final override val sourceSet: SourceSet = compilationSourceSet(target, info.name)
+    override val target get() = _info.target
 
-    private val setupFiles = registerCompilationTransformations(
-        target,
-        info.name,
+    override val isTest get() = _info.test
+
+    final override val sourceSet: SourceSet = compilationSourceSet(_info.target, _info.name)
+
+    val modOutputs = project.files(sourceSet.output)
+
+    protected val setupFiles = registerCompilationTransformations(
+        _info.target,
+        _info.name,
         sourceSet,
-        info.namedMinecraftFile,
-        info.extraClasspathFiles,
+        _info.namedMinecraftFile,
+        _info.extraClasspathFiles,
     )
 
     val metadataDirectory: Provider<Directory>
         @Internal
         get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").optionalDir(target.featureName).dir(namePath) }
 
-    val finalMinecraftFile: Provider<RegularFile> = setupFiles.first.flatMap(AccessWiden::outputFile)
-    val sources = setupFiles.second
+    val finalMinecraftFile get() =
+        setupFiles.libraryArtifact
+
+    val sources get() =
+        setupFiles.sourcesArtifact
 
     val includeBucketConfiguration: NamedDomainObjectProvider<DependencyScopeConfiguration> =
-        project.configurations.dependencyScope(lowerCamelCaseGradleName(target.featureName, featureName, "include")) {
+        project.configurations.dependencyScope(lowerCamelCaseGradleName(_info.target.featureName, featureName, "include")) {
             addCollectedDependencies(dependencyHandler.include)
         }
 
     private val includeResolvableConfiguration =
         project.configurations.resolvable(
             lowerCamelCaseGradleName(
-                target.featureName,
+                _info.target.featureName,
                 featureName,
                 "includeFiles",
             )
@@ -261,13 +279,14 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
             attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                .attributeProvider(CompilationAttributes.SIDE, info.side)
-                .attribute(CompilationAttributes.DATA, info.data)
+                .attributeProvider(CompilationAttributes.DISTRIBUTION, _info.side)
+                .attributeProvider(CompilationAttributes.CLOCHE_SIDE, _info.side.map(ModDistribution::legacyName))
+                .attribute(CompilationAttributes.DATA, _info.data)
 
             isTransitive = false
         }
 
-    val remapJarTask: TaskProvider<RemapJar>? = if (!isTest) {
+    val remapJarTask: TaskProvider<RemapJar>? = if (!_info.test) {
         project.tasks.register<RemapJar>(
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "remapJar"),
         ) {
@@ -287,10 +306,10 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         null
     }
 
-    val includeJarTask: TaskProvider<out IncludesJar>? = if (!isTest) {
+    val includeJarTask: TaskProvider<out IncludesJar>? = if (!_info.test) {
         project.tasks.register(
             lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "includeJar"),
-            info.includeJarType,
+            _info.includeJarType,
         ) {
             destinationDirectory.set(project.cloche.finalOutputsDirectory)
 
@@ -317,32 +336,39 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
     }
 
     init {
-        setupModTransformationPipeline(project, target, this)
+        setupModTransformationPipeline(project, _info.target, this)
 
-        val remapped = target.modRemapNamespace.map(String::isNotEmpty)
+        val remapped = _info.target.modRemapNamespace.map(String::isNotEmpty)
+
+        val minecraftBuildDependenciesHolder: Configuration =
+            project.configurations.detachedConfiguration(
+                project.dependencies.create(
+                    project.files().builtBy(_info.intermediaryMinecraftClasspath)
+                )
+            )
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            attributes
-                .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
+            attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+            attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
 
-            extendsFrom(target.mappingsBuildDependenciesHolder)
+            extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            attributes
-                .attributeProvider(REMAPPED_ATTRIBUTE, remapped)
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, info.includeState)
+            attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
+            attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
 
-            extendsFrom(target.mappingsBuildDependenciesHolder)
+            extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }
 
-        setupFiles.first.configure {
+        setupFiles.accessWidenTask.configure {
             accessWideners.from(this@TargetCompilation.accessWideners)
         }
 
         // Use detached configuration for idea compat
-        val minecraftFiles = project.files(finalMinecraftFile, info.extraClasspathFiles)
+        val minecraftFiles = project.files(finalMinecraftFile, _info.extraClasspathFiles)
         val minecraftFileConfiguration =
             project.configurations.detachedConfiguration(project.dependencies.create(minecraftFiles))
 
@@ -350,7 +376,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         sourceSet.runtimeClasspath += minecraftFileConfiguration
     }
 
-    override fun getName() = info.name
+    override fun getName() = _info.name
 
     override fun attributes(attributes: AttributeContainer) {
         super.attributes(attributes)
@@ -358,8 +384,9 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         target.attributes(attributes)
 
         attributes
-            .attributeProvider(CompilationAttributes.SIDE, info.side)
-            .attribute(CompilationAttributes.DATA, info.data)
+            .attributeProvider(CompilationAttributes.DISTRIBUTION, _info.side)
+            .attributeProvider(CompilationAttributes.CLOCHE_SIDE, _info.side.map(ModDistribution::legacyName))
+            .attribute(CompilationAttributes.DATA, _info.data)
     }
 
     override fun resolvableAttributes(attributes: AttributeContainer) {

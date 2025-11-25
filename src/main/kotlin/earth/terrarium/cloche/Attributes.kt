@@ -1,5 +1,6 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
 import org.gradle.api.attributes.AttributeDisambiguationRule
@@ -37,35 +38,38 @@ object ClocheTargetAttribute {
     }
 }
 
-class SideCompatibilityRule : AttributeCompatibilityRule<PublicationSide> {
-    override fun execute(details: CompatibilityCheckDetails<PublicationSide>) {
-        if (details.producerValue == PublicationSide.Common || details.producerValue == PublicationSide.Joined) {
-            details.compatible()
-        } else {
-            details.incompatible()
+class DistributionCompatibilityRule : AttributeCompatibilityRule<ModDistribution> {
+    override fun execute(details: CompatibilityCheckDetails<ModDistribution>) {
+        details.compatible()
+    }
+}
+
+class DistributionDisambiguationRule : AttributeDisambiguationRule<ModDistribution> {
+    override fun execute(details: MultipleCandidatesDetails<ModDistribution>) {
+        if (details.consumerValue in details.candidateValues) {
+            // Pick the requested variant
+            details.closestMatch(details.consumerValue!!)
+        } else if (details.consumerValue == ModDistribution.client && ModDistribution.common in details.candidateValues) {
+            details.closestMatch(ModDistribution.common)
         }
     }
 }
 
-class SideDisambiguationRule : AttributeDisambiguationRule<PublicationSide> {
-    override fun execute(details: MultipleCandidatesDetails<PublicationSide>) {
+@Deprecated("Stop-gap for migration to DISTRIBUTION attribute")
+class ClocheSideCompatibilityRule : AttributeCompatibilityRule<String> {
+    override fun execute(details: CompatibilityCheckDetails<String>) {
+        details.compatible()
+    }
+}
+
+@Deprecated("Stop-gap for migration to DISTRIBUTION attribute")
+class ClocheSideDisambiguationRule : AttributeDisambiguationRule<String> {
+    override fun execute(details: MultipleCandidatesDetails<String>) {
         if (details.consumerValue in details.candidateValues) {
             // Pick the requested variant
             details.closestMatch(details.consumerValue!!)
-        } else if (details.consumerValue == PublicationSide.Client) {
-            // Prefer joined if the consumer is client
-            if (PublicationSide.Joined in details.candidateValues) {
-                details.closestMatch(PublicationSide.Joined)
-            } else if (PublicationSide.Common in details.candidateValues) {
-                details.closestMatch(PublicationSide.Common)
-            }
-        } else {
-            // Prefer common otherwise
-            if (PublicationSide.Common in details.candidateValues) {
-                details.closestMatch(PublicationSide.Common)
-            } else if (PublicationSide.Joined in details.candidateValues) {
-                details.closestMatch(PublicationSide.Joined)
-            }
+        } else if (details.consumerValue == ModDistribution.client.legacyName && ModDistribution.common.legacyName in details.candidateValues) {
+            details.closestMatch(ModDistribution.common.legacyName)
         }
     }
 }

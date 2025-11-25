@@ -74,22 +74,25 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
 
     abstract class SkipIncludeTransformationDependencyModifier : DependencyModifier() {
         override fun modifyImplementation(dependency: ModuleDependency) {
-            dependency.attributes
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+            dependency.attributes {
+                attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+            }
         }
     }
 
     abstract class ExtractIncludesDependencyModifier : DependencyModifier() {
         override fun modifyImplementation(dependency: ModuleDependency) {
-            dependency.attributes
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
+            dependency.attributes {
+                attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Extracted)
+            }
         }
     }
 
     abstract class StripIncludesDependencyModifier : DependencyModifier() {
         override fun modifyImplementation(dependency: ModuleDependency) {
-            dependency.attributes
-                .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
+            dependency.attributes {
+                attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.Stripped)
+            }
         }
     }
 }

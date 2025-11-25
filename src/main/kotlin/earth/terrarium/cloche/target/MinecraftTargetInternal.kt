@@ -11,6 +11,7 @@ import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.javaExecutableFor
+import earth.terrarium.cloche.loader
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
@@ -40,8 +41,6 @@ internal abstract class MinecraftTargetInternal(
     abstract val main: TargetCompilation<*>
     abstract override val data: LazyConfigurableInternal<TargetCompilation<*>>
     abstract override val test: LazyConfigurableInternal<TargetCompilation<*>>
-
-    abstract val commonType: String
 
     override val dependsOn: DomainObjectCollection<CommonTarget> =
         project.objects.domainObjectSet(CommonTarget::class)
@@ -139,9 +138,13 @@ internal abstract class MinecraftTargetInternal(
     }
 
     fun attributes(attributes: AttributeContainer) {
+        val loader = loader(javaClass)
+
         attributes
-            .attribute(TargetAttributes.MOD_LOADER, target.loaderName)
+            .attribute(TargetAttributes.MOD_LOADER, loader)
+            .attribute(TargetAttributes.CLOCHE_MOD_LOADER, loader)
             .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
+            .attributeProvider(TargetAttributes.CLOCHE_MINECRAFT_VERSION, target.minecraftVersion)
     }
 
     protected fun registerMappings() {

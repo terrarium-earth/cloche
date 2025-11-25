@@ -1,33 +1,16 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.FABRIC
-import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
-import earth.terrarium.cloche.PublicationSide
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
-import earth.terrarium.cloche.api.target.isSingleTarget
-import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.modId
-import earth.terrarium.cloche.target.CompilationInternal
-import earth.terrarium.cloche.target.LazyConfigurableInternal
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.TargetCompilationInfo
-import earth.terrarium.cloche.target.compilationSourceSet
-import earth.terrarium.cloche.target.lazyConfigurable
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.registerCompilationTransformations
-import earth.terrarium.cloche.tasks.data.FabricMod
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.decodeFromStream
-import kotlinx.serialization.json.encodeToStream
+import kotlinx.serialization.json.*
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftCodevPlugin.Companion.json
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -40,7 +23,6 @@ import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
-import net.msrandom.minecraftcodev.fabric.task.JarInJar
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -48,10 +30,7 @@ import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.Action
 import org.gradle.api.InvalidUserCodeException
-import org.gradle.api.NamedDomainObjectProvider
 import org.gradle.api.artifacts.ExternalModuleDependency
-import org.gradle.api.artifacts.ResolvableConfiguration
-import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
@@ -60,11 +39,7 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.internal.extensions.core.serviceOf
-import org.gradle.kotlin.dsl.listProperty
-import org.gradle.kotlin.dsl.named
-import org.gradle.kotlin.dsl.newInstance
-import org.gradle.kotlin.dsl.register
-import org.gradle.kotlin.dsl.withModule
+import org.gradle.kotlin.dsl.*
 import org.gradle.process.CommandLineArgumentProvider
 import java.io.File
 import java.util.jar.JarFile
@@ -81,20 +56,36 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         project.configurations.create(lowerCamelCaseGradleName(featureName, "commonMinecraftLibraries")) {
             isCanBeConsumed = false
 
-            attributes.attribute(
-                MinecraftOperatingSystemAttribute.attribute,
-                project.objects.named(operatingSystemName()),
-            )
+            attributes.attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
         }
 
     private val clientLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "clientMinecraftLibraries")) {
             isCanBeConsumed = false
 
-            attributes.attribute(
-                MinecraftOperatingSystemAttribute.attribute,
-                project.objects.named(operatingSystemName()),
-            )
+            attributes.attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
+        }
+
+    private val commonLoaderLibrariesConfiguration =
+        project.configurations.create(lowerCamelCaseGradleName(featureName, "commonLoaderLibraries")) {
+            isCanBeConsumed = false
+
+            attributes
+                .attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
+                .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.common)
+
+            extendsFrom(commonLibrariesConfiguration)
+        }
+
+    private val clientLoaderLibrariesConfiguration =
+        project.configurations.create(lowerCamelCaseGradleName(featureName, "clientLoaderLibraries")) {
+            isCanBeConsumed = false
+
+            attributes
+                .attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
+                .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.client)
+
+            extendsFrom(clientLibrariesConfiguration)
         }
 
     private val resolveCommonMinecraft =
@@ -221,17 +212,26 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         separator.set(File.pathSeparator)
     }
 
-    val mergeJarTask: TaskProvider<Jar>
-    val mergeIncludeJarTask: TaskProvider<JarInJar>
+    val writeCommonGameLibrariesTask: TaskProvider<WriteClasspathFile> = project.tasks.register<WriteClasspathFile>(
+        lowerCamelCaseGradleName("write", featureName, "commonGameLibraries"),
+    ) {
+        classpath.from(commonLoaderLibrariesConfiguration)
 
-    override val finalJar: Provider<Jar>
-        get() = client.isConfigured.flatMap {
-            if (it) {
-                mergeIncludeJarTask
-            } else {
-                main.includeJarTask!!
-            }
-        }
+        separator.set(File.pathSeparator)
+    }
+
+    val writeClientGameLibrariesTask: TaskProvider<WriteClasspathFile> = project.tasks.register<WriteClasspathFile>(
+        lowerCamelCaseGradleName("write", featureName, "clientGameLibraries"),
+    ) {
+        classpath.from(clientLoaderLibrariesConfiguration)
+
+        separator.set(File.pathSeparator)
+    }
+
+    override val finalJar: Provider<out Jar>
+        get() = client.value.flatMap {
+            it.includeJarTask!!
+        }.orElse(main.includeJarTask!!)
 
     final override val main: FabricCompilationImpl
 
@@ -240,33 +240,34 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             throw InvalidUserCodeException("Used `client()` in $name after previously using `includedClient()`")
         }
 
-        val sideProvider = project.provider {
-            PublicationSide.Client
-        }
-
         val client =
             project.objects.newInstance<FabricClientSecondarySourceSets>(
-                TargetCompilationInfo(
+                FabricCompilationInfo(
                     ClochePlugin.CLIENT_COMPILATION_NAME,
                     this,
                     project.files(
                         remapCommonMinecraftIntermediary.flatMap(RemapTask::outputFile),
                         remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
                     ),
+                    remapCommon.flatMap(RemapTask::outputFile),
                     remapClient.flatMap(RemapTask::outputFile),
-                    main.finalMinecraftFile.map(::listOf),
-                    sideProvider,
+                    main.finalMinecraftFile,
+                    main.finalMinecraftFile,
                     data = false,
                     test = false,
-                    includeState = IncludeTransformationStateAttribute.Stripped,
-                    includeJarType = JarInJar::class.java,
+                    client = providerFactory.provider { true },
                 ),
             )
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
+        clientLoaderLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(client.sourceSet.localImplementationConfigurationName) {
-            extendsFrom(clientLibrariesConfiguration)
+            extendsFrom(clientLoaderLibrariesConfiguration)
+        }
+
+        main.generateModJson.configure {
+            clientMixinConfigs.from(client.mixins)
         }
 
         client
@@ -279,9 +280,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+        clientLoaderLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
-            extendsFrom(clientLibrariesConfiguration)
+            extendsFrom(clientLoaderLibrariesConfiguration)
         }
 
         project.objects.newInstance<FabricIncludedClient>()
@@ -306,8 +308,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     override val hasSeparateClient = client.isConfigured
 
     override val runs = project.objects.newInstance<FabricRunConfigurations>(this)
-
-    override val commonType get() = FABRIC
 
     private val mainTargetMinecraftName = featureName ?: SourceSet.MAIN_SOURCE_SET_NAME
     private val clientTargetMinecraftName = lowerCamelCaseGradleName(featureName, "client")
@@ -335,80 +335,21 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         })
 
+        project.dependencies.addProvider(commonLoaderLibrariesConfiguration.name, fabricLoader)
+        project.dependencies.addProvider(clientLoaderLibrariesConfiguration.name, fabricLoader)
+
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
-
-        val mergeIncludeResolvableConfiguration: NamedDomainObjectProvider<ResolvableConfiguration> =
-            project.configurations.resolvable(
-                lowerCamelCaseGradleName(featureName, "mergeIncludeFiles")
-            ) {
-                extendsFrom(main.includeBucketConfiguration.get())
-
-                client.onConfigured {
-                    extendsFrom(it.includeBucketConfiguration.get())
-                }
-
-                this@FabricTargetImpl.attributes(attributes)
-
-                attributes
-                    .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
-                    .attribute(CompilationAttributes.SIDE, PublicationSide.Joined)
-                    .attribute(CompilationAttributes.DATA, false)
-
-                isTransitive = false
-            }
 
         project.dependencies.add(
             main.sourceSet.runtimeOnlyConfigurationName,
             project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)),
         )
 
-        mergeJarTask = project.tasks.register<Jar>(
-            lowerCamelCaseGradleName(sourceSet.takeUnless(SourceSet::isMain)?.name, "mergeJar"),
-        ) {
-            if (isSingleTarget) {
-                archiveClassifier.set("merged")
-            } else {
-                archiveClassifier.set("$capabilitySuffix-merged")
-            }
-
-            destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
-
-            val mainJar = main.remapJarTask!!.flatMap(Jar::getArchiveFile)
-            val clientJar =
-                client.value.flatMap(TargetCompilation<FabricTargetImpl>::remapJarTask).flatMap(Jar::getArchiveFile)
-
-            from(project.zipTree(mainJar)) {
-                exclude(JarFile.MANIFEST_NAME)
-            }
-
-            from(project.zipTree(clientJar)) {
-                exclude(JarFile.MANIFEST_NAME)
-            }
-
-            manifest.fromJars(project.serviceOf(), mainJar, clientJar)
-        }
-
-        mergeIncludeJarTask = project.tasks.register<JarInJar>(
-            lowerCamelCaseGradleName(target.targetName, "mergeIncludeJar"),
-        ) {
-            val jarFile = mergeJarTask.flatMap(Jar::getArchiveFile)
-
-            if (!isSingleTarget) {
-                archiveClassifier.set(capabilitySuffix)
-            }
-
-            destinationDirectory.set(project.cloche.finalOutputsDirectory)
-
-            input.set(jarFile)
-            manifest.fromJars(project.serviceOf(), jarFile)
-
-            fromResolutionResults(mergeIncludeResolvableConfiguration)
-        }
-
         commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+        commonLoaderLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
-            extendsFrom(commonLibrariesConfiguration)
+            extendsFrom(commonLoaderLibrariesConfiguration)
         }
 
         mappings.fabricIntermediary()
@@ -444,34 +385,17 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     private fun registerCommonCompilation(name: String): FabricCompilationImpl {
-        fun <T : Any> clientAlternative(normal: Provider<T>, client: Provider<T>) =
-            includedClient.isConfigured.flatMap {
-                if (it) {
-                    client
-                } else {
-                    normal
-                }
-            }
-
-        fun list(vararg values: Provider<RegularFile>) = project.objects.listProperty<RegularFile>().apply {
-            for (value in values) {
-                add(value)
-            }
-        }
-
         val commonTask = registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common"),
             compilationSourceSet(this, name),
             remapCommon.flatMap(RemapTask::outputFile),
             project.provider { emptyList() },
-        ).first
+        ).accessWidenTask
 
         commonTask.configure {
             accessWideners.from(this@FabricTargetImpl.accessWideners)
         }
-
-        val commonClasspath = list(commonTask.flatMap(AccessWiden::outputFile))
 
         // TODO Once client splitting is done, we might not always need the client Jar
         val intermediateClasspath = project.files(
@@ -479,43 +403,22 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             remapClientMinecraftIntermediary.flatMap(RemapTask::outputFile),
         )
 
-        val remappedFile = clientAlternative(
-            normal = remapCommon.flatMap(RemapTask::outputFile),
-            client = remapClient.flatMap(RemapTask::outputFile),
-        )
-
-        val extraClasspath = if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
-            clientAlternative(
-                normal = project.provider { emptyList() },
-                client = commonClasspath,
-            )
-        } else {
-            clientAlternative(
-                normal = main.finalMinecraftFile.map(::listOf),
-                client = commonClasspath.zip(main.finalMinecraftFile, List<RegularFile>::plus),
-            )
-        }
-
-        val side = includedClient.isConfigured.map {
-            if (it) {
-                PublicationSide.Joined
-            } else {
-                PublicationSide.Common
-            }
-        }
-
         return project.objects.newInstance<FabricCompilationImpl>(
-            TargetCompilationInfo(
+            FabricCompilationInfo(
                 name,
                 this,
                 intermediateClasspath,
-                remappedFile,
-                extraClasspath,
-                side,
+                remapCommon.flatMap(RemapTask::outputFile),
+                remapClient.flatMap(RemapTask::outputFile),
+                commonTask.flatMap(AccessWiden::outputFile),
+                if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
+                    providerFactory.provider { null }
+                } else {
+                    main.finalMinecraftFile
+                },
                 name == ClochePlugin.DATA_COMPILATION_NAME,
                 name == SourceSet.TEST_SOURCE_SET_NAME,
-                IncludeTransformationStateAttribute.Stripped,
-                JarInJar::class.java,
+                includedClient.isConfigured,
             ),
         )
     }
@@ -555,14 +458,24 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                         return@use
                     }
 
-                    val metadata: FabricMod = modJsonPath.inputStream().use(json::decodeFromStream)
+                    val metadata: JsonObject = modJsonPath.inputStream().use(json::decodeFromStream)
 
-                    if (metadata.accessWidener != null) {
+                    if (metadata["accessWidener"] != null) {
                         return@use
                     }
 
+                    val newMetadata = buildJsonObject {
+                        for ((key, value) in metadata) {
+                            if (key != "accessWidener") {
+                                put(key, value)
+                            } else {
+                                put(key, JsonPrimitive(accessWidenerFileName))
+                            }
+                        }
+                    }
+
                     modJsonPath.outputStream().use {
-                        json.encodeToStream(metadata.copy(accessWidener = accessWidenerFileName), it)
+                        json.encodeToStream(newMetadata, it)
                     }
                 }
             }
@@ -573,6 +486,20 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         project.tasks.named<Jar>(compilation.sourceSet.jarTaskName) {
             manifest {
                 attributes["Fabric-Loom-Mixin-Remap-Type"] = "static"
+            }
+        }
+
+        if (compilation.name == ClochePlugin.CLIENT_COMPILATION_NAME) {
+            val mainJarTask = project.tasks.named<Jar>(main.sourceSet.jarTaskName)
+
+            project.tasks.named<Jar>(compilation.sourceSet.jarTaskName) {
+                val mainJarFile = mainJarTask.flatMap(Jar::getArchiveFile)
+
+                from(project.zipTree(mainJarFile)) {
+                    exclude(JarFile.MANIFEST_NAME)
+                }
+
+                manifest.fromJars(project.serviceOf(), mainJarFile)
             }
         }
     }

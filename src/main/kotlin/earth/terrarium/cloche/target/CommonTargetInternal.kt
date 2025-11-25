@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.target.ClocheTarget
@@ -8,7 +7,6 @@ import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.cloche
-import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
@@ -23,7 +21,7 @@ import javax.inject.Inject
 private fun collectTargetDependencies(target: ClocheTarget): Set<CommonTarget> =
     (target.dependsOn + target.dependsOn.flatMap { collectTargetDependencies(it) }).toSet()
 
-private fun <T> Iterable<T>.onlyValue(): T? {
+private fun <T> Iterable<T>.sharedValue(): T? {
     val iterator = iterator()
 
     if (!iterator.hasNext()) {
@@ -102,12 +100,12 @@ internal abstract class CommonTargetInternal @Inject constructor(
 
     override val minecraftVersion: Provider<String> = minecraftVersions.map { versions ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-        versions.onlyValue()
+        versions.sharedValue()
     }
 
     val commonType: Provider<String> = dependents.map { dependants ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
-        dependants.map { (it as MinecraftTargetInternal).commonType }.onlyValue()
+        dependants.map { (it as MinecraftTargetInternal).loaderName }.sharedValue()
     }
 
     override fun getName() = name
