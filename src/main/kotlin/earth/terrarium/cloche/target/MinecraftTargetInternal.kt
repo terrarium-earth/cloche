@@ -138,9 +138,13 @@ internal abstract class MinecraftTargetInternal(
     }
 
     fun attributes(attributes: AttributeContainer) {
+        val loader = loader(javaClass)
+
         attributes
-            .attribute(TargetAttributes.MOD_LOADER, loader(javaClass))
+            .attribute(TargetAttributes.MOD_LOADER, loader)
+            .attribute(TargetAttributes.CLOCHE_MOD_LOADER, loader)
             .attributeProvider(TargetAttributes.MINECRAFT_VERSION, target.minecraftVersion)
+            .attributeProvider(TargetAttributes.CLOCHE_MINECRAFT_VERSION, target.minecraftVersion)
     }
 
     protected fun registerMappings() {

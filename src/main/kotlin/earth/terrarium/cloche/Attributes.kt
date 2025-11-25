@@ -25,19 +25,38 @@ val INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> = Attribute.of("ear
 @JvmField
 val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> = Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 
-class SideCompatibilityRule : AttributeCompatibilityRule<ModDistribution> {
+class DistributionCompatibilityRule : AttributeCompatibilityRule<ModDistribution> {
     override fun execute(details: CompatibilityCheckDetails<ModDistribution>) {
         details.compatible()
     }
 }
 
-class SideDisambiguationRule : AttributeDisambiguationRule<ModDistribution> {
+class DistributionDisambiguationRule : AttributeDisambiguationRule<ModDistribution> {
     override fun execute(details: MultipleCandidatesDetails<ModDistribution>) {
         if (details.consumerValue in details.candidateValues) {
             // Pick the requested variant
             details.closestMatch(details.consumerValue!!)
         } else if (details.consumerValue == ModDistribution.client && ModDistribution.common in details.candidateValues) {
             details.closestMatch(ModDistribution.common)
+        }
+    }
+}
+
+@Deprecated("Stop-gap for migration to DISTRIBUTION attribute")
+class ClocheSideCompatibilityRule : AttributeCompatibilityRule<String> {
+    override fun execute(details: CompatibilityCheckDetails<String>) {
+        details.compatible()
+    }
+}
+
+@Deprecated("Stop-gap for migration to DISTRIBUTION attribute")
+class ClocheSideDisambiguationRule : AttributeDisambiguationRule<String> {
+    override fun execute(details: MultipleCandidatesDetails<String>) {
+        if (details.consumerValue in details.candidateValues) {
+            // Pick the requested variant
+            details.closestMatch(details.consumerValue!!)
+        } else if (details.consumerValue == ModDistribution.client.legacyName && ModDistribution.common.legacyName in details.candidateValues) {
+            details.closestMatch(ModDistribution.common.legacyName)
         }
     }
 }

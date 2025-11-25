@@ -165,7 +165,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             from(copyMixins.map(Copy::getDestinationDir))
         }
 
-        project.ideaModule(sourceSet) {
+        project.withIdeaModule(sourceSet) {
             it.resourceDirs.add(copyMixins.get().destinationDir)
         }
 
@@ -341,7 +341,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
-            addCompilation(client, "${ClochePlugin.CLIENT_COMPILATION_NAME}:${SourceSet.TEST_SOURCE_SET_NAME}")
+            addCompilation(client, ClochePlugin.CLIENT_TEST_COMPILATION_NAME)
             client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->
@@ -381,6 +381,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             attributes
                 .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, true)
                 .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.client)
+                .attribute(CompilationAttributes.CLOCHE_SIDE, ModDistribution.client.legacyName)
 
             artifact(target.finalJar)
         }

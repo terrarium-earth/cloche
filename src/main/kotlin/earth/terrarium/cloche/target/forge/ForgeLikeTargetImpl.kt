@@ -1,17 +1,12 @@
 package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
-import earth.terrarium.cloche.target.CompilationInternal
-import earth.terrarium.cloche.target.LazyConfigurableInternal
-import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilationInfo
-import earth.terrarium.cloche.target.lazyConfigurable
-import earth.terrarium.cloche.target.localImplementationConfigurationName
+import earth.terrarium.cloche.target.*
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
@@ -58,10 +53,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         isCanBeConsumed = false
     }
 
-    private val sideProvider = project.provider {
-        ModDistribution.client
-    }
-
     internal val resolvePatchedMinecraft = project.tasks.register<ResolvePatchedMinecraft>(
         lowerCamelCaseGradleName("resolve", featureName, "patchedMinecraft"),
     ) {
@@ -105,33 +96,29 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     }
 
     final override val main: ForgeCompilationImpl = objectFactory.newInstance<ForgeCompilationImpl>(
-        TargetCompilationInfo(
+        ForgeCompilationInfo(
             SourceSet.MAIN_SOURCE_SET_NAME,
             this,
             project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
             minecraftFile,
-            project.provider { emptyList() },
-            sideProvider,
+            project.provider { null },
             data = false,
             test = false,
-            includeState = IncludeTransformationStateAttribute.None,
-            includeJarType = JarJar::class.java,
+            providerFactory = providerFactory,
         ),
     )
 
     final override val data: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
         val data = objectFactory.newInstance<ForgeCompilationImpl>(
-            TargetCompilationInfo(
+            ForgeCompilationInfo(
                 ClochePlugin.DATA_COMPILATION_NAME,
                 this,
                 project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                 minecraftFile,
-                project.provider { emptyList<RegularFile>() },
-                sideProvider,
+                main.finalMinecraftFile,
                 data = true,
                 test = false,
-                includeState = IncludeTransformationStateAttribute.None,
-                includeJarType = JarJar::class.java,
+                providerFactory = providerFactory,
             ),
         )
 
@@ -144,17 +131,15 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     final override val test: LazyConfigurableInternal<ForgeCompilationImpl> = project.lazyConfigurable {
         val data = objectFactory.newInstance<ForgeCompilationImpl>(
-            TargetCompilationInfo(
+            ForgeCompilationInfo(
                 SourceSet.TEST_SOURCE_SET_NAME,
                 this,
                 project.files(resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::output)),
                 minecraftFile,
-                project.provider { emptyList() },
-                sideProvider,
+                main.finalMinecraftFile,
                 data = false,
                 test = true,
-                includeState = IncludeTransformationStateAttribute.None,
-                includeJarType = JarJar::class.java,
+                providerFactory = providerFactory,
             ),
         )
 

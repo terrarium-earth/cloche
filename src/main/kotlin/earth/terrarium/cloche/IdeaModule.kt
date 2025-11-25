@@ -1,18 +1,14 @@
 package earth.terrarium.cloche
 
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.tasks.SourceSet
-import org.gradle.plugins.ide.idea.GenerateIdeaModule
 import org.gradle.plugins.ide.idea.model.IdeaModel
 import org.gradle.plugins.ide.idea.model.IdeaModule
-import org.gradle.plugins.ide.idea.model.IdeaModuleIml
 import org.jetbrains.gradle.ext.ModuleRef
 
-private fun Project.runModuleAction(sourceSet: SourceSet, action: (IdeaModule) -> Unit) {
-    val modules = rootProject.extension<IdeaModel>().project.modules
+internal fun Project.withIdeaModule(sourceSet: SourceSet, action: (IdeaModule) -> Unit) = withIdeaModel {
+    val modules = it.project.modules
 
     val moduleName = ModuleRef(project, sourceSet).toModuleName()
 
@@ -21,13 +17,13 @@ private fun Project.runModuleAction(sourceSet: SourceSet, action: (IdeaModule) -
     modules.firstOrNull { it.name == moduleName }?.let(action::invoke)
 }
 
-internal fun Project.ideaModule(sourceSet: SourceSet, action: (IdeaModule) -> Unit) {
+internal fun Project.withIdeaModel(action: (IdeaModel) -> Unit) {
     if (project == rootProject) {
         // afterEvaluate needed because idea APIs are not lazy
         afterEvaluate {
-            runModuleAction(sourceSet, action)
+            action(extension<IdeaModel>())
         }
     } else {
-        runModuleAction(sourceSet, action)
+        action(rootProject.extension<IdeaModel>())
     }
 }

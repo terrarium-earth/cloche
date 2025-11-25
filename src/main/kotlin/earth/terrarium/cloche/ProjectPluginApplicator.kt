@@ -2,8 +2,10 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.ClochePlugin.Companion.WRITE_MOD_ID_TASK_NAME
+import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.tasks.WriteModId
 import net.msrandom.classextensions.ClassExtensionsPlugin
 import net.msrandom.minecraftcodev.accesswidener.MinecraftCodevAccessWidenerPlugin
@@ -88,14 +90,32 @@ fun applyToProject(target: Project) {
 
     target.dependencies.attributesSchema {
         attribute(CompilationAttributes.DISTRIBUTION) {
-            compatibilityRules.add(SideCompatibilityRule::class)
-            disambiguationRules.add(SideDisambiguationRule::class)
+            compatibilityRules.add(DistributionCompatibilityRule::class)
+            disambiguationRules.add(DistributionDisambiguationRule::class)
+        }
+
+        attribute(CompilationAttributes.CLOCHE_SIDE) {
+            compatibilityRules.add(ClocheSideCompatibilityRule::class)
+            disambiguationRules.add(ClocheSideDisambiguationRule::class)
         }
 
         attribute(CompilationAttributes.DATA) {
             compatibilityRules.add(DataCompatibilityRule::class)
             disambiguationRules.add(DataDisambiguationRule::class)
         }
+
+        attribute(TargetAttributes.MOD_LOADER)
+        attribute(TargetAttributes.CLOCHE_MOD_LOADER)
+        attribute(TargetAttributes.MINECRAFT_VERSION)
+        attribute(TargetAttributes.CLOCHE_MINECRAFT_VERSION)
+
+        attribute(CommonTargetAttributes.TYPE)
+        attribute(CommonTargetAttributes.NAME)
+
+        attribute(REMAPPED_ATTRIBUTE)
+        attribute(NO_NAME_MAPPING_ATTRIBUTE)
+        attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE)
+        attribute(IncludeTransformationStateAttribute.ATTRIBUTE)
     }
 
     target.dependencies.artifactTypes {
