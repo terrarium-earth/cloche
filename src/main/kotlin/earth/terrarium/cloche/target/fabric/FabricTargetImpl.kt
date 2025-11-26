@@ -1,16 +1,24 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
-import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
 import earth.terrarium.cloche.modId
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.compilationSourceSet
+import earth.terrarium.cloche.target.lazyConfigurable
+import earth.terrarium.cloche.target.localImplementationConfigurationName
+import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftCodevPlugin.Companion.json
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -39,7 +47,10 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.internal.extensions.core.serviceOf
-import org.gradle.kotlin.dsl.*
+import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.newInstance
+import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.withModule
 import org.gradle.process.CommandLineArgumentProvider
 import java.io.File
 import java.util.jar.JarFile
@@ -64,28 +75,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             isCanBeConsumed = false
 
             attributes.attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
-        }
-
-    private val commonLoaderLibrariesConfiguration =
-        project.configurations.create(lowerCamelCaseGradleName(featureName, "commonLoaderLibraries")) {
-            isCanBeConsumed = false
-
-            attributes
-                .attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
-                .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.common)
-
-            extendsFrom(commonLibrariesConfiguration)
-        }
-
-    private val clientLoaderLibrariesConfiguration =
-        project.configurations.create(lowerCamelCaseGradleName(featureName, "clientLoaderLibraries")) {
-            isCanBeConsumed = false
-
-            attributes
-                .attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
-                .attribute(CompilationAttributes.DISTRIBUTION, ModDistribution.client)
-
-            extendsFrom(clientLibrariesConfiguration)
         }
 
     private val resolveCommonMinecraft =
@@ -215,13 +204,13 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     val writeCommonGameLibrariesTask: TaskProvider<WriteClasspathFile> = project.tasks.register<WriteClasspathFile>(
         lowerCamelCaseGradleName("write", featureName, "commonGameLibraries"),
     ) {
-        classpath.from(commonLoaderLibrariesConfiguration)
+        classpath.from(commonLibrariesConfiguration)
     }
 
     val writeClientGameLibrariesTask: TaskProvider<WriteClasspathFile> = project.tasks.register<WriteClasspathFile>(
         lowerCamelCaseGradleName("write", featureName, "clientGameLibraries"),
     ) {
-        classpath.from(clientLoaderLibrariesConfiguration)
+        classpath.from(clientLibrariesConfiguration)
     }
 
     override val finalJar: Provider<out Jar>
@@ -256,10 +245,9 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             )
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
-        clientLoaderLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(client.sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(client.sourceSet.localImplementationConfigurationName) {
-            extendsFrom(clientLoaderLibrariesConfiguration)
+            extendsFrom(clientLibrariesConfiguration)
         }
 
         main.generateModJson.configure {
@@ -276,10 +264,9 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         clientLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
-        clientLoaderLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
-            extendsFrom(clientLoaderLibrariesConfiguration)
+            extendsFrom(clientLibrariesConfiguration)
         }
 
         project.objects.newInstance<FabricIncludedClient>()
@@ -331,9 +318,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             }
         })
 
-        project.dependencies.addProvider(commonLoaderLibrariesConfiguration.name, fabricLoader)
-        project.dependencies.addProvider(clientLoaderLibrariesConfiguration.name, fabricLoader)
-
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
 
         project.dependencies.add(
@@ -342,10 +326,9 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         )
 
         commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
-        commonLoaderLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
-            extendsFrom(commonLoaderLibrariesConfiguration)
+            extendsFrom(commonLibrariesConfiguration)
         }
 
         mappings.fabricIntermediary()
