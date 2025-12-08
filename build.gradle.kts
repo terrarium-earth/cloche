@@ -45,7 +45,7 @@ dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.6.0")
     implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.6.8")
     implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.6.0")
-    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.6.4")
+    implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.6.5")
 
     implementation(group = "net.msrandom", name = "class-extensions-gradle-plugin", version = "1.0.12")
     implementation(group = "net.msrandom", name = "jvm-virtual-source-sets", version = "1.3.6")
