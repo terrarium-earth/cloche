@@ -14,6 +14,7 @@ import earth.terrarium.cloche.target.localImplementationConfigurationName
 import earth.terrarium.cloche.target.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -237,7 +238,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     remapCommon.flatMap(RemapTask::outputFile),
                     remapClient.flatMap(RemapTask::outputFile),
                     main.finalMinecraftFile,
-                    main.finalMinecraftFile,
                     data = false,
                     test = false,
                     client = providerFactory.provider { true },
@@ -390,11 +390,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 remapCommon.flatMap(RemapTask::outputFile),
                 remapClient.flatMap(RemapTask::outputFile),
                 commonTask.flatMap(AccessWiden::outputFile),
-                if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
-                    providerFactory.provider { null }
-                } else {
-                    main.finalMinecraftFile
-                },
                 name == ClochePlugin.DATA_COMPILATION_NAME,
                 name == SourceSet.TEST_SOURCE_SET_NAME,
                 includedClient.isConfigured,
@@ -439,7 +434,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
                     val metadata: JsonObject = modJsonPath.inputStream().use(json::decodeFromStream)
 
-                    if (metadata["accessWidener"] != null) {
+                    val accessWidenerElement = metadata["accessWidener"]
+                    if (accessWidenerElement != null && accessWidenerElement !is JsonNull) {
                         return@use
                     }
 
