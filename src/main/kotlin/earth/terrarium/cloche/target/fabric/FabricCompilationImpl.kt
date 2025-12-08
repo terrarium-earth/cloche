@@ -5,7 +5,6 @@ import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.target.compilation.FabricCompilation
 import earth.terrarium.cloche.withIdeaModule
-import earth.terrarium.cloche.target.FinalJarTasks
 import earth.terrarium.cloche.target.TargetCompilation
 import earth.terrarium.cloche.target.TargetCompilationInfo
 import earth.terrarium.cloche.tasks.GenerateFabricModJson
@@ -18,7 +17,6 @@ import org.gradle.api.Action
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.SourceSet
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.language.jvm.tasks.ProcessResources
@@ -39,7 +37,6 @@ internal class FabricCompilationInfo(
     val commonMinecraftFile: Provider<RegularFile>,
     val clientMinecraftFile: Provider<RegularFile>,
     val finalCommonJar: Provider<RegularFile>,
-    mainJar: Provider<RegularFile>,
     data: Boolean,
     test: Boolean,
     internal val client: Provider<Boolean>,
@@ -54,11 +51,7 @@ internal class FabricCompilationInfo(
             commonMinecraftFile
         }
     },
-    if (name == SourceSet.MAIN_SOURCE_SET_NAME) {
-        clientClasspath(client, finalCommonJar)
-    } else {
-        clientClasspath(client, finalCommonJar).zip(mainJar, List<RegularFile>::plus)
-    },
+    clientClasspath(client, finalCommonJar),
     client.map {
         if (it) {
             ModDistribution.client
