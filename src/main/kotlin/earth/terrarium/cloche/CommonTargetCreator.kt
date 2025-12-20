@@ -277,7 +277,6 @@ internal fun createCommonTarget(
         configurations.named(sourceSet.compileClasspathConfigurationName) {
             extendsFrom(intersectionResults.get())
 
-            attributes(compilation::attributes)
             attributes(compilation::resolvableAttributes)
         }
 
@@ -287,7 +286,7 @@ internal fun createCommonTarget(
             sourceSet.javadocElementsConfigurationName,
             sourceSet.sourcesElementsConfigurationName
         )) {
-            configurations.findByName(name)?.attributes(compilation::attributes)
+            configurations.findByName(name)?.attributes(compilation::consumableAttributes)
         }
 
         dependencies.add(

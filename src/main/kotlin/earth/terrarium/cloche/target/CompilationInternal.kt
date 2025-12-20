@@ -2,6 +2,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
+import earth.terrarium.cloche.api.attributes.ClocheAttributes
 import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
@@ -30,6 +31,7 @@ import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.domainObjectSet
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
+import org.jetbrains.annotations.ApiStatus
 
 internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
@@ -124,19 +126,33 @@ internal abstract class CompilationInternal : Compilation, Dependencies {
         attributeActions.add(action)
     }
 
-    open fun attributes(attributes: AttributeContainer) {
+    @ApiStatus.OverrideOnly
+    protected open fun attributes(attributes: AttributeContainer) {
         attributeActions.all {
             execute(attributes)
         }
     }
+
+    // Explicitly use base attributes, since the `attributes` method is meant to not be used(in favor of resolvableAttributes/consumableAttributes based on the usecase)
+    open fun baseAttributes(attributes: AttributeContainer) = attributes(attributes)
 
     fun resolvableAttributes(action: Action<AttributeContainer>) {
         resolvableAttributeActions.add(action)
     }
 
     open fun resolvableAttributes(attributes: AttributeContainer) {
+        attributes(attributes)
+
         resolvableAttributeActions.all {
             execute(attributes)
+        }
+    }
+
+    open fun consumableAttributes(attributes: AttributeContainer) {
+        attributes(attributes)
+
+        if (ClochePlugin.VERSION != null) {
+            attributes.attribute(ClocheAttributes.CLOCHE_VERSION, ClochePlugin.VERSION)
         }
     }
 

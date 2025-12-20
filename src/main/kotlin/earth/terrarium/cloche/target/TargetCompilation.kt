@@ -180,8 +180,9 @@ private fun setupModTransformationPipeline(
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, true)
 
-            compilation.attributes(from)
-            compilation.attributes(to)
+            // Is the usage of the base attributes correct here?
+            compilation.baseAttributes(from)
+            compilation.baseAttributes(to)
 
             parameters {
                 val compileClasspath =

@@ -60,12 +60,20 @@ internal abstract class MinecraftTargetInternal(
             javaExecutable.set(project.javaExecutableFor(minecraftVersion, cacheParameters))
         }
 
-    val mappingsBuildDependenciesHolder: Configuration =
-        project.configurations.detachedConfiguration(
-            project.dependencies.create(
-                project.files().builtBy(loadMappingsTask)
-            )
-        )
+    val mappingsBuildDependenciesHolder: Configuration by lazy(LazyThreadSafetyMode.NONE) {
+        val loadMappings = project.dependencies.create(project.files().builtBy(loadMappingsTask))
+        val configuration = project.configurations.detachedConfiguration()
+
+        configuration.dependencies.addAllLater(minecraftRemapNamespace.map {
+            if (it.isEmpty()) {
+                emptyList()
+            } else {
+                listOf(loadMappings)
+            }
+        })
+
+        configuration
+    }
 
     override val accessWideners get() = main.accessWideners
     override val mixins get() = main.mixins
@@ -153,13 +161,9 @@ internal abstract class MinecraftTargetInternal(
         }
 
         project.configurations.named(sourceSet.mappingsConfigurationName) {
-            dependencies.addAllLater(mappings.isConfigured.map {
-                if (it) {
-                    emptyList()
-                } else {
-                    listOf(project.dependencies.create(officialMappingsDependency(project, this@MinecraftTargetInternal)))
-                }
-            })
+            defaultDependencies {
+                add(project.dependencies.create(officialMappingsDependency(project, this@MinecraftTargetInternal)))
+            }
         }
     }
 

@@ -3,6 +3,11 @@ package earth.terrarium.cloche.api.attributes
 import org.gradle.api.Named
 import org.gradle.api.attributes.Attribute
 
+object ClocheAttributes {
+    @JvmField
+    val CLOCHE_VERSION = Attribute.of("earth.terrarium.cloche.version", String::class.java)
+}
+
 object CompilationAttributes {
     @JvmField
     val DISTRIBUTION: Attribute<ModDistribution> =

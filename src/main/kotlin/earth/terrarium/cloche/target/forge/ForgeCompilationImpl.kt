@@ -50,7 +50,7 @@ internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeComp
     private val legacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, featureName, "legacyClasspath")) {
         addCollectedDependencies(legacyClasspath)
 
-        this@ForgeCompilationImpl.attributes(attributes)
+        this@ForgeCompilationImpl.resolvableAttributes(attributes)
 
         isCanBeConsumed = false
 

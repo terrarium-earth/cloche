@@ -309,8 +309,8 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             }
         }
 
-        for (name in configurationNames) {
-            configurations.findByName(name)?.attributes(compilation::attributes)
+        for (name in consumableConfigurationNames) {
+            configurations.findByName(name)?.attributes(compilation::consumableAttributes)
         }
 
         if (testName != null) {
@@ -319,7 +319,6 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             project.extension<SourceSetContainer>().named { it == sourceSetName }.configureEach {
                 for (name in listOf(compileClasspathConfigurationName, runtimeClasspathConfigurationName)) {
                     project.configurations.named(name) {
-                        attributes(compilation::attributes)
                         attributes(compilation::resolvableAttributes)
                     }
                 }
