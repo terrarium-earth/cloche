@@ -435,19 +435,12 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                     val metadata: JsonObject = modJsonPath.inputStream().use(json::decodeFromStream)
 
                     val accessWidenerElement = metadata["accessWidener"]
+
                     if (accessWidenerElement != null && accessWidenerElement !is JsonNull) {
                         return@use
                     }
 
-                    val newMetadata = buildJsonObject {
-                        for ((key, value) in metadata) {
-                            if (key != "accessWidener") {
-                                put(key, value)
-                            } else {
-                                put(key, JsonPrimitive(accessWidenerFileName))
-                            }
-                        }
-                    }
+                    val newMetadata = JsonObject(metadata + ("accessWidener" to JsonPrimitive(accessWidenerFileName)))
 
                     modJsonPath.outputStream().use {
                         json.encodeToStream(newMetadata, it)
