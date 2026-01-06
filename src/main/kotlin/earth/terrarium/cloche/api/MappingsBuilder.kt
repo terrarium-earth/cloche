@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.api
 
+import earth.terrarium.cloche.api.attributes.RemapNamespaceAttribute
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.maybeRegister
 import earth.terrarium.cloche.target.MinecraftTargetInternal
@@ -10,6 +11,7 @@ import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.file.FileCollection
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.kotlin.dsl.property
@@ -58,6 +60,12 @@ class MappingsBuilder internal constructor(
 
     private val configurationName
         get() = target.sourceSet.mappingsConfigurationName
+
+    internal val remapNamespaces: ListProperty<String> =
+        project.objects.listProperty(String::class.java).apply {
+            convention(arrayListOf())
+            addAll(RemapNamespaceAttribute.INITIAL, RemapNamespaceAttribute.OBF)
+        }
 
     fun official() {
         configure()
@@ -117,15 +125,6 @@ class MappingsBuilder internal constructor(
         )
     }
 
-    fun fabricIntermediary() {
-        project.dependencies.addProvider(
-            configurationName,
-            target.minecraftVersion.map {
-                "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2"
-            }
-        )
-    }
-
     fun yarn(version: String) {
         officialIncompatible()
 
@@ -146,6 +145,54 @@ class MappingsBuilder internal constructor(
                 yarnDependency(minecraftVersion, version)
             },
         )
+    }
+
+    fun fabricIntermediary() {
+        remapNamespaces.add(RemapNamespaceAttribute.INTERMEDIARY)
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.map {
+                "net.fabricmc:${MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE}:$it:v2"
+            }
+        )
+    }
+
+    fun mcpSearge() {
+        remapNamespaces.add(RemapNamespaceAttribute.SEARGE)
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.map {
+                "de.oceanlabs.mcp:mcp_config:$it"
+            }
+        )
+    }
+
+    internal fun legacyMcpSearge() {
+        remapNamespaces.add(RemapNamespaceAttribute.SEARGE)
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.map {
+                "de.oceanlabs.mcp:mcp:$it:srg"
+            }
+        )
+    }
+
+    /**
+     * @param timestamp The timestamp of the NeoForm. Get from https://projects.neoforged.net/neoforged/neoform
+     */
+    fun neoforgeSearge(timestamp: String) {
+        remapNamespaces.add(RemapNamespaceAttribute.SEARGE)
+        project.dependencies.addProvider(
+            configurationName,
+            target.minecraftVersion.map {
+                "net.neoforged:neoform:$it-$timestamp@zip"
+            }
+        )
+    }
+
+    @Suppress("UnusedReceiverParameter")
+    fun MinecraftTarget.remapNamespace(namespace: String) {
+        remapNamespaces.add(namespace)
     }
 
     fun custom(dependency: Dependency) {

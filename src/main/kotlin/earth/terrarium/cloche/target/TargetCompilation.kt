@@ -1,10 +1,12 @@
 package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.NoopAction
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.ModDistribution
+import earth.terrarium.cloche.api.attributes.RemapNamespaceAttribute
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.util.fromJars
 import earth.terrarium.cloche.util.optionalDir
@@ -167,48 +169,62 @@ private fun setupModTransformationPipeline(
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform, but that's far slower
     project.afterEvaluate {
-        if (target.modRemapNamespace.get().isEmpty()) {
-            return@afterEvaluate
-        }
+        for (remapNamespace in target.mappings.remapNamespaces.get()) {
+            val namespace =
+                remapNamespace.takeUnless { it == RemapNamespaceAttribute.INITIAL } ?: target.modRemapNamespace.get()
 
-        project.dependencies.registerTransform(RemapAction::class) {
-            from
-                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(REMAPPED_ATTRIBUTE, false)
+            if (namespace.isEmpty()) {
+                project.dependencies.registerTransform(NoopAction::class.java) {
+                    from.attribute(REMAPPED_ATTRIBUTE, false)
+                    to.attribute(REMAPPED_ATTRIBUTE, true)
 
-            to
-                .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(REMAPPED_ATTRIBUTE, true)
+                    compilation.baseAttributes(from)
+                    compilation.baseAttributes(to)
+                }
+                continue
+            }
+
+            project.dependencies.registerTransform(RemapAction::class) {
+                from
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(REMAPPED_ATTRIBUTE, false)
+                    .attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
+
+                to
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(REMAPPED_ATTRIBUTE, true)
+                    .attribute(RemapNamespaceAttribute.ATTRIBUTE, remapNamespace)
 
             // Is the usage of the base attributes correct here?
             compilation.baseAttributes(from)
             compilation.baseAttributes(to)
 
-            parameters {
-                val compileClasspath =
-                    project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
+                parameters {
+                    val compileClasspath =
+                        project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
 
-                val runtimeClasspath =
-                    project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
+                    val runtimeClasspath =
+                        project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
 
-                val modCompileClasspath =
-                    project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
+                    val modCompileClasspath =
+                        project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
 
-                val modRuntimeClasspath =
-                    project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
+                    val modRuntimeClasspath =
+                        project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
 
-                mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+                    mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                sourceNamespace.set(target.modRemapNamespace.get())
+                    sourceNamespace.set(namespace)
 
-                extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
-                extraClasspath.from(compileClasspath)
-                extraClasspath.from(runtimeClasspath)
+                    extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
+                    extraClasspath.from(compileClasspath)
+                    extraClasspath.from(runtimeClasspath)
 
-                cacheDirectory.set(getGlobalCacheDirectory(project))
+                    cacheDirectory.set(getGlobalCacheDirectory(project))
 
-                modFiles.from(modCompileClasspath)
-                modFiles.from(modRuntimeClasspath)
+                    modFiles.from(modCompileClasspath)
+                    modFiles.from(modRuntimeClasspath)
+                }
             }
         }
     }
@@ -338,8 +354,6 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
     init {
         setupModTransformationPipeline(project, _info.target, this)
 
-        val remapped = _info.target.modRemapNamespace.map(String::isNotEmpty)
-
         val minecraftBuildDependenciesHolder: Configuration =
             project.configurations.detachedConfiguration(
                 project.dependencies.create(
@@ -348,17 +362,19 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             )
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            attributes.attribute(REMAPPED_ATTRIBUTE, true)
             attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
+            attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
             extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            attributes.attribute(REMAPPED_ATTRIBUTE, true)
             attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
+            attributes.attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
 
             extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }

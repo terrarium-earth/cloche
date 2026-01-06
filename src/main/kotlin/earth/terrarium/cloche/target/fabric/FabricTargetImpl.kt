@@ -65,14 +65,14 @@ import kotlin.io.path.outputStream
 internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     MinecraftTargetInternal(name),
     FabricTarget {
-    private val commonLibrariesConfiguration =
+    internal val commonLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "commonMinecraftLibraries")) {
             isCanBeConsumed = false
 
             attributes.attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
         }
 
-    private val clientLibrariesConfiguration =
+    internal val clientLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "clientMinecraftLibraries")) {
             isCanBeConsumed = false
 
@@ -96,7 +96,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             })
         }
 
-    private val resolveClientMinecraft =
+    internal val resolveClientMinecraft =
         project.tasks.register<ResolveMinecraftClient>(
             lowerCamelCaseGradleName("resolve", name, "client"),
         ) {
@@ -113,7 +113,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             })
         }
 
-    private val remapCommonMinecraftIntermediary =
+    internal val remapCommonMinecraftIntermediary =
         project.tasks.register<RemapTask>(
             lowerCamelCaseGradleName(
                 "remap",
@@ -135,7 +135,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             outputFile.set(output(MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE))
         }
 
-    private val remapClientMinecraftIntermediary =
+    internal val remapClientMinecraftIntermediary =
         project.tasks.register<RemapTask>(
             lowerCamelCaseGradleName(
                 "remap",
