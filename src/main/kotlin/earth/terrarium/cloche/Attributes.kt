@@ -129,7 +129,7 @@ class DataCompatibilityRule : AttributeCompatibilityRule<Boolean> {
 class DataDisambiguationRule : AttributeDisambiguationRule<Boolean> {
     override fun execute(details: MultipleCandidatesDetails<Boolean>) {
         if (details.consumerValue == true && true in details.candidateValues) {
-            details.closestMatch(false)
+            details.closestMatch(true)
         } else if (false in details.candidateValues) {
             details.closestMatch(false)
         }

@@ -18,17 +18,12 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
 
     val dependencyOutputs = configurations.named(compilation.sourceSet.runtimeClasspathConfigurationName).flatMap { runtimeClasspath ->
         val projectArtifacts = runtimeClasspath.incoming.artifactView {
-            attributes
-                .attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
-                .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
+            attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
 
             componentFilter { id ->
                 // Only set mod output groups for project dependencies
                 id is ProjectComponentIdentifier
             }
-
-            @Suppress("UnstableApiUsage")
-            withVariantReselection()
         }.artifacts
 
         val modIdFiles = runtimeClasspath.incoming.artifactView {
