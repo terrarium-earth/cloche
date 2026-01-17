@@ -89,6 +89,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             //  Whether this should be changed is still up for debate. Should a target with no configured client still be runnable as client?
             //  it makes sense for server mods and datapacks to still be tested on the client, so the best option is probably removing the checking here and always allowing client runs
             ""
+        }.apply {
+            inheritSystemEnvironment.set(true)
         }
     }
 
@@ -111,6 +113,11 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
                 writeGameLibrariesTask.set(target.writeCommonGameLibrariesTask)
             }
         }.withCompilation(target, compilation) { quotedDescription(CommonSecondarySourceSets::data.name) }
+
+        data.runTask.configure {
+            outputs.cacheIf { true }
+            outputs.dir(target.datagenDirectory)
+        }
 
         project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
             from(target.datagenDirectory)
@@ -171,6 +178,11 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }.withCompilation(target, compilation) {
             clientDescription(CommonSecondarySourceSets::data.name)
+        }
+
+        clientData.runTask.configure {
+            outputs.cacheIf { true }
+            outputs.dir(target.datagenClientDirectory)
         }
 
         target.client.onConfigured {
@@ -295,6 +307,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             }
         }.withCompilation(target, compilation) {
             clientDescription(CommonSecondarySourceSets::test.name)
+        }.apply {
+            inheritSystemEnvironment.set(true)
         }
     }
 }

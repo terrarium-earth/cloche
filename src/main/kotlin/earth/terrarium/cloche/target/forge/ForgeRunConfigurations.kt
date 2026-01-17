@@ -81,7 +81,9 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 configure(target.main)
             }
-        }.withCompilation(target.main)
+        }.withCompilation(target.main).apply {
+            inheritSystemEnvironment.set(true)
+        }
     }
 
     override val data = project.lazyConfigurable {
@@ -104,6 +106,11 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 configure(compilation)
             }
         }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
+
+        data.runTask.configure {
+            outputs.cacheIf { true }
+            outputs.dir(target.datagenDirectory)
+        }
 
         project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
             from(target.datagenDirectory)
@@ -172,6 +179,11 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 configure(compilation)
             }
         }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
+
+        clientData.runTask.configure {
+            outputs.cacheIf { true }
+            outputs.dir(target.datagenClientDirectory)
+        }
 
         project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
             from(target.datagenClientDirectory)
