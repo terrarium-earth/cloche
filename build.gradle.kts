@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 
 plugins {
     kotlin("plugin.serialization") version embeddedKotlinVersion
+    id("com.google.devtools.ksp") version "$embeddedKotlinVersion-+"
 
     `kotlin-dsl`
     `java-gradle-plugin`
@@ -38,7 +39,7 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-core", version = "0.6.6")
+    implementation(group = "net.msrandom", name = "minecraft-codev-core", version = "0.6.7")
     implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.7.3")
     implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.6.12")
     implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.6.0")
@@ -58,6 +59,11 @@ dependencies {
     implementation(group = "org.apache.commons", name = "commons-lang3", version = "3.18.0")
 
     implementation(kotlin("gradle-plugin"))
+
+    ksp(group = "dev.zacsweers.autoservice", name = "auto-service-ksp", version = "1.2.0")
+    compileOnly(group = "com.google.auto.service", name = "auto-service-annotations", version = "1.1.1")
+
+    implementation(projects.clocheModels)
 
     testImplementation(kotlin("test"))
     testImplementation(gradleTestKit())

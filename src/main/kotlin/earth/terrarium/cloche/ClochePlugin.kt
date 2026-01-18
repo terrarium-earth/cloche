@@ -4,6 +4,7 @@ import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.util.isIdeDetected
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
+import earth.terrarium.cloche.model.TargetsModelBuilder
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Plugin
@@ -11,7 +12,9 @@ import org.gradle.api.Project
 import org.gradle.api.initialization.Settings
 import org.gradle.api.plugins.PluginAware
 import org.gradle.api.tasks.SourceSet
+import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.gradle.util.GradleVersion
+import javax.inject.Inject
 
 internal fun Project.requireGroup() {
     if (group.toString().isEmpty()) {
@@ -64,7 +67,7 @@ internal fun addTarget(
     }
 }
 
-class ClochePlugin<T : PluginAware> : Plugin<T> {
+class ClochePlugin<T : PluginAware> @Inject constructor(private val modelBuilderRegistry: ToolingModelBuilderRegistry) : Plugin<T> {
     override fun apply(target: T) {
         val currentGradle = GradleVersion.current()
 
@@ -75,6 +78,7 @@ class ClochePlugin<T : PluginAware> : Plugin<T> {
         when (target) {
             is Project -> {
                 applyToProject(target)
+                modelBuilderRegistry.register(TargetsModelBuilder())
             }
 
             is Settings -> {

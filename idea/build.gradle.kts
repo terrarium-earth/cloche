@@ -42,9 +42,16 @@ dependencies {
 
     gradleToolingExtension.implementationConfigurationName(kotlin("stdlib"))
 
-    gradleToolingExtension.compileOnlyConfigurationName(group = "com.jetbrains.intellij.gradle", name = "gradle-tooling-extension", version = "latest.release") {
-        exclude("org.jetbrains.intellij.deps", "gradle-api")
-    }
+    gradleToolingExtension.implementationConfigurationName("org.apache.groovy:groovy:5.0.3")
+
+    gradleToolingExtension.compileOnlyConfigurationName(group = "com.jetbrains.intellij.gradle", name = "gradle-tooling-extension", version = "latest.release")
+
+    gradleToolingExtension.implementationConfigurationName(projects.clocheModels)
+
+    gradleToolingExtension.compileOnlyConfigurationName("com.google.auto.service:auto-service-annotations:1.1.1")
+    gradleToolingExtension.annotationProcessorConfigurationName("com.google.auto.service:auto-service:1.1.1")
+
+    implementation(projects.clocheModels)
 
     implementation(files(gradleToolingExtensionJar))
 

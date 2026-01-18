@@ -34,5 +34,10 @@
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
+        <gotoDeclarationHandler implementation="earth.terrarium.cloche.DependantTargetGotoDeclarationHandler" />
+    </extensions>
+
+    <extensions defaultExtensionNs="org.jetbrains.plugins.gradle">
+        <projectResolve implementation="earth.terrarium.cloche.gradle.TargetsModelResolverExtension"/>
     </extensions>
 </idea-plugin>
