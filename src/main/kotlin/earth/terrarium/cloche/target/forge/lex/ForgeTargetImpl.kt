@@ -6,20 +6,17 @@ import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.target.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
-import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.forge.task.GenerateMcpToSrg
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
 import org.gradle.kotlin.dsl.register
 import java.io.File
 import javax.inject.Inject
-import kotlin.io.path.exists
 
 internal abstract class ForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name), ForgeTarget {
     override val runs = objectFactory.newInstance<LexForgeRunConfigurations>(this)
@@ -50,6 +47,10 @@ internal abstract class ForgeTargetImpl @Inject constructor(name: String) : Forg
         test.onConfigured(::removeNameMappingService)
 
         minecraftLibrariesConfiguration.attributes.attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
+
+        resolvePatchedMinecraft.configure {
+            neoforge.set(false)
+        }
     }
 
     private fun removeNameMappingService(compilation: Compilation) {
