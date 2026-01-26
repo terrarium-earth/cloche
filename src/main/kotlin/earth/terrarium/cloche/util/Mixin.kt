@@ -1,4 +1,4 @@
-package earth.terrarium.cloche
+package earth.terrarium.cloche.util
 
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import org.gradle.api.artifacts.component.ComponentIdentifier

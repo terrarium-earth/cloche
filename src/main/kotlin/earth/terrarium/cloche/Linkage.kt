@@ -1,13 +1,19 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.target.ClocheTarget
-import earth.terrarium.cloche.target.CommonCompilation
-import earth.terrarium.cloche.target.CommonTargetInternal
-import earth.terrarium.cloche.target.CompilationInternal
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.modConfigurationName
+import earth.terrarium.cloche.target.CLASSES_AND_RESOURCES_VARIANT_NAME
+import earth.terrarium.cloche.target.REMAPPED_VARIANT_NAME
+import earth.terrarium.cloche.target.compilation.CommonCompilation
+import earth.terrarium.cloche.target.common.CommonTargetInternal
+import earth.terrarium.cloche.target.common.commonBucketConfigurationName
+import earth.terrarium.cloche.target.compilation.CompilationInternal
+import earth.terrarium.cloche.target.compilation.TargetCompilation
+import earth.terrarium.cloche.target.compilation.externalApiConfigurationName
+import earth.terrarium.cloche.target.compilation.externalCompileConfigurationName
+import earth.terrarium.cloche.target.compilation.externalRuntimeConfigurationName
+import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
+import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
+import earth.terrarium.cloche.target.compilation.modConfigurationName
 import earth.terrarium.cloche.util.isIdeaDetected
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
@@ -47,8 +53,13 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
     project.extend(compileOnlyConfigurationName, compileOnlyBucket)
 
     project.extend(runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
+
     project.extend(localRuntimeConfigurationName, dependency.localRuntimeConfigurationName)
     project.extend(localImplementationConfigurationName, dependency.localImplementationConfigurationName)
+
+    project.extend(externalRuntimeConfigurationName, dependency.externalRuntimeConfigurationName)
+    project.extend(externalCompileConfigurationName, dependency.externalCompileConfigurationName)
+    project.extend(externalApiConfigurationName, dependency.externalApiConfigurationName)
 
     project.extend(
         modConfigurationName(implementationConfigurationName),

@@ -10,8 +10,10 @@ import earth.terrarium.cloche.api.run.RunConfigurations
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
-import earth.terrarium.cloche.javaExecutableFor
 import earth.terrarium.cloche.loader
+import earth.terrarium.cloche.target.common.CommonTargetInternal
+import earth.terrarium.cloche.target.compilation.CompilationInternal
+import earth.terrarium.cloche.target.compilation.TargetCompilation
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName

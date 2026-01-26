@@ -5,19 +5,18 @@ import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
 import earth.terrarium.cloche.modId
-import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.compilationSourceSet
+import earth.terrarium.cloche.target.compilation.compilationSourceSet
 import earth.terrarium.cloche.target.lazyConfigurable
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.registerCompilationTransformations
+import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
+import earth.terrarium.cloche.target.compilation.registerCompilationTransformations
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.encodeToStream
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
@@ -33,7 +32,6 @@ import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.fabric.task.MergeAccessWideners
-import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
@@ -197,7 +195,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         lowerCamelCaseGradleName("generate", featureName, "mappingsArtifact"),
     ) {
         destinationDirectory.set(temporaryDir)
-        archiveBaseName.set("$featureName-mappings")
+        archiveBaseName.set(listOfNotNull(featureName, "mappings").joinToString("-"))
         archiveVersion.set(null as String?)
 
         val fileList = minecraftRemapNamespace.map {
@@ -390,10 +388,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
 
-        project.dependencies.add(
-            main.sourceSet.runtimeOnlyConfigurationName,
-            project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)),
-        )
+        sourceSet.runtimeClasspath += project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile))
 
         commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
@@ -445,7 +440,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         val commonTask = registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common"),
-            compilationSourceSet(this, name),
+            project.compilationSourceSet(this, name),
             commonJar,
             project.provider { emptyList() },
         ).accessWidenTask

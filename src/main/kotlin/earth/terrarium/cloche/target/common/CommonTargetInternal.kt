@@ -1,4 +1,4 @@
-package earth.terrarium.cloche.target
+package earth.terrarium.cloche.target.common
 
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.metadata.CommonMetadata
@@ -7,6 +7,12 @@ import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.cloche
+import earth.terrarium.cloche.target.ClocheTargetInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.compilation.CommonSecondarySourceSetsInternal
+import earth.terrarium.cloche.target.compilation.CommonTopLevelCompilation
+import earth.terrarium.cloche.target.lazyConfigurable
 import org.gradle.api.Action
 import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project

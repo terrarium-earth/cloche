@@ -5,6 +5,7 @@ import earth.terrarium.cloche.util.isIdeDetected
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.handleTarget
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Plugin
 import org.gradle.api.Project

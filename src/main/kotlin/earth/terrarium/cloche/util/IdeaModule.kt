@@ -1,4 +1,4 @@
-package earth.terrarium.cloche
+package earth.terrarium.cloche.util
 
 import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.Project

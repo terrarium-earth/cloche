@@ -1,10 +1,13 @@
-package earth.terrarium.cloche
+package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.target.CommonCompilation
-import earth.terrarium.cloche.target.CommonTargetInternal
-import earth.terrarium.cloche.target.CommonTopLevelCompilation
-import earth.terrarium.cloche.target.CompilationInternal
-import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.ClocheExtension
+import earth.terrarium.cloche.addSourceDependency
+import earth.terrarium.cloche.addTarget
+import earth.terrarium.cloche.target.compilation.CommonCompilation
+import earth.terrarium.cloche.target.common.CommonTargetInternal
+import earth.terrarium.cloche.target.compilation.CommonTopLevelCompilation
+import earth.terrarium.cloche.target.compilation.CompilationInternal
+import earth.terrarium.cloche.target.common.createCommonTarget
 import earth.terrarium.cloche.target.fabric.FabricClientSecondarySourceSets
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import net.msrandom.minecraftcodev.core.MinecraftDependenciesOperatingSystemMetadataRule

@@ -3,9 +3,9 @@ package earth.terrarium.cloche.target.forge
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.target.compilation.ForgeCompilation
-import earth.terrarium.cloche.withIdeaModule
-import earth.terrarium.cloche.target.TargetCompilation
-import earth.terrarium.cloche.target.TargetCompilationInfo
+import earth.terrarium.cloche.util.withIdeaModule
+import earth.terrarium.cloche.target.compilation.TargetCompilation
+import earth.terrarium.cloche.target.compilation.TargetCompilationInfo
 import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml

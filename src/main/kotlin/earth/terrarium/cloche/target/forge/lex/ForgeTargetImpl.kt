@@ -3,7 +3,7 @@ package earth.terrarium.cloche.target.forge.lex
 import earth.terrarium.cloche.NO_NAME_MAPPING_ATTRIBUTE
 import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.compilation.Compilation
-import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin

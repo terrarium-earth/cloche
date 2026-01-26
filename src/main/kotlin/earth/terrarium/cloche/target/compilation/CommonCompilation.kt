@@ -1,10 +1,13 @@
-package earth.terrarium.cloche.target
+package earth.terrarium.cloche.target.compilation
 
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
+import earth.terrarium.cloche.target.common.CommonTargetInternal
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.lazyConfigurable
 import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.tasks.SourceSet
@@ -22,19 +25,7 @@ internal abstract class CommonCompilation @Inject constructor(
     override val target: CommonTargetInternal,
     override val isTest: Boolean,
 ) : CompilationInternal() {
-    override val sourceSet: SourceSet = run {
-        val sourceSet = project.extension<SourceSetContainer>().maybeCreate(sourceSetName(target, name))
-
-        if (sourceSet.localRuntimeConfigurationName !in project.configurations.names) {
-            project.configurations.dependencyScope(sourceSet.localRuntimeConfigurationName)
-        }
-
-        if (sourceSet.localImplementationConfigurationName !in project.configurations.names) {
-            project.configurations.dependencyScope(sourceSet.localImplementationConfigurationName)
-        }
-
-        sourceSet
-    }
+    override val sourceSet: SourceSet = project.compilationSourceSet(target, name)
 
     override fun getName() = name
 

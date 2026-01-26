@@ -1,4 +1,4 @@
-package earth.terrarium.cloche.target
+package earth.terrarium.cloche.target.compilation
 
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
@@ -11,7 +11,9 @@ import earth.terrarium.cloche.api.target.compilation.Compilation
 import earth.terrarium.cloche.api.target.isSingleTarget
 import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.cloche
-import earth.terrarium.cloche.withIdeaModel
+import earth.terrarium.cloche.target.ClocheTargetInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.util.withIdeaModel
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action
@@ -33,6 +35,12 @@ import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
 import org.jetbrains.annotations.ApiStatus
 
+internal fun resolvableModConfigurationName(name: String) =
+    lowerCamelCaseGradleName("mod", name)
+
+internal fun resolvableNonModConfigurationName(name: String) =
+    lowerCamelCaseGradleName("nonMod", name)
+
 internal fun modConfigurationName(name: String) =
     lowerCamelCaseGradleName("mod", name)
 
@@ -50,6 +58,15 @@ val SourceSet.localRuntimeConfigurationName
 
 val SourceSet.localImplementationConfigurationName
     get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "localImplementation")
+
+val SourceSet.externalRuntimeConfigurationName
+    get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "externalRuntime")
+
+val SourceSet.externalCompileConfigurationName
+    get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "externalCompile")
+
+val SourceSet.externalApiConfigurationName
+    get() = lowerCamelCaseGradleName(takeUnless(SourceSet::isMain)?.name, "externalApi")
 
 context(Project)
 internal fun getRelevantSyncArtifacts(configurationName: String): Provider<Buildable> =
@@ -185,7 +202,7 @@ internal fun Project.configureSourceSet(
         sourceSet.java.srcDir(compilationDirectory.dir("java"))
         sourceSet.resources.srcDir(compilationDirectory.dir("resources"))
 
-        plugins.withId("org.jetbrains.kotlin.jvm") {
+        plugins.withId(ClochePlugin.KOTLIN_JVM_PLUGIN_ID) {
             val kotlin = (sourceSet.extensions.getByName("kotlin") as SourceDirectorySet)
 
             kotlin.srcDir(compilationDirectory.dir("kotlin"))

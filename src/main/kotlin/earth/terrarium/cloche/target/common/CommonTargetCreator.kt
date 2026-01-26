@@ -1,27 +1,30 @@
 @file:Suppress("UnstableApiUsage")
 
-package earth.terrarium.cloche
+package earth.terrarium.cloche.target.common
 
 import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
+import earth.terrarium.cloche.JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
+import earth.terrarium.cloche.KOTLIN_MULTIPLATFORM_STUB_PLUGIN
+import earth.terrarium.cloche.addClasspathDependency
 import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.target.CommonCompilation
-import earth.terrarium.cloche.target.CommonTargetInternal
-import earth.terrarium.cloche.target.CommonTopLevelCompilation
+import earth.terrarium.cloche.target.compilation.CommonCompilation
+import earth.terrarium.cloche.target.compilation.CommonTopLevelCompilation
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.compilation.TargetCompilation
 import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.configureSourceSet
+import earth.terrarium.cloche.target.compilation.createCompilationVariants
+import earth.terrarium.cloche.target.compilation.configureSourceSet
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.target.getNonProjectArtifacts
-import earth.terrarium.cloche.target.getRelevantSyncArtifacts
-import earth.terrarium.cloche.target.localImplementationConfigurationName
-import earth.terrarium.cloche.target.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.modConfigurationName
+import earth.terrarium.cloche.target.compilation.getNonProjectArtifacts
+import earth.terrarium.cloche.target.compilation.getRelevantSyncArtifacts
+import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
+import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
+import earth.terrarium.cloche.target.compilation.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
@@ -75,7 +78,14 @@ private fun convertClasspath(
     return minecraftFiles.zip(artifacts, List<GenerateStubApi.ResolvedArtifact>::plus)
 }
 
-fun SourceSet.commonBucketConfigurationName(configurationName: String) =
+/*
+  Certain source sets are included in the common compileClasspath by default,
+  those being implementation, compileOnly, compileOnlyApi, and api.
+
+  To avoid incorrectly including "bucket" dependencies in those(dependencies only there to be extended by real, non-common targets),
+  we create separate bucket configurations specifically for that purpose. The normal configurations are then untouched by cloche.
+*/
+internal fun SourceSet.commonBucketConfigurationName(configurationName: String) =
     lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common", configurationName)
 
 context(Project)
@@ -138,11 +148,13 @@ internal fun createCommonTarget(
             compilation.sourceSet
         }
 
-        createCompilationVariants(
-            compilation,
-            sourceSet,
-            commonTarget.targetName == MinecraftModLoader.common.name || commonTarget.publish
-        )
+        if (!compilation.isTest) {
+            createCompilationVariants(
+                compilation,
+                sourceSet,
+                commonTarget.targetName == MinecraftModLoader.common.name || commonTarget.publish
+            )
+        }
 
         configureSourceSet(sourceSet, commonTarget, compilation)
 
@@ -155,86 +167,7 @@ internal fun createCommonTarget(
             }
         }
 
-        val modImplementation =
-            configurations.dependencyScope(modConfigurationName(sourceSet.implementationConfigurationName)) {
-                addCollectedDependencies(compilation.dependencyHandler.modImplementation)
-            }
-
-        val modApi = configurations.dependencyScope(modConfigurationName(sourceSet.apiConfigurationName)) {
-            addCollectedDependencies(compilation.dependencyHandler.modApi)
-        }
-
-        val modCompileOnly =
-            configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyConfigurationName)) {
-                addCollectedDependencies(compilation.dependencyHandler.modCompileOnly)
-            }
-
-        val modCompileOnlyApi =
-            configurations.dependencyScope(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)) {
-                addCollectedDependencies(compilation.dependencyHandler.modCompileOnlyApi)
-            }
-
-        val modRuntimeOnly =
-            configurations.dependencyScope(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)) {
-                addCollectedDependencies(compilation.dependencyHandler.modRuntimeOnly)
-            }
-
-        val modLocalRuntime =
-            configurations.dependencyScope(modConfigurationName(sourceSet.localRuntimeConfigurationName)) {
-                addCollectedDependencies(compilation.dependencyHandler.modLocalRuntime)
-            }
-
-        val modLocalImplementation =
-            configurations.dependencyScope(modConfigurationName(sourceSet.localImplementationConfigurationName)) {
-                addCollectedDependencies(compilation.dependencyHandler.modLocalImplementation)
-            }
-
-        configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)) {
-            addCollectedDependencies(compilation.dependencyHandler.implementation)
-
-            extendsFrom(modImplementation.get())
-        }
-
-        configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)) {
-            addCollectedDependencies(compilation.dependencyHandler.api)
-
-            extendsFrom(modApi.get())
-        }
-
-        val commonCompileOnly =
-            configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME)) {
-                addCollectedDependencies(compilation.dependencyHandler.compileOnly)
-
-                extendsFrom(modCompileOnly.get())
-            }
-
-        configurations.dependencyScope(sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)) {
-            addCollectedDependencies(compilation.dependencyHandler.compileOnlyApi)
-
-            extendsFrom(modCompileOnlyApi.get())
-        }
-
-        configurations.named(sourceSet.runtimeOnlyConfigurationName) {
-            addCollectedDependencies(compilation.dependencyHandler.runtimeOnly)
-
-            extendsFrom(modRuntimeOnly.get())
-        }
-
-        configurations.named(sourceSet.localRuntimeConfigurationName) {
-            addCollectedDependencies(compilation.dependencyHandler.localRuntime)
-
-            extendsFrom(modLocalRuntime.get())
-        }
-
-        configurations.named(sourceSet.localImplementationConfigurationName) {
-            addCollectedDependencies(compilation.dependencyHandler.localImplementation)
-
-            extendsFrom(modLocalImplementation.get())
-        }
-
-        configurations.named(sourceSet.annotationProcessorConfigurationName) {
-            addCollectedDependencies(compilation.dependencyHandler.annotationProcessor)
-        }
+        setupConfigurations(compilation)
 
         val intersectionResults = configurations.dependencyScope(
             lowerCamelCaseGradleName(
@@ -290,8 +223,8 @@ internal fun createCommonTarget(
         }
 
         dependencies.add(
-            commonCompileOnly.name,
-            "net.msrandom:java-expect-actual-annotations:1.0.0"
+            sourceSet.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME),
+            "net.msrandom:java-expect-actual-annotations:1.0.0",
         )
 
         dependencies.add(

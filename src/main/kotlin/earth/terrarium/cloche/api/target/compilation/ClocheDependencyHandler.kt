@@ -17,6 +17,9 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
     abstract val compileOnlyApi: DependencyCollector
     abstract val localRuntime: DependencyCollector
     abstract val localImplementation: DependencyCollector
+    abstract val externalRuntime: DependencyCollector
+    abstract val externalCompile: DependencyCollector
+    abstract val externalApi: DependencyCollector
 
     abstract val modApi: DependencyCollector
     abstract val modCompileOnlyApi: DependencyCollector
