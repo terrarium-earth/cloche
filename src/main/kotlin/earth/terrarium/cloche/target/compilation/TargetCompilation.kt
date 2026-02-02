@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target.compilation
 
+import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
@@ -125,6 +126,8 @@ internal fun registerCompilationTransformations(
 
         inputFile.set(namedMinecraftFile)
         namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+
+        namedSource.set(target.minecraftVersion.map { ClochePlugin.isUnobfuscated(it) })
 
         with(project) {
             // TODO Export access wideners as a separate artifact
