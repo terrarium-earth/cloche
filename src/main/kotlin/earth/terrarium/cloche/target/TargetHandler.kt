@@ -295,8 +295,6 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             sourceSet.sourcesElementsConfigurationName,
         )
 
-        val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
-
         for (name in libraryConsumableConfigurationNames) {
             if (compilation.isTest) {
                 continue
