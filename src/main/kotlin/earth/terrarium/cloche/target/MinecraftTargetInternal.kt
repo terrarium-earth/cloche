@@ -163,9 +163,15 @@ internal abstract class MinecraftTargetInternal(
         }
 
         project.configurations.named(sourceSet.mappingsConfigurationName) {
-            defaultDependencies {
-                add(project.dependencies.create(officialMappingsDependency(project, this@MinecraftTargetInternal)))
+            val defaultDependencies = mappings.isConfigured.map {
+                if (it) {
+                    emptyList()
+                } else {
+                    listOf(project.dependencies.create(officialMappingsDependency(project, this@MinecraftTargetInternal)))
+                }
             }
+
+            dependencies.addAllLater(defaultDependencies)
         }
     }
 

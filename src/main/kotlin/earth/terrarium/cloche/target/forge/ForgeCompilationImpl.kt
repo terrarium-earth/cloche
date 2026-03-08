@@ -11,8 +11,8 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
+import net.msrandom.minecraftcodev.forge.task.GenerateForgeClientExtra
 import net.msrandom.minecraftcodev.forge.task.JarJar
-import net.msrandom.minecraftcodev.forge.task.ResolvePatchedMinecraft
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import net.peanuuutz.tomlkt.TomlTable
 import org.gradle.api.Action
@@ -61,7 +61,7 @@ internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeComp
         lowerCamelCaseGradleName("write", target.featureName, featureName, "legacyClasspath"),
     ) {
         classpath.from(target.minecraftLibrariesConfiguration)
-        classpath.from(target.resolvePatchedMinecraft.flatMap(ResolvePatchedMinecraft::clientExtra))
+        classpath.from(target.generateClientExtra.flatMap(GenerateForgeClientExtra::outputFile))
         classpath.from(legacyClasspathConfiguration)
 
         if (target is ForgeTargetImpl) {

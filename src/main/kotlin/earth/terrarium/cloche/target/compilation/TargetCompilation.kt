@@ -1,6 +1,5 @@
 package earth.terrarium.cloche.target.compilation
 
-import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
@@ -15,6 +14,7 @@ import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.includes.IncludesJar
@@ -40,6 +40,7 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.internal.extensions.core.serviceOf
+import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
@@ -70,7 +71,7 @@ private fun Project.filteredClasspathFiles(configurationName: String, filterConf
             attributes {
                 attribute(REMAPPED_ATTRIBUTE, false)
             }
-        }.files
+        }.artifacts.artifactFiles
     })
 }
 
@@ -86,7 +87,7 @@ private fun Project.getUnmappedClasspath(configurationName: String): FileCollect
             attributes {
                 attribute(REMAPPED_ATTRIBUTE, false)
             }
-        }.files
+        }.artifacts.artifactFiles
     })
 }
 
@@ -127,7 +128,7 @@ internal fun registerCompilationTransformations(
         inputFile.set(namedMinecraftFile)
         namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
 
-        namedSource.set(target.minecraftVersion.map { ClochePlugin.isUnobfuscated(it) })
+        namedSource.set(target.minecraftVersion.map(::isUnobfuscatedVersion))
 
         with(project) {
             // TODO Export access wideners as a separate artifact
@@ -191,7 +192,7 @@ private fun setupModTransformationPipeline(
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, true)
 
-            // Is the usage of the base attributes correct here?
+            // TODO Is the usage of the base attributes correct here?
             compilation.baseAttributes(from)
             compilation.baseAttributes(to)
 

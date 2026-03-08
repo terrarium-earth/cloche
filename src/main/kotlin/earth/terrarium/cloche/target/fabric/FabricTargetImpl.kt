@@ -28,6 +28,7 @@ import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftClient
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftCommon
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
+import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
@@ -340,7 +341,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     override val minecraftRemapNamespace: Provider<String>
         get() = minecraftVersion.zip(mappings.isDefault) { version, isDefault ->
-            if (isDefault && ClochePlugin.isUnobfuscated(version)) {
+            if (isDefault && isUnobfuscatedVersion(version)) {
                 ""
             } else {
                 MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE
@@ -349,7 +350,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
     override val modRemapNamespace: Provider<String>
         get() = minecraftVersion.zip(mappings.isOfficialCompatible) { version, isOfficialCompatible ->
-            if (isOfficialCompatible && ClochePlugin.isUnobfuscated(version)) {
+            if (isOfficialCompatible && isUnobfuscatedVersion(version)) {
                 ""
             } else {
                 MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE
@@ -477,7 +478,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             input.from(accessWideners)
             accessWidenerName.set(modId)
 
-            namedSource.set(minecraftVersion.map { ClochePlugin.isUnobfuscated(it) })
+            namedSource.set(minecraftVersion.map { isUnobfuscatedVersion(it) })
 
             val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
                 directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
