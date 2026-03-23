@@ -478,7 +478,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             input.from(accessWideners)
             accessWidenerName.set(modId)
 
-            namedSource.set(minecraftVersion.map { isUnobfuscatedVersion(it) })
+            namedSource.set(minecraftVersion.map(::isUnobfuscatedVersion))
 
             val output = modId.zip(project.layout.buildDirectory.dir("generated")) { modId, directory ->
                 directory.dir("mergedAccessWideners").dir(compilation.sourceSet.name).file("$modId.accessWidener")
