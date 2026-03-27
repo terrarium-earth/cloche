@@ -39,10 +39,10 @@ java {
 dependencies {
     implementation(group = "net.msrandom", name = "minecraft-codev-core", version = "0.6.9")
     implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.8.1")
-    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.6.15")
+    implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.7.0")
     implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.6.0")
     implementation(group = "net.msrandom", name = "minecraft-codev-runs", version = "0.6.8")
-    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.6.2")
+    implementation(group = "net.msrandom", name = "minecraft-codev-access-widener", version = "0.6.3")
     implementation(group = "net.msrandom", name = "minecraft-codev-remapper", version = "0.7.1")
     implementation(group = "net.msrandom", name = "minecraft-codev-decompiler", version = "0.6.0")
     implementation(group = "net.msrandom", name = "minecraft-codev-includes", version = "0.6.5")
