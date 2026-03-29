@@ -1,24 +1,21 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
 import earth.terrarium.cloche.modId
-import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.compilation.compilationSourceSet
-import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
 import earth.terrarium.cloche.target.compilation.registerCompilationTransformations
+import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import earth.terrarium.cloche.util.fromJars
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.decodeFromStream
-import kotlinx.serialization.json.encodeToStream
+import kotlinx.serialization.json.*
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.MinecraftCodevPlugin.Companion.json
 import net.msrandom.minecraftcodev.core.MinecraftComponentMetadataRule
@@ -68,14 +65,20 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         project.configurations.create(lowerCamelCaseGradleName(featureName, "commonMinecraftLibraries")) {
             isCanBeConsumed = false
 
-            attributes.attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
+            attributes.attribute(
+                MinecraftOperatingSystemAttribute.attribute,
+                project.objects.named(operatingSystemName())
+            )
         }
 
     private val clientLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "clientMinecraftLibraries")) {
             isCanBeConsumed = false
 
-            attributes.attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
+            attributes.attribute(
+                MinecraftOperatingSystemAttribute.attribute,
+                project.objects.named(operatingSystemName())
+            )
         }
 
     private val resolveCommonMinecraft =
@@ -438,15 +441,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     }
 
     private fun registerCommonCompilation(name: String): FabricCompilationImpl {
-        val commonTask = registerCompilationTransformations(
+        val commonTasks = registerCompilationTransformations(
             this,
             lowerCamelCaseGradleName(name.takeUnless(SourceSet.MAIN_SOURCE_SET_NAME::equals), "common"),
             project.compilationSourceSet(this, name),
             commonJar,
             project.provider { emptyList() },
-        ).accessWidenTask
+            project.provider { ModDistribution.common }
+        )
 
-        commonTask.configure {
+        commonTasks.accessWidenTask.configure {
             accessWideners.from(this@FabricTargetImpl.accessWideners)
         }
 
@@ -457,7 +461,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 intermediaryClasspath,
                 commonJar,
                 clientJar,
-                commonTask.flatMap(AccessWiden::outputFile),
+                commonTasks.accessWidenTask.flatMap(AccessWiden::outputFile),
                 name == ClochePlugin.DATA_COMPILATION_NAME,
                 name == SourceSet.TEST_SOURCE_SET_NAME,
                 includedClient.isConfigured,
@@ -545,7 +549,13 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     override fun addAnnotationProcessors(compilation: CompilationInternal) {
         compilation.dependencyHandler.annotationProcessor.add(fabricLoader)
         compilation.dependencyHandler.annotationProcessor.add(project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
-        compilation.dependencyHandler.annotationProcessor.add(project.dependencyFactory.create("net.fabricmc", "fabric-mixin-compile-extensions", "0.6.0"))
+        compilation.dependencyHandler.annotationProcessor.add(
+            project.dependencyFactory.create(
+                "net.fabricmc",
+                "fabric-mixin-compile-extensions",
+                "0.6.0"
+            )
+        )
 
         project.tasks.named<JavaCompile>(compilation.sourceSet.compileJavaTaskName) {
             val inMapFile = lowerCamelCaseGradleName(

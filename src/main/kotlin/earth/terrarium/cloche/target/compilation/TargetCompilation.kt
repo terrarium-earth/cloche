@@ -3,8 +3,8 @@ package earth.terrarium.cloche.target.compilation
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.target.MinecraftTargetInternal
@@ -18,6 +18,7 @@ import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.includes.IncludesJar
+import net.msrandom.minecraftcodev.mixins.task.Mixin
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -40,10 +41,9 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.internal.extensions.core.serviceOf
-import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.named
-import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
+import org.spongepowered.asm.mixin.MixinEnvironment
 import javax.inject.Inject
 
 private fun Project.getUnmappedModFiles(configurationName: String) =
@@ -91,9 +91,26 @@ private fun Project.getUnmappedClasspath(configurationName: String): FileCollect
     })
 }
 
+private fun Project.getMappedClasspath(configurationName: String): FileCollection {
+    val classpath = project.configurations.named(configurationName)
+
+    return project.files(classpath.map { classpath ->
+        classpath.incoming.artifactView {
+            componentFilter {
+                it !is ProjectComponentIdentifier
+            }
+
+            attributes {
+                attribute(REMAPPED_ATTRIBUTE, true)
+            }
+        }.artifacts.artifactFiles
+    })
+}
+
 data class FinalJarTasks(
     val accessWidenTask: TaskProvider<AccessWiden>,
     val decompileTask: TaskProvider<Decompile>,
+    val mixinTask: TaskProvider<Mixin>
 ) {
     val libraryArtifact
         get() = accessWidenTask.flatMap(AccessWiden::outputFile)
@@ -108,6 +125,7 @@ internal fun registerCompilationTransformations(
     sourceSet: SourceSet,
     namedMinecraftFile: Provider<RegularFile>,
     extraClasspathFiles: Provider<List<RegularFile>>,
+    side: Provider<ModDistribution>
 ): FinalJarTasks {
     val outputDirectory = target.outputDirectory.map { it.dir(compilationName) }
 
@@ -140,6 +158,35 @@ internal fun registerCompilationTransformations(
         })
     }
 
+    val mixinTask = project.tasks.register<Mixin>(
+        lowerCamelCaseGradleName("mixin", target.featureName, collapsedName, "minecraft"),
+    ) {
+        group = "minecraft-transforms"
+
+        inputFile.set(accessWidenTask.flatMap(AccessWiden::outputFile))
+
+        sourceNamespace.set(target.modRemapNamespace)
+        targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+        mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+
+        val compileClasspath = project.getMappedClasspath(sourceSet.compileClasspathConfigurationName)
+        val runtimeClasspath = project.getMappedClasspath(sourceSet.runtimeClasspathConfigurationName)
+
+        mixinFiles.from(compileClasspath)
+        mixinFiles.from(runtimeClasspath)
+
+        classpath.from(compileClasspath)
+        classpath.from(runtimeClasspath)
+        classpath.from(extraClasspathFiles)
+
+        this.side.set(
+            when (side.get()) {
+                ModDistribution.common -> MixinEnvironment.Side.SERVER
+                ModDistribution.client -> MixinEnvironment.Side.CLIENT
+            }
+        )
+    }
+
     val decompile = project.tasks.register<Decompile>(
         lowerCamelCaseGradleName("decompile", target.featureName, collapsedName, "minecraft"),
     ) {
@@ -154,7 +201,7 @@ internal fun registerCompilationTransformations(
         })
     }
 
-    return FinalJarTasks(accessWidenTask, decompile)
+    return FinalJarTasks(accessWidenTask, decompile, mixinTask)
 }
 
 internal fun Project.compilationSourceSet(target: ClocheTarget, name: String): SourceSet {
@@ -269,6 +316,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         sourceSet,
         _info.namedMinecraftFile,
         _info.extraClasspathFiles,
+        _info.side,
     )
 
     val metadataDirectory: Provider<Directory>
@@ -388,13 +436,15 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             accessWideners.from(this@TargetCompilation.accessWideners)
         }
 
-        // Use detached configuration for idea compat
-        val minecraftFiles = project.files(finalMinecraftFile, _info.extraClasspathFiles)
-        val minecraftFileConfiguration =
-            project.configurations.detachedConfiguration(project.dependencies.create(minecraftFiles))
+        val compileMinecraftFiles = project.files(setupFiles.accessWidenTask, _info.extraClasspathFiles)
+        val compileMinecraftConfiguration =
+            project.configurations.detachedConfiguration(project.dependencies.create(compileMinecraftFiles))
+        sourceSet.compileClasspath += compileMinecraftConfiguration
 
-        sourceSet.compileClasspath += minecraftFileConfiguration
-        sourceSet.runtimeClasspath += minecraftFileConfiguration
+        val runtimeMinecraftFiles = project.files(finalMinecraftFile, _info.extraClasspathFiles)
+        val runtimeMinecraftConfiguration =
+            project.configurations.detachedConfiguration(project.dependencies.create(runtimeMinecraftFiles))
+        sourceSet.runtimeClasspath += runtimeMinecraftConfiguration
     }
 
     override fun getName() = _info.name
