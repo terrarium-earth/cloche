@@ -84,6 +84,19 @@ class ClocheVersionDisambiguationRule : AttributeDisambiguationRule<String> {
     }
 }
 
+object ClocheTargetAttribute {
+    val ATTRIBUTE = Attribute.of("earth.terrarium.cloche.target", String::class.java)
+    const val INITIAL = "none"
+
+    class CompatibilityRule : AttributeCompatibilityRule<String> {
+        override fun execute(details: CompatibilityCheckDetails<String>) {
+            if (details.producerValue == INITIAL || details.consumerValue == INITIAL) {
+                details.compatible()
+            }
+        }
+    }
+}
+
 class DistributionCompatibilityRule : AttributeCompatibilityRule<ModDistribution> {
     override fun execute(details: CompatibilityCheckDetails<ModDistribution>) {
         details.compatible()

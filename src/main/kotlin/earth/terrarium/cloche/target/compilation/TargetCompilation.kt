@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target.compilation
 
+import earth.terrarium.cloche.ClocheTargetAttribute
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes

@@ -18,7 +18,6 @@ import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
-import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.includes.StripIncludes
 import org.gradle.api.Action
@@ -40,8 +39,8 @@ import org.gradle.kotlin.dsl.polymorphicDomainObjectContainer
 import org.gradle.kotlin.dsl.property
 import org.gradle.kotlin.dsl.registerTransform
 import org.gradle.kotlin.dsl.withModule
-import javax.inject.Inject
 import org.gradle.kotlin.dsl.withType
+import javax.inject.Inject
 
 internal val Project.cloche
     get() = extension<ClocheExtension>()
@@ -190,18 +189,6 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
                 withModule("net.fabricmc:fabric-loader", FabricInstallerComponentMetadataRule::class) {
                     params(CompilationAttributes.DISTRIBUTION, ModDistribution.common, ModDistribution.client, false)
                 }
-            }
-        }
-
-        onTargetTypeConfigured(ForgeTarget::class.java) {
-            project.dependencies.registerTransform(RemoveNameMappingService::class) {
-                from
-                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
-
-                to
-                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                    .attribute(NO_NAME_MAPPING_ATTRIBUTE, true)
             }
         }
 
