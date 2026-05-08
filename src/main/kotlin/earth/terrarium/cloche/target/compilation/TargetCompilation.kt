@@ -30,6 +30,7 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -40,7 +41,6 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.internal.extensions.core.serviceOf
-import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
@@ -95,10 +95,10 @@ data class FinalJarTasks(
     val accessWidenTask: TaskProvider<AccessWiden>,
     val decompileTask: TaskProvider<Decompile>,
 ) {
-    val libraryArtifact
+    val libraryArtifact: Provider<RegularFile>
         get() = accessWidenTask.flatMap(AccessWiden::outputFile)
 
-    val sourcesArtifact
+    val sourcesArtifact: Provider<RegularFile>
         get() = decompileTask.flatMap(Decompile::outputFile)
 }
 
@@ -261,7 +261,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
     final override val sourceSet: SourceSet = project.compilationSourceSet(_info.target, _info.name)
 
-    val modOutputs = project.files(sourceSet.output)
+    val modOutputs: ConfigurableFileCollection = project.files(sourceSet.output)
 
     protected val setupFiles = registerCompilationTransformations(
         _info.target,

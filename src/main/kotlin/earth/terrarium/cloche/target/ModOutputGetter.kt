@@ -22,6 +22,7 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
 
             componentFilter { id ->
                 // Only set mod output groups for project dependencies
+                //  TODO Allow handling Jars extracted via an artifact transform?
                 id is ProjectComponentIdentifier
             }
         }.artifacts

@@ -225,7 +225,7 @@ internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompi
 
 context(Project)
 internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetCompilation<*>) {
-    println("(classpath dependency) $this -> $dependency")
+    println("(data classpath dependency) $this -> $dependency")
 
     val configuration =
         configurations.detachedConfiguration(dependencies.create(dependency.sourceSet.output.classesDirs))
@@ -236,7 +236,7 @@ internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetC
     sourceSet.resources.srcDir(dependency.sourceSet.resources)
 
     val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
-        it.outgoing.variants.named(LibraryElements.CLASSES)
+        it.outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME)
     }
 
     configurations.named(sourceSet.runtimeElementsConfigurationName) {
@@ -246,6 +246,7 @@ internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetC
     }
 
     modOutputs.from(dependency.sourceSet.output.classesDirs)
+    // modOutputs.from(dependency.sourceSet.output.resourcesDir)
 
     extendFromDependency(dependency)
 }
