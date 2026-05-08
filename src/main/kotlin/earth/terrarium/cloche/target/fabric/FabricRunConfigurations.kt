@@ -10,9 +10,9 @@ import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.api.target.compilation.CommonSecondarySourceSets
 import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.withIdeaModule
+import earth.terrarium.cloche.util.withIdeaModule
 import earth.terrarium.cloche.modId
-import earth.terrarium.cloche.target.TargetCompilation
+import earth.terrarium.cloche.target.compilation.TargetCompilation
 import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.target.modOutputs
 import net.msrandom.minecraftcodev.core.utils.extension

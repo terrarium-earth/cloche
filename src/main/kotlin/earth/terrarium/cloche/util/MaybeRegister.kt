@@ -1,4 +1,4 @@
-package earth.terrarium.cloche
+package earth.terrarium.cloche.util
 
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectProvider

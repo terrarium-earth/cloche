@@ -12,7 +12,7 @@ import earth.terrarium.cloche.api.target.ForgeTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.NeoforgeTarget
 import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.target.CommonTargetInternal
+import earth.terrarium.cloche.target.common.CommonTargetInternal
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.target.forge.neo.NeoForgeTargetImpl

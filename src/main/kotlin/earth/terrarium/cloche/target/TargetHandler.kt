@@ -1,11 +1,29 @@
-package earth.terrarium.cloche
+package earth.terrarium.cloche.target
 
+import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
+import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
+import earth.terrarium.cloche.addClasspathDependency
+import earth.terrarium.cloche.addDataClasspathDependency
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.compilation.TargetCompilation
+import earth.terrarium.cloche.target.compilation.configureSourceSet
+import earth.terrarium.cloche.target.compilation.createCompilationVariants
+import earth.terrarium.cloche.target.compilation.externalApiConfigurationName
+import earth.terrarium.cloche.target.compilation.externalCompileConfigurationName
+import earth.terrarium.cloche.target.compilation.externalRuntimeConfigurationName
+import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
+import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
+import earth.terrarium.cloche.target.compilation.modConfigurationName
+import earth.terrarium.cloche.target.compilation.resolvableModConfigurationName
+import earth.terrarium.cloche.target.compilation.resolvableNonModConfigurationName
+import earth.terrarium.cloche.target.compilation.sourceSetName
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
+import earth.terrarium.cloche.util.configureClassesAndResourcesVariant
 import earth.terrarium.cloche.util.optionalDir
+import earth.terrarium.cloche.util.withIdeaModule
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
 import net.msrandom.minecraftcodev.core.getVersionList
@@ -20,9 +38,9 @@ import net.msrandom.minecraftcodev.runs.task.DownloadAssets
 import net.msrandom.minecraftcodev.runs.task.ExtractNatives
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
-import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
@@ -40,7 +58,6 @@ import org.gradle.kotlin.dsl.register
 
 internal const val MOD_ID_CATEGORY = "mod-id"
 internal const val REMAPPED_VARIANT_NAME = "remapped"
-internal const val CLASSES_AND_RESOURCES_VARIANT_NAME = "classesAndResources"
 
 fun Project.javaExecutableFor(
     version: Provider<String>,
@@ -65,15 +82,12 @@ fun Project.javaExecutableFor(
 
 @Suppress("UnstableApiUsage")
 private fun TargetCompilation<*>.addModDependencies(configurationName: String, collector: DependencyCollector, modCollector: DependencyCollector) {
-    val modImplementation =
-        project.configurations.dependencyScope(modConfigurationName(configurationName)) {
-            addCollectedDependencies(modCollector)
-        }
+    project.configurations.dependencyScope(modConfigurationName(configurationName)) {
+        addCollectedDependencies(modCollector)
+    }
 
     project.configurations.named(configurationName) {
         addCollectedDependencies(collector)
-
-        extendsFrom(modImplementation.get())
     }
 }
 
@@ -98,11 +112,19 @@ private fun TargetCompilation<*>.addDependencies() {
         addCollectedDependencies(dependencyHandler.annotationProcessor)
     }
 
-    project.configurations.resolvable(modConfigurationName(sourceSet.compileClasspathConfigurationName)) {
-        isTransitive = false
+    project.configurations.named(sourceSet.externalRuntimeConfigurationName) {
+        addCollectedDependencies(dependencyHandler.externalRuntime)
+    }
 
-        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
+    project.configurations.named(sourceSet.externalCompileConfigurationName) {
+        addCollectedDependencies(dependencyHandler.externalCompile)
+    }
 
+    project.configurations.named(sourceSet.externalApiConfigurationName) {
+        addCollectedDependencies(dependencyHandler.externalApi)
+    }
+
+    fun Configuration.extendModCompileClasspath() {
         extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyConfigurationName)))
         extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
         extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localImplementationConfigurationName)))
@@ -113,13 +135,8 @@ private fun TargetCompilation<*>.addDependencies() {
         }
     }
 
-    project.configurations.resolvable(modConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
-        isTransitive = false
-
-        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
-
+    fun Configuration.extendModRuntimeClasspath() {
         extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
-        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
         extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
 
         extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.localRuntimeConfigurationName)))
@@ -130,13 +147,76 @@ private fun TargetCompilation<*>.addDependencies() {
         }
     }
 
+    project.configurations.resolvable(resolvableModConfigurationName(sourceSet.compileClasspathConfigurationName)) {
+        isTransitive = false
+
+        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
+
+        extendModCompileClasspath()
+    }
+
+    project.configurations.resolvable(resolvableModConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
+        isTransitive = false
+
+        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+
+        extendModRuntimeClasspath()
+    }
+
+    project.configurations.resolvable(resolvableNonModConfigurationName(sourceSet.compileClasspathConfigurationName)) {
+        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.compileClasspathConfigurationName))
+
+        extendsFrom(project.configurations.getByName(sourceSet.compileOnlyConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.implementationConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
+
+        if (!isTest) {
+            extendsFrom(project.configurations.getByName(sourceSet.compileOnlyApiConfigurationName))
+            extendsFrom(project.configurations.getByName(sourceSet.apiConfigurationName))
+        }
+    }
+
+    project.configurations.resolvable(resolvableNonModConfigurationName(sourceSet.runtimeClasspathConfigurationName)) {
+        shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+
+        extendsFrom(project.configurations.getByName(sourceSet.runtimeOnlyConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.implementationConfigurationName))
+
+        extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
+
+        if (!isTest) {
+            extendsFrom(project.configurations.getByName(sourceSet.apiConfigurationName))
+        }
+    }
+
     project.configurations.named(sourceSet.compileClasspathConfigurationName) {
         extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
+
+        extendModCompileClasspath()
     }
 
     project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
         extendsFrom(project.configurations.getByName(sourceSet.localImplementationConfigurationName))
         extendsFrom(project.configurations.getByName(sourceSet.localRuntimeConfigurationName))
+
+        extendModRuntimeClasspath()
+    }
+
+    project.configurations.named(sourceSet.apiElementsConfigurationName) {
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.apiConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.compileOnlyApiConfigurationName)))
+
+        extendsFrom(project.configurations.getByName(sourceSet.externalCompileConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.externalApiConfigurationName))
+    }
+
+    project.configurations.named(sourceSet.runtimeElementsConfigurationName) {
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.runtimeOnlyConfigurationName)))
+        extendsFrom(project.configurations.getByName(modConfigurationName(sourceSet.implementationConfigurationName)))
+
+        extendsFrom(project.configurations.getByName(sourceSet.externalRuntimeConfigurationName))
+        extendsFrom(project.configurations.getByName(sourceSet.externalApiConfigurationName))
     }
 }
 
@@ -191,7 +271,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             options.release.set(javaVersion)
         }
 
-        plugins.withId("org.jetbrains.kotlin.jvm") {
+        plugins.withId(ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID) {
             tasks.named<KotlinCompile>(sourceSet.getCompileTaskName("kotlin")) {
                 compilerOptions.jvmTarget.set(javaVersion.map {
                     JvmTarget.fromTarget(JavaVersion.toVersion(it).toString())
@@ -213,8 +293,6 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             sourceSet.javadocElementsConfigurationName,
             sourceSet.sourcesElementsConfigurationName,
         )
-
-        val configurationNames = resolvableConfigurationNames + consumableConfigurationNames
 
         for (name in libraryConsumableConfigurationNames) {
             if (compilation.isTest) {
@@ -266,36 +344,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         }
 
         if (!compilation.isTest) {
-            configurations.named(sourceSet.runtimeElementsConfigurationName) {
-                val configuration = this
-
-                val classesAndResourcesVariants = outgoing.variants.named { it == "classes" || it == "resources" }
-
-                val classesAndResourcesVariant = outgoing.variants.maybeCreate(
-                    CLASSES_AND_RESOURCES_VARIANT_NAME
-                ).also {
-                    it.attributes
-                        .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.CLASSES_AND_RESOURCES))
-                        .attribute(REMAPPED_ATTRIBUTE, true)
-                        .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
-
-                    classesAndResourcesVariants.configureEach {
-                        artifacts.configureEach {
-                            it.artifact(this)
-                        }
-                    }
-                }
-
-                components.named("java") {
-                    this as AdhocComponentWithVariants
-
-                    withVariantsFromConfiguration(configuration) {
-                        if (configurationVariant.name == classesAndResourcesVariant.name) {
-                            skip()
-                        }
-                    }
-                }
-            }
+            configureClassesAndResourcesVariant(sourceSet)
         }
 
         for (name in resolvableConfigurationNames) {
@@ -340,7 +389,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
     if (target is FabricTargetImpl) {
         target.client.onConfigured { client ->
-            addCompilation(client, ClochePlugin.CLIENT_TEST_COMPILATION_NAME)
+            addCompilation(client, ClochePlugin.Companion.CLIENT_TEST_COMPILATION_NAME)
             client.addClasspathDependency(target.main)
 
             client.data.onConfigured { data ->

@@ -1,6 +1,7 @@
-package earth.terrarium.cloche
+package earth.terrarium.cloche.target.compilation
 
-import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.requireGroup
 import net.msrandom.minecraftcodev.core.utils.extension
 import org.gradle.api.Project
 import org.gradle.api.attributes.java.TargetJvmEnvironment
@@ -67,10 +68,22 @@ internal fun Project.createCompilationVariants(
             attributes {
                 attribute(TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE, objects.named(TargetJvmEnvironment.STANDARD_JVM))
 
-                plugins.withId(ClochePlugin.KOTLIN_JVM_PLUGIN_ID) {
+                plugins.withId(ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID) {
                     attribute(KotlinPlatformType.attribute, KotlinPlatformType.jvm)
                 }
             }
         }
+    }
+
+    if (sourceSet.externalRuntimeConfigurationName !in configurations.names) {
+        configurations.dependencyScope(sourceSet.externalRuntimeConfigurationName)
+    }
+
+    if (sourceSet.externalCompileConfigurationName !in configurations.names) {
+        configurations.dependencyScope(sourceSet.externalCompileConfigurationName)
+    }
+
+    if (sourceSet.externalApiConfigurationName !in configurations.names) {
+        configurations.dependencyScope(sourceSet.externalApiConfigurationName)
     }
 }

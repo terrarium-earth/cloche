@@ -1,7 +1,7 @@
 package earth.terrarium.cloche.target
 
-import earth.terrarium.cloche.MOD_ID_CATEGORY
 import earth.terrarium.cloche.modId
+import earth.terrarium.cloche.target.compilation.TargetCompilation
 import net.msrandom.minecraftcodev.runs.DependencyModOutputListing
 import net.msrandom.minecraftcodev.runs.OutputListings
 import org.gradle.api.Project
@@ -22,6 +22,7 @@ internal fun Project.modOutputs(compilation: TargetCompilation<*>): OutputListin
 
             componentFilter { id ->
                 // Only set mod output groups for project dependencies
+                //  TODO Allow handling Jars extracted via an artifact transform?
                 id is ProjectComponentIdentifier
             }
         }.artifacts

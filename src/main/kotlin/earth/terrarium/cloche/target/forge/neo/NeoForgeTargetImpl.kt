@@ -1,14 +1,14 @@
 package earth.terrarium.cloche.target.forge.neo
 
-import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.target.NeoforgeTarget
-import earth.terrarium.cloche.target.CompilationInternal
+import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
-import earth.terrarium.cloche.target.localImplementationConfigurationName
+import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
 import earth.terrarium.cloche.tasks.data.decodeFromStream
 import earth.terrarium.cloche.tasks.data.encodeToStream
 import earth.terrarium.cloche.tasks.data.toml
 import net.msrandom.minecraftcodev.core.operatingSystemName
+import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
 import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin
 import net.peanuuutz.tomlkt.*
@@ -76,7 +76,7 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
             dependencies.addAllLater(minecraftVersion.flatMap {
-                if (ClochePlugin.isUnobfuscated(it)) {
+                if (isUnobfuscatedVersion(it)) {
                     (forgeDependency {}).map(::listOf)
                 } else {
                     emptyList
