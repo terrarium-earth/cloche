@@ -28,12 +28,6 @@ private val NEOFORGE_OPERATING_SYSTEM_ATTRIBUTE = Attribute.of("net.neoforged.op
 
 internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : ForgeLikeTargetImpl(name),
     NeoforgeTarget {
-    final override val group
-        get() = "net.neoforged"
-
-    final override val artifact
-        get() = "neoforge"
-
     override val minecraftRemapNamespace: Provider<String>
         get() = mappings.isDefault.map {
             if (it) {
@@ -53,6 +47,9 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
         }
 
     init {
+        group.convention("net.neoforged")
+        artifact.convention("neoforge")
+
         minecraftLibrariesConfiguration.attributes {
             attribute(NEOFORGE_DISTRIBUTION_ATTRIBUTE, "client")
 

@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.util
 
+import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import org.gradle.api.Project
 import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.component.AdhocComponentWithVariants
@@ -22,6 +23,7 @@ internal fun Project.configureClassesAndResourcesVariant(sourceSet: SourceSet) {
                     LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
                     objects.named(LibraryElements.CLASSES_AND_RESOURCES)
                 )
+                .attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false) // TODO Remove this
 
             classesAndResourcesVariants.configureEach {
                 val classesOrResourcesVariant = this

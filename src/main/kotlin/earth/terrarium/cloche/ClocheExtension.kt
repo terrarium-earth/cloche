@@ -205,18 +205,14 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
             }
         }
 
-        targets.configureEach {
-            dependsOn(common())
-        }
-
-        commonTargets
-            .named { it != MinecraftModLoader.common.name }
-            .configureEach { dependsOn(common()) }
-
         // afterEvaluate needed as we are querying the configuration of a value
         project.afterEvaluate {
             if ((targets.isNotEmpty() || singleTargetConfigurator.target != null) && !metadata.modId.isPresent) {
                 throw InvalidUserCodeException("`cloche.metadata.modId` was not set in $project.")
+            }
+
+            if (targets.size == 1) {
+                throw InvalidUserCodeException("Please use single-target mode if you are using only one target, you can wrap the target `${targets.first().name} in a singleTarget block to do that.`")
             }
         }
     }
@@ -227,8 +223,15 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     fun common(name: String): CommonTarget = common(name) {}
     fun common(configure: Action<CommonTarget>): CommonTarget = common(MinecraftModLoader.common.name, configure)
 
-    fun common(name: String, configure: Action<CommonTarget>): CommonTarget =
-        commonTargets.maybeCreate(name).also(configure::execute)
+    fun common(name: String, configure: Action<CommonTarget>): CommonTarget {
+        val common = commonTargets.maybeCreate(name).also(configure::execute)
+
+        if (name != MinecraftModLoader.common.name) {
+            common.dependsOn(common())
+        }
+
+        return common
+    }
 
     override fun fabric(configure: Action<FabricTarget>): FabricTarget = fabric(MinecraftModLoader.fabric.name, configure)
 
@@ -244,8 +247,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     fun <T : MinecraftTarget> singleTarget(configurator: SingleTargetConfigurator.() -> T) = singleTargetConfigurator.configurator()
 
-    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, configure: Action<in T>) =
-        targets.maybeCreate(name, type).also(configure::execute)
+    private fun <T : MinecraftTarget> target(name: String, type: Class<T>, configure: Action<in T>): T {
+        val common = common()
+
+        return targets.maybeCreate(name, type).also(configure::execute).also {
+            it.dependsOn(common)
+        }
+    }
 
     private inline fun <reified T : MinecraftTarget> target(name: String, configure: Action<in T>) =
         target(name, T::class.java, configure)

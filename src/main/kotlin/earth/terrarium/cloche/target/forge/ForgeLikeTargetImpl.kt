@@ -26,6 +26,7 @@ import org.gradle.api.Action
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.attributes.Usage
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
@@ -142,7 +143,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         )
 
         data.dependencies {
-            runtimeOnly.add(clientExtra)
+            implementation.add(clientExtra)
         }
 
         data
@@ -162,7 +163,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         )
 
         test.dependencies {
-            runtimeOnly.add(clientExtra)
+            implementation.add(clientExtra)
         }
 
         test
@@ -176,8 +177,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     override val runs = objectFactory.newInstance<ForgeRunConfigurations<out ForgeLikeTargetImpl>>(this)
 
-    abstract val group: String
-    abstract val artifact: String
+    abstract val group: Property<String>
+    abstract val artifact: Property<String>
 
     override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
     override val legacyClasspath = main.legacyClasspath
@@ -199,7 +200,7 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             extendsFrom(minecraftLibrariesConfiguration)
         }
 
-        main.dependencyHandler.runtimeOnly(clientExtra)
+        main.dependencyHandler.implementation(clientExtra)
 
         val userdev = forgeDependency {
             capabilities {
@@ -231,8 +232,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         }
 
     protected fun forgeDependency(configure: ExternalModuleDependency.() -> Unit): Provider<ExternalModuleDependency> =
-        minecraftVersion.flatMap { minecraftVersion ->
-            loaderVersion.map { forgeVersion ->
+        minecraftVersion.zip(loaderVersion, ::Pair).flatMap { (minecraftVersion, forgeVersion) ->
+            group.zip(artifact) { group, artifact ->
                 dependencyFactory.create(group, artifact, null).apply {
                     version {
                         strictly(version(minecraftVersion, forgeVersion))
