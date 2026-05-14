@@ -8,6 +8,7 @@ import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
 import earth.terrarium.cloche.api.target.compilation.ForgeCompilation
 import earth.terrarium.cloche.api.target.compilation.FabricSecondarySourceSets
 import org.gradle.api.Action
+import org.gradle.api.provider.Property
 
 @JvmDefaultWithoutCompatibility
 interface FabricTarget : MinecraftTarget, FabricSecondarySourceSets, FabricCompilation {
@@ -25,6 +26,9 @@ interface ForgeLikeTarget : MinecraftTarget, ForgeCompilation {
     override val test: LazyConfigurable<ForgeCompilation>
 
     override val metadata: ForgeMetadata
+
+    val group: Property<String>
+    val artifact: Property<String>
 
     fun metadata(action: Action<ForgeMetadata>) = action.execute(metadata)
 }

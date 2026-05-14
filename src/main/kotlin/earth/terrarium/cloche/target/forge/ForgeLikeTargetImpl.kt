@@ -177,9 +177,6 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
     override val runs = objectFactory.newInstance<ForgeRunConfigurations<out ForgeLikeTargetImpl>>(this)
 
-    abstract val group: Property<String>
-    abstract val artifact: Property<String>
-
     override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
     override val legacyClasspath = main.legacyClasspath
 
