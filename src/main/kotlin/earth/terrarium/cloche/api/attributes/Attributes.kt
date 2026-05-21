@@ -81,11 +81,14 @@ enum class IncludeTransformationStateAttribute {
     }
 }
 
-object RemapNamespaceAttribute {
+object DependencyNamespaceAttribute {
     @JvmField
-    val ATTRIBUTE = Attribute.of("earth.terrarium.cloche.remapNamespace", String::class.java)
+    val ARTIFACT = Attribute.of("earth.terrarium.cloche.artifactNamespace", String::class.java)
 
-    const val INITIAL = "none"
+    @JvmField
+    val SOURCE = Attribute.of("earth.terrarium.cloche.sourceNamespace", String::class.java)
+
+    const val NAMED = "named"
     const val OBF = "obf"
     const val SEARGE = "srg"
     const val INTERMEDIARY = "intermediary"

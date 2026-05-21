@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.attributes.DependencyNamespaceAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
@@ -40,6 +41,7 @@ import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.Action
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
@@ -94,6 +96,9 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
                 }
             })
         }
+
+    internal val resolveCommonMinecraftOutput: Provider<RegularFile>
+        get() = resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output)
 
     internal val resolveClientMinecraft =
         project.tasks.register<ResolveMinecraftClient>(
@@ -398,6 +403,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         mappings.fabricIntermediary()
+        sourceNamespaces.add(DependencyNamespaceAttribute.INTERMEDIARY)
 
         registerMappings()
 

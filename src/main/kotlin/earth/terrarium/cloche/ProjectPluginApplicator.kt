@@ -110,7 +110,8 @@ fun applyToProject(target: Project) {
         attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE)
         attribute(IncludeTransformationStateAttribute.ATTRIBUTE)
 
-        attribute(RemapNamespaceAttribute.ATTRIBUTE)
+        attribute(DependencyNamespaceAttribute.ARTIFACT)
+        attribute(DependencyNamespaceAttribute.SOURCE)
     }
 
     target.dependencies.artifactTypes {
@@ -119,7 +120,8 @@ fun applyToProject(target: Project) {
                 .attribute(REMAPPED_ATTRIBUTE, false)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
-                .attribute(RemapNamespaceAttribute.ATTRIBUTE, RemapNamespaceAttribute.INITIAL)
+                .attribute(DependencyNamespaceAttribute.ARTIFACT, DependencyNamespaceAttribute.NAMED)
+                .attribute(DependencyNamespaceAttribute.SOURCE, DependencyNamespaceAttribute.NAMED)
         }
     }
 

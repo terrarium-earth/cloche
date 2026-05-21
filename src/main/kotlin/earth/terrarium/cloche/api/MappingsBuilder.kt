@@ -1,19 +1,20 @@
 package earth.terrarium.cloche.api
 
-import earth.terrarium.cloche.api.attributes.RemapNamespaceAttribute
 import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.api.attributes.DependencyNamespaceAttribute
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.util.maybeRegister
 import net.msrandom.minecraftcodev.core.task.ResolveMinecraftMappings
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
+import org.gradle.api.DomainObjectCollection
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.file.FileCollection
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
+import org.gradle.kotlin.dsl.domainObjectSet
 import org.gradle.kotlin.dsl.property
 
 internal fun officialMappingsDependency(project: Project, target: MinecraftTarget): FileCollection {
@@ -49,6 +50,9 @@ class MappingsBuilder internal constructor(
             convention(false)
         }
 
+    private val _sourceNamespaces: DomainObjectCollection<String> =
+        project.objects.domainObjectSet(String::class)
+
     internal val isOfficialCompatible: Provider<Boolean>
         get() = _isOfficialCompatible
 
@@ -58,17 +62,15 @@ class MappingsBuilder internal constructor(
     internal val isConfigured: Provider<Boolean>
         get() = _isConfigured
 
+    internal val sourceNamespaces: DomainObjectCollection<String>
+        get() = _sourceNamespaces
+
     private val configurationName
         get() = target.sourceSet.mappingsConfigurationName
 
-    internal val remapNamespaces: ListProperty<String> =
-        project.objects.listProperty(String::class.java).apply {
-            convention(arrayListOf())
-            addAll(RemapNamespaceAttribute.INITIAL, RemapNamespaceAttribute.OBF)
-        }
-
     fun official() {
         configure()
+        sourceNamespace(DependencyNamespaceAttribute.OBF)
 
         project.dependencies.add(configurationName, officialMappingsDependency(project, target))
     }
@@ -148,7 +150,11 @@ class MappingsBuilder internal constructor(
     }
 
     fun fabricIntermediary() {
-        remapNamespaces.add(RemapNamespaceAttribute.INTERMEDIARY)
+        sourceNamespaces(
+            DependencyNamespaceAttribute.OBF,
+            DependencyNamespaceAttribute.INTERMEDIARY,
+        )
+
         project.dependencies.addProvider(
             configurationName,
             target.minecraftVersion.map {
@@ -158,7 +164,8 @@ class MappingsBuilder internal constructor(
     }
 
     fun mcpSearge() {
-        remapNamespaces.add(RemapNamespaceAttribute.SEARGE)
+        seargeNamespaces()
+
         project.dependencies.addProvider(
             configurationName,
             target.minecraftVersion.map {
@@ -168,7 +175,8 @@ class MappingsBuilder internal constructor(
     }
 
     internal fun legacyMcpSearge() {
-        remapNamespaces.add(RemapNamespaceAttribute.SEARGE)
+        seargeNamespaces()
+
         project.dependencies.addProvider(
             configurationName,
             target.minecraftVersion.map {
@@ -181,18 +189,14 @@ class MappingsBuilder internal constructor(
      * @param timestamp The timestamp of the NeoForm. Get from https://projects.neoforged.net/neoforged/neoform
      */
     fun neoforgeSearge(timestamp: String) {
-        remapNamespaces.add(RemapNamespaceAttribute.SEARGE)
+        seargeNamespaces()
+
         project.dependencies.addProvider(
             configurationName,
             target.minecraftVersion.map {
                 "net.neoforged:neoform:$it-$timestamp@zip"
             }
         )
-    }
-
-    @Suppress("UnusedReceiverParameter")
-    fun MinecraftTarget.remapNamespace(namespace: String) {
-        remapNamespaces.add(namespace)
     }
 
     fun custom(dependency: Dependency) {
@@ -221,6 +225,21 @@ class MappingsBuilder internal constructor(
 
     private fun configure() {
         _isConfigured.set(true)
+    }
+
+    private fun seargeNamespaces() {
+        sourceNamespaces(
+            DependencyNamespaceAttribute.OBF,
+            DependencyNamespaceAttribute.SEARGE,
+        )
+    }
+
+    private fun sourceNamespace(namespace: String) {
+        _sourceNamespaces.add(namespace)
+    }
+
+    private fun sourceNamespaces(vararg namespaces: String) {
+        namespaces.forEach(_sourceNamespaces::add)
     }
 
     private fun parchmentDependency(minecraftVersion: String, version: String) =

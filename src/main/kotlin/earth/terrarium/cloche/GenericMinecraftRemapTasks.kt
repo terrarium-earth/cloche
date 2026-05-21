@@ -1,12 +1,13 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.api.attributes.RemapNamespaceAttribute
+import earth.terrarium.cloche.api.attributes.DependencyNamespaceAttribute
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.forge.ForgeLikeTargetImpl
+import earth.terrarium.cloche.util.maybeRegister
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.remapper.task.RemapTask
 import org.gradle.api.Project
@@ -47,37 +48,37 @@ internal abstract class DefinedMinecraftProviders {
         ).convention(mutableMapOf())
 
     init {
-        registerClasspath<FabricTargetImpl>(RemapNamespaceAttribute.INTERMEDIARY) { target, variant ->
+        registerClasspath<FabricTargetImpl>(DependencyNamespaceAttribute.INTERMEDIARY) { target, variant ->
             when (variant) {
                 "common" -> target.commonLibrariesConfiguration
                 "client" -> project.files(
                     target.commonLibrariesConfiguration,
                     target.clientLibrariesConfiguration,
-                    target.resolveCommonMinecraft.flatMap { it.output })
+                    target.resolveCommonMinecraftOutput)
 
                 else -> error("Unknown variant $variant")
             }
         }
 
-        registerProvider<FabricTargetImpl>(RemapNamespaceAttribute.OBF) {
+        registerProvider<FabricTargetImpl>(DependencyNamespaceAttribute.OBF) {
             mapOf(
-                "common" to it.resolveCommonMinecraft.flatMap { it.output },
+                "common" to it.resolveCommonMinecraftOutput,
                 "client" to it.resolveClientMinecraft.flatMap { it.output },
             )
         }
 
-        registerProvider<FabricTargetImpl>(RemapNamespaceAttribute.INTERMEDIARY) {
+        registerProvider<FabricTargetImpl>(DependencyNamespaceAttribute.INTERMEDIARY) {
             mapOf(
                 "common" to it.remapCommonMinecraftIntermediary.flatMap { it.outputFile },
                 "client" to it.remapClientMinecraftIntermediary.flatMap { it.outputFile },
             )
         }
 
-        registerClasspath<ForgeLikeTargetImpl>(RemapNamespaceAttribute.SEARGE) { target, _ ->
+        registerClasspath<ForgeLikeTargetImpl>(DependencyNamespaceAttribute.SEARGE) { target, _ ->
             target.minecraftLibrariesConfiguration
         }
 
-        registerProvider<ForgeLikeTargetImpl>(RemapNamespaceAttribute.SEARGE) {
+        registerProvider<ForgeLikeTargetImpl>(DependencyNamespaceAttribute.SEARGE) {
             mapOf("" to it.resolvePatchedMinecraft.flatMap { it.output })
         }
     }
@@ -153,8 +154,8 @@ internal fun MinecraftTargetInternal.getRemappedMinecraftByNamespace(
     }
 
     val intermediaryNamespace = target.minecraftRemapNamespace.get().takeUnless { it.isEmpty() } ?: when (target) {
-        is FabricTarget -> RemapNamespaceAttribute.INTERMEDIARY
-        is ForgeLikeTarget -> RemapNamespaceAttribute.SEARGE
+        is FabricTarget -> DependencyNamespaceAttribute.INTERMEDIARY
+        is ForgeLikeTarget -> DependencyNamespaceAttribute.SEARGE
         else -> error("No intermediary namespace found for $this")
     }
     val intermediaryJarProvider =
