@@ -150,6 +150,14 @@ fun applyToProject(target: Project) {
         )
     }
 
+    target.dependencies.components.withModule<ForgeLexToNeoComponentMetadataRule>("net.neoforged:forge") {
+        params(
+            getGlobalCacheDirectory(target),
+            VERSION_MANIFEST_URL,
+            target.gradle.startParameter.isOffline,
+        )
+    }
+
     target.dependencies.components.withModule<McpConfigToNeoformComponentMetadataRule>("de.oceanlabs.mcp:mcp_config") {
         params(
             getGlobalCacheDirectory(target),

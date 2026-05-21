@@ -1,7 +1,6 @@
 package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.target.ClocheTarget
-import earth.terrarium.cloche.target.CLASSES_AND_RESOURCES_VARIANT_NAME
 import earth.terrarium.cloche.target.REMAPPED_VARIANT_NAME
 import earth.terrarium.cloche.target.compilation.CommonCompilation
 import earth.terrarium.cloche.target.common.CommonTargetInternal
@@ -14,6 +13,7 @@ import earth.terrarium.cloche.target.compilation.externalRuntimeConfigurationNam
 import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
 import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.compilation.modConfigurationName
+import earth.terrarium.cloche.util.CLASSES_AND_RESOURCES_VARIANT_NAME
 import earth.terrarium.cloche.util.isIdeaDetected
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
