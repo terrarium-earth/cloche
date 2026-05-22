@@ -183,6 +183,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
     override val legacyClasspath = main.legacyClasspath
 
+    private var mappingsRegistered = false
+
     init {
         project.dependencies.add(minecraftLibrariesConfiguration.name, forgeDependency {
             capabilities {
@@ -213,6 +215,17 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
         resolvePatchedMinecraft.configure {
             patches.from(project.configurations.named(sourceSet.patchesConfigurationName))
             libraries.from(minecraftLibrariesConfiguration)
+        }
+    }
+
+    override fun finalizeTargetConventions() {
+        if (mappingsRegistered) return
+        mappingsRegistered = true
+
+        val userdev = forgeDependency {
+            capabilities {
+                requireFeature("moddev-bundle")
+            }
         }
 
         project.dependencies.addProvider(sourceSet.mappingsConfigurationName, userdev)

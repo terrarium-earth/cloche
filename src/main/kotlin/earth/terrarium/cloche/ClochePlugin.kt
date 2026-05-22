@@ -5,6 +5,7 @@ import earth.terrarium.cloche.util.isIdeDetected
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.TARGET_NAME_PATH_SEPARATOR
 import earth.terrarium.cloche.target.MinecraftTargetInternal
+import earth.terrarium.cloche.target.finalizeTargetModTransformationPipeline
 import earth.terrarium.cloche.target.handleTarget
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Plugin
@@ -56,12 +57,28 @@ internal fun addTarget(
     target as MinecraftTargetInternal
 
     target.minecraftVersion.convention(cloche.minecraftVersion)
-
-    cloche.mappingActions.all(target::mappings)
     cloche.metadata.useAsConventionFor(target.metadata)
 
     with(project) {
         handleTarget(target)
+    }
+
+    cloche.targetHandled(target)
+}
+
+internal fun finalizeTarget(
+    cloche: ClocheExtension,
+    project: Project,
+    target: MinecraftTarget,
+) {
+    target as MinecraftTargetInternal
+
+    target.finalizeTargetConventions()
+
+    cloche.mappingActions.all(target::mappings)
+
+    with(project) {
+        finalizeTargetModTransformationPipeline(target)
     }
 }
 
