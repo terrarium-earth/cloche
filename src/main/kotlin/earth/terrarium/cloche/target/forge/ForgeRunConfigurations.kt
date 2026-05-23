@@ -27,7 +27,6 @@ import org.gradle.api.Action
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.kotlin.dsl.named
-import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject constructor(val target: T) : RunConfigurations {
@@ -112,20 +111,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             outputs.dir(target.datagenDirectory)
         }
 
-        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
-            from(target.datagenDirectory)
-            mustRunAfter(data.runTask)
-        }
-
         project.tasks.named(target.sourceSet.jarTaskName) {
             dependsOn(data.runTask)
-        }
-
-        target.test.onConfigured {
-            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                from(target.datagenDirectory)
-                mustRunAfter(data.runTask)
-            }
         }
 
         project.withIdeaModule(target.sourceSet) {
@@ -185,20 +172,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             outputs.dir(target.datagenClientDirectory)
         }
 
-        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
-            from(target.datagenClientDirectory)
-            mustRunAfter(clientData.runTask)
-        }
-
         project.tasks.named(target.sourceSet.jarTaskName) {
             dependsOn(clientData.runTask)
-        }
-
-        target.test.onConfigured {
-            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                from(target.datagenClientDirectory)
-                mustRunAfter(clientData.runTask)
-            }
         }
 
         project.withIdeaModule(target.sourceSet) {

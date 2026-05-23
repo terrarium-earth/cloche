@@ -69,7 +69,7 @@ internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeComp
         }
     }
 
-    internal val generateModsToml = project.tasks.register<GenerateForgeModsToml>(
+    override val generateMetadataTask = project.tasks.register<GenerateForgeModsToml>(
         lowerCamelCaseGradleName("generate", target.featureName, featureName, "modsToml"),
     ) {
         metadata.set(target.metadata)
@@ -104,7 +104,7 @@ internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeComp
         project.tasks.named<ProcessResources>(sourceSet.processResourcesTaskName) {
             from(metadataDirectory)
 
-            dependsOn(generateModsToml)
+            dependsOn(generateMetadataTask)
         }
 
         project.withIdeaModule(sourceSet) {
@@ -112,7 +112,7 @@ internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeComp
         }
     }
 
-    override fun withMetadataToml(action: Action<MetadataFileProvider<TomlTable>>) = generateModsToml.configure {
+    override fun withMetadataToml(action: Action<MetadataFileProvider<TomlTable>>) = generateMetadataTask.configure {
         withToml(action)
     }
 }

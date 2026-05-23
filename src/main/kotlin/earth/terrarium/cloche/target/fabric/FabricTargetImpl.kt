@@ -304,7 +304,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             extendsFrom(clientLibrariesConfiguration)
         }
 
-        main.generateModJson.configure {
+        main.generateMetadataTask.configure {
             clientMixinConfigs.from(client.mixins)
         }
 

@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 
 plugins {
     kotlin("plugin.serialization") version embeddedKotlinVersion
-    id("com.google.devtools.ksp") version "$embeddedKotlinVersion-+"
+    id("com.google.devtools.ksp") version embeddedKotlinVersion
 
     `kotlin-dsl`
     `java-gradle-plugin`
@@ -39,7 +39,7 @@ java {
 }
 
 dependencies {
-    implementation(group = "net.msrandom", name = "minecraft-codev-core", version = "0.7.0-beta")
+    implementation(group = "net.msrandom", name = "minecraft-codev-core", version = "0.7.1-beta")
     implementation(group = "net.msrandom", name = "minecraft-codev-forge", version = "0.9.0-beta")
     implementation(group = "net.msrandom", name = "minecraft-codev-fabric", version = "0.7.1-beta")
     implementation(group = "net.msrandom", name = "minecraft-codev-mixins", version = "0.6.0")

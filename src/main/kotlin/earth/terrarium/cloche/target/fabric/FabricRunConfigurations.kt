@@ -119,20 +119,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             outputs.dir(target.datagenDirectory)
         }
 
-        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
-            from(target.datagenDirectory)
-            mustRunAfter(data.runTask)
-        }
-
         project.tasks.named(target.sourceSet.jarTaskName) {
             dependsOn(data.runTask)
-        }
-
-        target.test.onConfigured {
-            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                from(target.datagenDirectory)
-                mustRunAfter(data.runTask)
-            }
         }
 
         project.withIdeaModule(target.sourceSet) {
@@ -186,22 +174,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         }
 
         target.client.onConfigured {
-            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                from(target.datagenDirectory)
-                from(target.datagenClientDirectory)
-                mustRunAfter(clientData.runTask)
-            }
-
             project.tasks.named(it.sourceSet.jarTaskName) {
                 dependsOn(clientData.runTask)
-            }
-
-            it.test.onConfigured {
-                project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                    from(target.datagenDirectory)
-                    from(target.datagenClientDirectory)
-                    mustRunAfter(clientData.runTask)
-                }
             }
 
             project.withIdeaModule(it.sourceSet) {
@@ -218,20 +192,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
         }
 
         target.onClientIncluded {
-            project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
-                from(target.datagenClientDirectory)
-                mustRunAfter(clientData.runTask)
-            }
-
             project.tasks.named(target.sourceSet.jarTaskName) {
                 dependsOn(clientData.runTask)
-            }
-
-            target.test.onConfigured {
-                project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                    from(target.datagenClientDirectory)
-                    mustRunAfter(clientData.runTask)
-                }
             }
 
             project.withIdeaModule(target.sourceSet) {
