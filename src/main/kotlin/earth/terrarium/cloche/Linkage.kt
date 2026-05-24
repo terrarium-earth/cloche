@@ -25,7 +25,7 @@ import org.gradle.api.tasks.SourceSet
 
 const val JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR = "net.msrandom:java-expect-actual-processor:1.0.9"
 const val JAVA_CLASS_EXTENSIONS_ANNOTATIONS = "net.msrandom:class-extension-annotations:1.0.0"
-const val JAVA_CLASS_EXTENSIONS_PROCESSOR = "net.msrandom:java-class-extensions-processor:1.0.0"
+const val JAVA_CLASS_EXTENSIONS_PROCESSOR = "net.msrandom:java-class-extensions-processor:1.0.1"
 const val KOTLIN_MULTIPLATFORM_STUB_PLUGIN = "net.msrandom:kmp-actual-stubs-compiler-plugin:0.1.2"
 
 context(Project)
