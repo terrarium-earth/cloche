@@ -15,6 +15,9 @@ import earth.terrarium.cloche.target.common.CommonTargetInternal
 import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.compilation.TargetCompilation
 import earth.terrarium.cloche.util.optionalDir
+import net.msrandom.minecraftcodev.core.VERSION_MANIFEST_URL
+import net.msrandom.minecraftcodev.core.getVersionList
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.remapper.mappingsConfigurationName
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
@@ -82,6 +85,17 @@ internal abstract class MinecraftTargetInternal(
     override val sourceSet get() = main.sourceSet
 
     override val target get() = this
+
+    val jvmVersion: Provider<Int> = target.minecraftVersion.map {
+        getVersionList(
+            getGlobalCacheDirectory(project).toPath(),
+            VERSION_MANIFEST_URL,
+            project.gradle.startParameter.isOffline
+        )
+            .version(it)
+            .javaVersion
+            .majorVersion
+    }
 
     val outputDirectory: Provider<Directory> =
         project.layout.buildDirectory.dir("minecraft").map { it.optionalDir(capabilitySuffix) }

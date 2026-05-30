@@ -6,29 +6,17 @@ import earth.terrarium.cloche.ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID
 import earth.terrarium.cloche.JAVA_EXPECT_ACTUAL_ANNOTATION_PROCESSOR
 import earth.terrarium.cloche.KOTLIN_MULTIPLATFORM_STUB_PLUGIN
 import earth.terrarium.cloche.addClasspathDependency
-import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
-import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.api.attributes.MinecraftModLoader
-import earth.terrarium.cloche.api.attributes.ModDistribution
-import earth.terrarium.cloche.api.attributes.TargetAttributes
+import earth.terrarium.cloche.api.attributes.*
 import earth.terrarium.cloche.api.target.targetName
-import earth.terrarium.cloche.target.compilation.CommonCompilation
-import earth.terrarium.cloche.target.compilation.CommonTopLevelCompilation
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.target.compilation.TargetCompilation
-import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.compilation.createCompilationVariants
-import earth.terrarium.cloche.target.compilation.configureSourceSet
+import earth.terrarium.cloche.target.compilation.*
+import earth.terrarium.cloche.target.configureJvmTarget
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
-import earth.terrarium.cloche.target.compilation.getNonProjectArtifacts
-import earth.terrarium.cloche.target.compilation.getRelevantSyncArtifacts
-import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
-import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.compilation.modConfigurationName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.stubs.GenerateStubApi
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ConfigurationContainer
+import org.gradle.api.attributes.java.TargetJvmVersion
 import org.gradle.api.component.AdhocComponentWithVariants
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
@@ -183,6 +171,8 @@ internal fun createCommonTarget(
         )
 
         compilation.attributes {
+            attributeProvider(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, commonTarget.jvmVersion)
+
             attribute(CompilationAttributes.DISTRIBUTION, variant)
             attribute(CompilationAttributes.CLOCHE_SIDE, variant.legacyName)
             attribute(CompilationAttributes.DATA, data)
@@ -235,6 +225,8 @@ internal fun createCommonTarget(
         tasks.named<JavaCompile>(sourceSet.compileJavaTaskName) {
             options.compilerArgs.add("-A$GENERATE_JAVA_EXPECT_STUBS_OPTION")
         }
+
+        configureJvmTarget(sourceSet, commonTarget.jvmVersion)
 
         plugins.withId(KOTLIN_JVM_PLUGIN_ID) {
             val pluginClasspathConfigurationName = lowerCamelCaseGradleName(PLUGIN_CLASSPATH_CONFIGURATION_NAME, sourceSet.name)

@@ -3,9 +3,9 @@ package earth.terrarium.cloche.target.common
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.target.ClocheTarget
-import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.api.target.CommonTarget
 import earth.terrarium.cloche.api.target.MinecraftTarget
+import earth.terrarium.cloche.api.target.compilation.ClocheDependencyHandler
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.target.ClocheTargetInternal
 import earth.terrarium.cloche.target.LazyConfigurableInternal
@@ -112,6 +112,12 @@ internal abstract class CommonTargetInternal @Inject constructor(
     val commonType: Provider<String> = dependents.map { dependants ->
         @Suppress("NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
         dependants.map { (it as MinecraftTargetInternal).loaderName }.sharedValue()
+    }
+
+    val jvmVersion: Provider<Int> = dependents.flatMap { dependants ->
+        dependants
+            .map { (it as MinecraftTargetInternal).jvmVersion }
+            .reduce { acc, next -> acc.zip(next, ::minOf) }
     }
 
     override fun getName() = name
