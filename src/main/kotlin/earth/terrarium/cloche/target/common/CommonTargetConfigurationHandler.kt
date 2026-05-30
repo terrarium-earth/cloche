@@ -1,13 +1,7 @@
 package earth.terrarium.cloche.target.common
 
 import earth.terrarium.cloche.target.addCollectedDependencies
-import earth.terrarium.cloche.target.compilation.CommonCompilation
-import earth.terrarium.cloche.target.compilation.externalApiConfigurationName
-import earth.terrarium.cloche.target.compilation.externalCompileConfigurationName
-import earth.terrarium.cloche.target.compilation.externalRuntimeConfigurationName
-import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
-import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.compilation.modConfigurationName
+import earth.terrarium.cloche.target.compilation.*
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaPlugin
 

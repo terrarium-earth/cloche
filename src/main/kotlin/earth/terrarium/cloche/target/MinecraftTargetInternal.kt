@@ -4,6 +4,7 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClochePlugin
 import earth.terrarium.cloche.api.MappingsBuilder
+import earth.terrarium.cloche.api.attributes.DependencyNamespaceAttribute
 import earth.terrarium.cloche.api.attributes.TargetAttributes
 import earth.terrarium.cloche.api.officialMappingsDependency
 import earth.terrarium.cloche.api.run.RunConfigurations
@@ -86,7 +87,10 @@ internal abstract class MinecraftTargetInternal(
     val outputDirectory: Provider<Directory> =
         project.layout.buildDirectory.dir("minecraft").map { it.optionalDir(capabilitySuffix) }
 
-    protected val mappings = MappingsBuilder(this, project)
+    internal val mappings = MappingsBuilder(this, project)
+
+    internal val sourceNamespaces: DomainObjectCollection<String> =
+        project.objects.domainObjectSet(String::class)
 
     @Suppress("UNCHECKED_CAST")
     private val mappingActions =
@@ -174,6 +178,8 @@ internal abstract class MinecraftTargetInternal(
             dependencies.addAllLater(defaultDependencies)
         }
     }
+
+    internal open fun finalizeTargetConventions() {}
 
     abstract fun onClientIncluded(action: () -> Unit)
 

@@ -2,6 +2,9 @@ package earth.terrarium.cloche.target
 
 import earth.terrarium.cloche.ClocheExtension
 import earth.terrarium.cloche.addSourceDependency
+import earth.terrarium.cloche.finalizeTarget
+import earth.terrarium.cloche.target.common.CommonTargetInternal
+import earth.terrarium.cloche.target.common.createCommonTarget
 import earth.terrarium.cloche.addTarget
 import earth.terrarium.cloche.target.compilation.CommonCompilation
 import earth.terrarium.cloche.target.common.CommonTargetInternal
@@ -20,17 +23,15 @@ import org.gradle.kotlin.dsl.all
 import org.gradle.kotlin.dsl.listProperty
 
 internal fun applyTargets(project: Project, cloche: ClocheExtension) {
-    cloche.targets.all {
-        val target = this
-
+    cloche.whenTargetConfigured { target ->
         target as MinecraftTargetInternal
 
-        addTarget(cloche, project, target)
+        finalizeTarget(cloche, project, target)
+
+        val linked = mutableSetOf<CommonTargetInternal>()
 
         target.dependsOn.all {
-            val dependency = this
-
-            dependency as CommonTargetInternal
+            val dependency = this as CommonTargetInternal
 
             fun CommonTargetInternal.setDependenciesWithClient(targetClient: FabricClientSecondarySourceSets): CommonTopLevelCompilation {
                 targetClient.data.onConfigured {

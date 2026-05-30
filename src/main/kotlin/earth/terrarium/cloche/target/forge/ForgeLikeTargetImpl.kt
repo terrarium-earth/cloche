@@ -1,13 +1,16 @@
 package earth.terrarium.cloche.target.forge
 
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.attributes.DependencyNamespaceAttribute
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import earth.terrarium.cloche.api.metadata.ForgeMetadata
 import earth.terrarium.cloche.api.target.ForgeLikeTarget
 import earth.terrarium.cloche.api.target.NeoforgeTarget
-import earth.terrarium.cloche.target.*
+import earth.terrarium.cloche.target.LazyConfigurableInternal
+import earth.terrarium.cloche.target.MinecraftTargetInternal
 import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
+import earth.terrarium.cloche.target.lazyConfigurable
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
 import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
 import net.msrandom.minecraftcodev.core.operatingSystemName
@@ -180,6 +183,8 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
     override val metadata = objectFactory.newInstance<ForgeMetadata>(this)
     override val legacyClasspath = main.legacyClasspath
 
+    private var mappingsRegistered = false
+
     init {
         project.dependencies.add(minecraftLibrariesConfiguration.name, forgeDependency {
             capabilities {
@@ -211,8 +216,20 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
             patches.from(project.configurations.named(sourceSet.patchesConfigurationName))
             libraries.from(minecraftLibrariesConfiguration)
         }
+    }
+
+    override fun finalizeTargetConventions() {
+        if (mappingsRegistered) return
+        mappingsRegistered = true
+
+        val userdev = forgeDependency {
+            capabilities {
+                requireFeature("moddev-bundle")
+            }
+        }
 
         project.dependencies.addProvider(sourceSet.mappingsConfigurationName, userdev)
+        sourceNamespaces.add(DependencyNamespaceAttribute.SEARGE)
 
         registerMappings()
     }

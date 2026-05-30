@@ -1,6 +1,7 @@
 package earth.terrarium.cloche.target.fabric
 
 import earth.terrarium.cloche.ClochePlugin
+import earth.terrarium.cloche.api.attributes.DependencyNamespaceAttribute
 import earth.terrarium.cloche.api.metadata.FabricMetadata
 import earth.terrarium.cloche.api.target.FabricTarget
 import earth.terrarium.cloche.api.target.compilation.FabricIncludedClient
@@ -40,6 +41,7 @@ import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import org.gradle.api.Action
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.SourceSet
@@ -64,14 +66,14 @@ import kotlin.io.path.outputStream
 internal abstract class FabricTargetImpl @Inject constructor(name: String) :
     MinecraftTargetInternal(name),
     FabricTarget {
-    private val commonLibrariesConfiguration =
+    internal val commonLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "commonMinecraftLibraries")) {
             isCanBeConsumed = false
 
             attributes.attribute(MinecraftOperatingSystemAttribute.attribute, project.objects.named(operatingSystemName()))
         }
 
-    private val clientLibrariesConfiguration =
+    internal val clientLibrariesConfiguration =
         project.configurations.create(lowerCamelCaseGradleName(featureName, "clientMinecraftLibraries")) {
             isCanBeConsumed = false
 
@@ -95,7 +97,10 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             })
         }
 
-    private val resolveClientMinecraft =
+    internal val resolveCommonMinecraftOutput: Provider<RegularFile>
+        get() = resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output)
+
+    internal val resolveClientMinecraft =
         project.tasks.register<ResolveMinecraftClient>(
             lowerCamelCaseGradleName("resolve", name, "client"),
         ) {
@@ -112,7 +117,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             })
         }
 
-    private val remapCommonMinecraftIntermediary =
+    internal val remapCommonMinecraftIntermediary =
         project.tasks.register<RemapTask>(
             lowerCamelCaseGradleName(
                 "remap",
@@ -134,7 +139,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             outputFile.set(output(MinecraftCodevFabricPlugin.INTERMEDIARY_MAPPINGS_NAMESPACE))
         }
 
-    private val remapClientMinecraftIntermediary =
+    internal val remapClientMinecraftIntermediary =
         project.tasks.register<RemapTask>(
             lowerCamelCaseGradleName(
                 "remap",
@@ -368,6 +373,8 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         project.dependencyFactory.create("net.fabricmc", "fabric-loader", it)
     }
 
+    private var mappingsRegistered = false
+
     init {
         val commonStub =
             project.dependencies.enforcedPlatform(ClochePlugin.STUB_DEPENDENCY) as ExternalModuleDependency
@@ -397,10 +404,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             extendsFrom(commonLibrariesConfiguration)
         }
 
-        mappings.fabricIntermediary()
-
-        registerMappings()
-
         // afterEvaluate needed because of the component rules using providers
         project.afterEvaluate {
             dependencies.components {
@@ -423,6 +426,16 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         main.dependencies {
             implementation.add(fabricLoader)
         }
+    }
+
+    override fun finalizeTargetConventions() {
+        if (mappingsRegistered) return
+        mappingsRegistered = true
+
+        mappings.fabricIntermediary()
+        sourceNamespaces.add(DependencyNamespaceAttribute.INTERMEDIARY)
+
+        registerMappings()
     }
 
     private fun output(suffix: String? = null) = outputDirectory.zip(minecraftVersion) { dir, version ->

@@ -2,16 +2,11 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.api.MappingsBuilder
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
 import earth.terrarium.cloche.api.attributes.MinecraftModLoader
+import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.metadata.RootMetadata
-import earth.terrarium.cloche.api.target.CommonTarget
-import earth.terrarium.cloche.api.target.FabricTarget
-import earth.terrarium.cloche.api.target.ForgeTarget
-import earth.terrarium.cloche.api.target.MinecraftTarget
-import earth.terrarium.cloche.api.target.NeoforgeTarget
-import earth.terrarium.cloche.api.target.targetName
+import earth.terrarium.cloche.api.target.*
 import earth.terrarium.cloche.target.common.CommonTargetInternal
 import earth.terrarium.cloche.target.fabric.FabricTargetImpl
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
@@ -21,27 +16,16 @@ import net.msrandom.minecraftcodev.fabric.FabricInstallerComponentMetadataRule
 import net.msrandom.minecraftcodev.forge.RemoveNameMappingService
 import net.msrandom.minecraftcodev.includes.ExtractIncludes
 import net.msrandom.minecraftcodev.includes.StripIncludes
-import org.gradle.api.Action
-import org.gradle.api.DomainObjectCollection
-import org.gradle.api.InvalidUserCodeException
-import org.gradle.api.NamedDomainObjectContainer
-import org.gradle.api.PolymorphicDomainObjectContainer
-import org.gradle.api.Project
+import org.gradle.api.*
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.plugins.BasePluginExtension
 import org.gradle.api.provider.Property
-import org.gradle.kotlin.dsl.domainObjectContainer
-import org.gradle.kotlin.dsl.domainObjectSet
-import org.gradle.kotlin.dsl.newInstance
-import org.gradle.kotlin.dsl.polymorphicDomainObjectContainer
-import org.gradle.kotlin.dsl.property
-import org.gradle.kotlin.dsl.registerTransform
-import org.gradle.kotlin.dsl.withModule
+import org.gradle.kotlin.dsl.*
+import java.util.IdentityHashMap
 import javax.inject.Inject
-import org.gradle.kotlin.dsl.withType
 
 internal val Project.cloche
     get() = extension<ClocheExtension>()
@@ -94,13 +78,13 @@ class SingleTargetConfigurator(private val project: Project, private val extensi
 
         val instance = project.objects.newInstance(type, "")
 
-        extension.singleTargetSetCallback(type, instance)
+        target = instance
 
-        addTarget(extension, project, instance)
+        extension.prepareTarget(instance)
+        configure.execute(instance)
+        extension.targetConfigured(instance)
 
-        return instance.also(configure::execute).also {
-            target = it
-        }
+        return instance
     }
 }
 
@@ -113,15 +97,15 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     val targets: PolymorphicDomainObjectContainer<MinecraftTarget> = objects.polymorphicDomainObjectContainer(MinecraftTarget::class).apply {
         registerFactory(FabricTarget::class.java) {
-            objects.newInstance<FabricTargetImpl>(it)
+            objects.newInstance<FabricTargetImpl>(it).also(::prepareTarget)
         }
 
         registerFactory(ForgeTarget::class.java) {
-            objects.newInstance<ForgeTargetImpl>(it)
+            objects.newInstance<ForgeTargetImpl>(it).also(::prepareTarget)
         }
 
         registerFactory(NeoforgeTarget::class.java) {
-            objects.newInstance<NeoForgeTargetImpl>(it)
+            objects.newInstance<NeoForgeTargetImpl>(it).also(::prepareTarget)
         }
     }
 
@@ -136,26 +120,36 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
     internal val mappingActions = project.objects.domainObjectSet(Action::class) as DomainObjectCollection<Action<MappingsBuilder>>
 
     private val singleTargetCallbacks = hashMapOf<Class<out MinecraftTarget>, (target: MinecraftTarget) -> Unit>()
+    private val configuredTargetCallbackTypes = hashSetOf<Class<out MinecraftTarget>>()
+    private val preparedTargets = java.util.Collections.newSetFromMap(IdentityHashMap<MinecraftTarget, Boolean>())
+    private val configuredTargets = java.util.Collections.newSetFromMap(IdentityHashMap<MinecraftTarget, Boolean>())
+    private val targetConfiguredActions = arrayListOf<(target: MinecraftTarget) -> Unit>()
 
     private fun onTargetTypeConfigured(type: Class<out MinecraftTarget>, action: (target: MinecraftTarget) -> Unit) {
-        var configured = false
-
-        val set = targets.withType(type)
-
-        set.whenObjectAdded {
-            if (!configured) {
-                configured = true
-
-                action(this)
-            }
-        }
-
         singleTargetCallbacks[type] = action
     }
 
-    internal fun singleTargetSetCallback(type: Class<out MinecraftTarget>, target: MinecraftTarget) = singleTargetCallbacks.entries.filter {
-        it.key.isAssignableFrom(type)
+    internal fun targetHandled(target: MinecraftTarget) = singleTargetCallbacks.entries.filter {
+        it.key.isAssignableFrom(target.javaClass) && configuredTargetCallbackTypes.add(it.key)
     }.forEach { it.value.invoke(target) }
+
+    internal fun prepareTarget(target: MinecraftTarget) {
+        if (preparedTargets.add(target)) {
+            addTarget(this, project, target)
+        }
+    }
+
+    internal fun whenTargetConfigured(action: (target: MinecraftTarget) -> Unit) {
+        targetConfiguredActions.add(action)
+
+        configuredTargets.forEach(action)
+    }
+
+    internal fun targetConfigured(target: MinecraftTarget) {
+        if (configuredTargets.add(target)) {
+            targetConfiguredActions.forEach { it(target) }
+        }
+    }
 
     init {
         project.dependencies.registerTransform(ExtractIncludes::class) {
@@ -249,10 +243,13 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
 
     private fun <T : MinecraftTarget> target(name: String, type: Class<T>, configure: Action<in T>): T {
         val common = common()
+        val target = targets.maybeCreate(name, type)
 
-        return targets.maybeCreate(name, type).also(configure::execute).also {
-            it.dependsOn(common)
-        }
+        configure.execute(target)
+        target.dependsOn(common)
+        targetConfigured(target)
+
+        return target
     }
 
     private inline fun <reified T : MinecraftTarget> target(name: String, configure: Action<in T>) =

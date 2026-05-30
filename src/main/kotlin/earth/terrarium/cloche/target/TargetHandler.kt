@@ -447,3 +447,30 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
     artifacts.add(Dependency.ARCHIVES_CONFIGURATION, target.finalJar)
 }
+
+context(Project)
+internal fun finalizeTargetModTransformationPipeline(target: MinecraftTargetInternal) {
+    target.main.setupModTransformationPipelineOnce()
+
+    target.data.onConfigured {
+        it.setupModTransformationPipelineOnce()
+    }
+
+    target.test.onConfigured {
+        it.setupModTransformationPipelineOnce()
+    }
+
+    if (target is FabricTargetImpl) {
+        target.client.onConfigured { client ->
+            client.setupModTransformationPipelineOnce()
+
+            client.data.onConfigured {
+                it.setupModTransformationPipelineOnce()
+            }
+
+            client.test.onConfigured {
+                it.setupModTransformationPipelineOnce()
+            }
+        }
+    }
+}

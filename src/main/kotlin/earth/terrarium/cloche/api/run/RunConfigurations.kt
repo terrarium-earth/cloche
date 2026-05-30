@@ -1,10 +1,10 @@
 package earth.terrarium.cloche.api.run
 
-import earth.terrarium.cloche.util.addMixinJavaAgent
 import earth.terrarium.cloche.api.LazyConfigurable
 import earth.terrarium.cloche.api.target.MinecraftTarget
 import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.target.compilation.TargetCompilation
+import earth.terrarium.cloche.util.addMixinJavaAgent
 import net.msrandom.minecraftcodev.runs.MinecraftRunConfiguration
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.Project

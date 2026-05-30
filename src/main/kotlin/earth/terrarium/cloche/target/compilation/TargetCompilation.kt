@@ -3,8 +3,9 @@ package earth.terrarium.cloche.target.compilation
 import earth.terrarium.cloche.INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
-import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.ModDistribution
+import earth.terrarium.cloche.api.attributes.DependencyNamespaceAttribute
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.target.MinecraftTargetInternal
@@ -40,7 +41,6 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.internal.extensions.core.serviceOf
-import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
@@ -176,21 +176,24 @@ private fun setupModTransformationPipeline(
     target: MinecraftTargetInternal,
     compilation: TargetCompilation<*>,
 ) {
-    // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
-    //  this can potentially be changed to a no-op transform, but that's far slower
-    project.afterEvaluate {
-        if (target.modRemapNamespace.get().isEmpty()) {
-            return@afterEvaluate
-        }
+    val registeredNamespaces = mutableSetOf<String>()
+
+    fun registerNamespace(namespace: String) {
+        if (!registeredNamespaces.add(namespace)) return
+        if (namespace == DependencyNamespaceAttribute.NAMED) return
 
         project.dependencies.registerTransform(RemapAction::class) {
             from
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, false)
+                .attribute(DependencyNamespaceAttribute.ARTIFACT, namespace)
+                .attribute(DependencyNamespaceAttribute.SOURCE, namespace)
 
             to
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
                 .attribute(REMAPPED_ATTRIBUTE, true)
+                .attribute(DependencyNamespaceAttribute.ARTIFACT, DependencyNamespaceAttribute.NAMED)
+                .attribute(DependencyNamespaceAttribute.SOURCE, namespace)
 
             // TODO Is the usage of the base attributes correct here?
             compilation.baseAttributes(from)
@@ -217,7 +220,8 @@ private fun setupModTransformationPipeline(
 
                 mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
 
-                sourceNamespace.set(target.modRemapNamespace.get())
+                sourceNamespace.set(namespace)
+                targetNamespace.set(DependencyNamespaceAttribute.NAMED)
 
                 extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
                 extraClasspath.from(compileClasspath)
@@ -233,6 +237,9 @@ private fun setupModTransformationPipeline(
             }
         }
     }
+
+    target.sourceNamespaces.all(::registerNamespace)
+    target.mappings.sourceNamespaces.all(::registerNamespace)
 }
 
 internal open class TargetCompilationInfo<T : MinecraftTargetInternal>(
@@ -249,8 +256,10 @@ internal open class TargetCompilationInfo<T : MinecraftTargetInternal>(
 )
 
 @Suppress("UnstableApiUsage")
-internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject constructor(info: TargetCompilationInfo<T>) : CompilationInternal() {
+internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject constructor(info: TargetCompilationInfo<T>) :
+    CompilationInternal() {
     private val _info = info
+    private var modTransformationPipelineConfigured = false
 
     open val info
         get() = _info
@@ -273,16 +282,25 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
     val metadataDirectory: Provider<Directory>
         @Internal
-        get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").optionalDir(target.featureName).dir(namePath) }
+        get() = project.layout.buildDirectory.dir("generated")
+            .map { it.dir("metadata").optionalDir(target.featureName).dir(namePath) }
 
-    val finalMinecraftFile get() =
-        setupFiles.libraryArtifact
+    val finalMinecraftFile
+        get() =
+            setupFiles.libraryArtifact
 
-    val sources get() =
-        setupFiles.sourcesArtifact
+    val sources
+        get() =
+            setupFiles.sourcesArtifact
 
     val includeBucketConfiguration: NamedDomainObjectProvider<DependencyScopeConfiguration> =
-        project.configurations.dependencyScope(lowerCamelCaseGradleName(_info.target.featureName, featureName, "include")) {
+        project.configurations.dependencyScope(
+            lowerCamelCaseGradleName(
+                _info.target.featureName,
+                featureName,
+                "include"
+            )
+        ) {
             addCollectedDependencies(dependencyHandler.include)
         }
 
@@ -356,11 +374,14 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         null
     }
 
-    init {
+    internal fun setupModTransformationPipelineOnce() {
+        if (modTransformationPipelineConfigured) return
+
+        modTransformationPipelineConfigured = true
         setupModTransformationPipeline(project, _info.target, this)
+    }
 
-        val remapped = _info.target.modRemapNamespace.map(String::isNotEmpty)
-
+    init {
         val minecraftBuildDependenciesHolder: Configuration =
             project.configurations.detachedConfiguration(
                 project.dependencies.create(
@@ -369,17 +390,17 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             )
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
-            attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
             attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
+            attributes.attribute(DependencyNamespaceAttribute.ARTIFACT, DependencyNamespaceAttribute.NAMED)
 
             extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
-            attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
             attributes.attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE, false)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
+            attributes.attribute(DependencyNamespaceAttribute.ARTIFACT, DependencyNamespaceAttribute.NAMED)
 
             extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
         }
