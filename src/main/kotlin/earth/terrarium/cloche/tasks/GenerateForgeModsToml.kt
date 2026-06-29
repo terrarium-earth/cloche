@@ -18,6 +18,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
@@ -28,6 +29,7 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import kotlin.io.path.outputStream
 
+@CacheableTask
 abstract class GenerateForgeModsToml : DefaultTask() {
     abstract val loaderDependencyVersion: Property<CommonMetadata.VersionRange>
         @Nested get
