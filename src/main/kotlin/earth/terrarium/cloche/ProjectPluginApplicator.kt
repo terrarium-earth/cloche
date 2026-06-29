@@ -146,7 +146,9 @@ fun applyToProject(target: Project) {
     target.configurations.consumable("modId") {
         attributes.attribute(Category.CATEGORY_ATTRIBUTE, target.objects.named(MOD_ID_CATEGORY))
 
-        outgoing.artifact(writeModId.flatMap(WriteModId::outputFile))
+        outgoing.artifact(writeModId.flatMap(WriteModId::outputFile)) {
+            builtBy(writeModId)
+        }
     }
 
     target.tasks.register(IDE_SYNC_TASK_NAME) {

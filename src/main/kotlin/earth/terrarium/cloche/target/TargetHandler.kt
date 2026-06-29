@@ -385,6 +385,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                     named(LibraryElements.RESOURCES) {
                         artifact(main.metadataDirectory) {
                             type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
+                            builtBy(main.generateMetadataTask)
                         }
 
                         artifact(target.datagenDirectory) {
