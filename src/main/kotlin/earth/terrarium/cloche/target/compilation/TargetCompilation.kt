@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target.compilation
 
+import earth.terrarium.cloche.MOD_CLASSPATH_PREFERABLE_ATTRIBUTE
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.ModDistribution
@@ -30,7 +31,9 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.LibraryElements
+import org.gradle.api.attributes.Usage
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.Directory
 import org.gradle.api.file.FileCollection
@@ -302,6 +305,8 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             this@TargetCompilation.attributes(attributes)
 
             attributes
+                .attribute(Category.CATEGORY_ATTRIBUTE, objectFactory.named(Category.LIBRARY))
+                .attribute(Usage.USAGE_ATTRIBUTE, objectFactory.named(Usage.JAVA_RUNTIME))
                 .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objectFactory.named(LibraryElements.JAR))
                 .attributeProvider(CompilationAttributes.DISTRIBUTION, _info.side)
                 .attributeProvider(CompilationAttributes.CLOCHE_SIDE, _info.side.map(ModDistribution::legacyName))
@@ -375,6 +380,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
             )
 
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+            attributes.attribute(MOD_CLASSPATH_PREFERABLE_ATTRIBUTE, true)
             attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
 
@@ -382,6 +388,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         }
 
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
+            attributes.attribute(MOD_CLASSPATH_PREFERABLE_ATTRIBUTE, true)
             attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
 

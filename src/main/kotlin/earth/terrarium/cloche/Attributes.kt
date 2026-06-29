@@ -22,6 +22,13 @@ internal val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> =
     Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
 
 /**
+ * Used to disambiguate unpacked artifact sets (classes, resources, classesAndResources) over primary artifact sets
+ */
+@JvmField
+internal val MOD_CLASSPATH_PREFERABLE_ATTRIBUTE: Attribute<Boolean> =
+    Attribute.of("earth.terrarium.cloche.modclasspathpreferable", Boolean::class.javaObjectType)
+
+/**
  * Indicates that the variant does not include datagen/generated metadata outputs
  */
 @JvmField

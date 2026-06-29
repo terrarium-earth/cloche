@@ -10,19 +10,21 @@ import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.target.forge.lex.ForgeTargetImpl
 import earth.terrarium.cloche.tasks.GenerateForgeModsToml
 import earth.terrarium.cloche.tasks.data.MetadataFileProvider
+import net.msrandom.minecraftcodev.core.MinecraftOperatingSystemAttribute
+import net.msrandom.minecraftcodev.core.operatingSystemName
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.forge.task.GenerateForgeClientExtra
 import net.msrandom.minecraftcodev.forge.task.JarJar
 import net.msrandom.minecraftcodev.runs.task.WriteClasspathFile
 import net.peanuuutz.tomlkt.TomlTable
 import org.gradle.api.Action
+import org.gradle.api.attributes.Usage
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderFactory
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
-import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 internal class ForgeCompilationInfo(
@@ -50,17 +52,25 @@ internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeComp
     private val legacyClasspathConfiguration = project.configurations.register(lowerCamelCaseGradleName(target.featureName, featureName, "legacyClasspath")) {
         addCollectedDependencies(legacyClasspath)
 
+        attributes.attribute(
+            MinecraftOperatingSystemAttribute.attribute,
+            objectFactory.named(operatingSystemName()),
+        )
+
+        attributes.attribute(Usage.USAGE_ATTRIBUTE, objectFactory.named(Usage.JAVA_RUNTIME))
+
         this@ForgeCompilationImpl.resolvableAttributes(attributes)
 
         isCanBeConsumed = false
 
         shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
+
+        extendsFrom(target.minecraftLibrariesConfiguration)
     }
 
     internal val writeLegacyClasspath = project.tasks.register<WriteClasspathFile>(
         lowerCamelCaseGradleName("write", target.featureName, featureName, "legacyClasspath"),
     ) {
-        classpath.from(target.minecraftLibrariesConfiguration)
         classpath.from(target.generateClientExtra.flatMap(GenerateForgeClientExtra::outputFile))
         classpath.from(legacyClasspathConfiguration)
 
@@ -101,12 +111,6 @@ internal abstract class ForgeCompilationImpl @Inject constructor(info: ForgeComp
     }
 
     init {
-        project.tasks.named<ProcessResources>(sourceSet.processResourcesTaskName) {
-            from(metadataDirectory)
-
-            dependsOn(generateMetadataTask)
-        }
-
         project.withIdeaModule(sourceSet) {
             it.resourceDirs.add(metadataDirectory.get().asFile)
         }

@@ -80,9 +80,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
 
                 configure(target.main)
             }
-        }.withCompilation(target.main).apply {
-            inheritSystemEnvironment.set(true)
-        }
+        }.withCompilation(target.main)
     }
 
     override val data = project.lazyConfigurable {
@@ -96,7 +94,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 minecraftVersion.set(target.minecraftVersion)
                 patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 mainResources.set(target.sourceSet.output.resourcesDir)
-                outputDirectory.set(target.datagenDirectory)
+                outputDirectory.set(project.provider { target.datagenDirectory.get() })
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
@@ -109,10 +107,6 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
         data.runTask.configure {
             outputs.cacheIf { true }
             outputs.dir(target.datagenDirectory)
-        }
-
-        project.tasks.named(target.sourceSet.jarTaskName) {
-            dependsOn(data.runTask)
         }
 
         project.withIdeaModule(target.sourceSet) {
@@ -154,7 +148,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 modId.set(project.modId)
                 minecraftVersion.set(target.minecraftVersion)
                 patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                outputDirectory.set(target.datagenClientDirectory)
+                outputDirectory.set(project.provider { target.datagenClientDirectory.get() })
                 commonOutputDirectory.set(target.datagenDirectory)
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
@@ -170,10 +164,6 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
         clientData.runTask.configure {
             outputs.cacheIf { true }
             outputs.dir(target.datagenClientDirectory)
-        }
-
-        project.tasks.named(target.sourceSet.jarTaskName) {
-            dependsOn(clientData.runTask)
         }
 
         project.withIdeaModule(target.sourceSet) {

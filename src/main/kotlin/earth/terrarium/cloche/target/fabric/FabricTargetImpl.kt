@@ -231,18 +231,6 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         separator.set(File.pathSeparator)
     }
 
-    val writeCommonGameLibrariesTask: TaskProvider<WriteClasspathFile> = project.tasks.register<WriteClasspathFile>(
-        lowerCamelCaseGradleName("write", featureName, "commonGameLibraries"),
-    ) {
-        classpath.from(commonLibrariesConfiguration)
-    }
-
-    val writeClientGameLibrariesTask: TaskProvider<WriteClasspathFile> = project.tasks.register<WriteClasspathFile>(
-        lowerCamelCaseGradleName("write", featureName, "clientGameLibraries"),
-    ) {
-        classpath.from(clientLibrariesConfiguration)
-    }
-
     private val commonJar = minecraftRemapNamespace.flatMap {
         if (it.isEmpty()) {
             resolveCommonMinecraft.flatMap(ResolveMinecraftCommon::output)

@@ -16,6 +16,7 @@ import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationVariant
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.tasks.SourceSet
 
@@ -178,13 +179,31 @@ internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompi
         attributes(dependency::baseAttributes)
     })
 
-    val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
-        it.outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME)
+    val apiElementsClasses = configurations.named(dependency.sourceSet.apiElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.CLASSES)
+    }
+
+    val runtimeElementsClasses = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.CLASSES)
+    }
+
+    val runtimeElementsResources = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.RESOURCES)
+    }
+
+    configurations.named(sourceSet.apiElementsConfigurationName) {
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(apiElementsClasses.map(ConfigurationVariant::getArtifacts))
+        }
     }
 
     configurations.named(sourceSet.runtimeElementsConfigurationName) {
-        outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME) {
-            artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(runtimeElementsClasses.map(ConfigurationVariant::getArtifacts))
+        }
+
+        outgoing.variants.named(LibraryElements.RESOURCES) {
+            artifacts.addAllLater(runtimeElementsResources.map(ConfigurationVariant::getArtifacts))
         }
     }
 
@@ -208,13 +227,31 @@ internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetC
         }
     })
 
-    val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
-        it.outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME)
+    val apiElementsClasses = configurations.named(dependency.sourceSet.apiElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.CLASSES)
+    }
+
+    val runtimeElementsClasses = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.CLASSES)
+    }
+
+    val runtimeElementsResources = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.RESOURCES)
+    }
+
+    configurations.named(sourceSet.apiElementsConfigurationName) {
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(apiElementsClasses.map(ConfigurationVariant::getArtifacts))
+        }
     }
 
     configurations.named(sourceSet.runtimeElementsConfigurationName) {
-        outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME) {
-            artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(runtimeElementsClasses.map(ConfigurationVariant::getArtifacts))
+        }
+
+        outgoing.variants.named(LibraryElements.RESOURCES) {
+            artifacts.addAllLater(runtimeElementsResources.map(ConfigurationVariant::getArtifacts))
         }
     }
 

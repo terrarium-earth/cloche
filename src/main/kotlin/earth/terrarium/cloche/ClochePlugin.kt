@@ -109,7 +109,7 @@ class ClochePlugin<T : PluginAware> @Inject constructor(private val modelBuilder
         const val KOTLIN_JVM_PLUGIN_ID = "org.jetbrains.kotlin.jvm"
 
         @JvmField
-        val MINIMUM_GRADLE: GradleVersion = GradleVersion.version("9.0.0")
+        val MINIMUM_GRADLE: GradleVersion = GradleVersion.version("9.4.0")
 
         @JvmField
         val VERSION: String? = ClochePlugin::class.java.`package`.implementationVersion
