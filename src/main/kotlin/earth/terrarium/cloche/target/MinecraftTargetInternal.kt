@@ -25,6 +25,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.dsl.Dependencies
 import org.gradle.api.artifacts.dsl.DependencyCollector
 import org.gradle.api.attributes.AttributeContainer
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.Directory
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Internal
@@ -76,6 +77,10 @@ internal abstract class MinecraftTargetInternal(
 
         configuration
     }
+
+
+    val datagenDirectoryBuildDependencies: ConfigurableFileCollection = project.files()
+    val datagenClientDirectoryBuildDependencies: ConfigurableFileCollection = project.files()
 
     override val accessWideners get() = main.accessWideners
     override val mixins get() = main.mixins

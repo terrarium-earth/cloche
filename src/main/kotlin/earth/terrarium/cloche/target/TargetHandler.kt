@@ -375,7 +375,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
     fun configureMainForData(main: TargetCompilation<*>) {
         val runtimeElements = configurations.named(main.sourceSet.runtimeElementsConfigurationName)
 
-        main.sourceSet.output.dir(target.datagenDirectory)
+        main.sourceSet.output.dir(mapOf("builtBy" to target.datagenDirectoryBuildDependencies), target.datagenDirectory)
 
         configurations.named(target.main.sourceSet.runtimeElementsConfigurationName) {
             outgoing {
@@ -385,11 +385,22 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                     named(LibraryElements.RESOURCES) {
                         artifact(main.metadataDirectory) {
                             type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
+
                             builtBy(main.generateMetadataTask)
                         }
 
                         artifact(target.datagenDirectory) {
                             type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
+
+                            builtBy(target.datagenDirectoryBuildDependencies)
+                        }
+
+                        target.onClientIncluded {
+                            artifact(target.datagenClientDirectoryBuildDependencies) {
+                                type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
+
+                                builtBy(target.datagenClientDirectoryBuildDependencies)
+                            }
                         }
                     }
 
@@ -431,7 +442,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         addCompilation(it)
         it.addClasspathDependency(target.main)
 
-        it.sourceSet.output.dir(target.datagenDirectory)
+        it.sourceSet.output.dir(mapOf("builtBy" to target.datagenDirectoryBuildDependencies), target.datagenDirectory)
     }
 
     if (target is FabricTargetImpl) {
@@ -441,7 +452,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
             configureMainForData(client)
 
-            client.sourceSet.output.dir(target.datagenClientDirectory)
+            client.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenDirectory)
 
             configurations.named(target.main.sourceSet.runtimeElementsConfigurationName) {
                 outgoing {
@@ -449,6 +460,8 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                         named(LibraryElements.RESOURCES) {
                             artifact(target.datagenClientDirectory) {
                                 type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
+
+                                builtBy(target.datagenClientDirectoryBuildDependencies)
                             }
                         }
                     }
@@ -474,8 +487,8 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                     test.addClasspathDependency(it)
                 }
 
-                test.sourceSet.output.dir(target.datagenDirectory)
-                test.sourceSet.output.dir(target.datagenClientDirectory)
+                test.sourceSet.output.dir(mapOf("builtBy" to target.datagenDirectoryBuildDependencies), target.datagenDirectory)
+                test.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenDirectory)
             }
         }
     }

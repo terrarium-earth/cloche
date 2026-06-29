@@ -104,6 +104,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             outputs.dir(target.datagenDirectory)
         }
 
+        target.datagenDirectoryBuildDependencies.builtBy(data.runTask)
+
         project.withIdeaModule(target.sourceSet) {
             it.resourceDirs.add(target.datagenDirectory.get().asFile)
         }
@@ -148,6 +150,8 @@ internal abstract class FabricRunConfigurations @Inject constructor(val target: 
             outputs.cacheIf { true }
             outputs.dir(target.datagenClientDirectory)
         }
+
+        target.datagenClientDirectoryBuildDependencies.builtBy(clientData.runTask)
 
         target.client.onConfigured {
             project.withIdeaModule(it.sourceSet) {

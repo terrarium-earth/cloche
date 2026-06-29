@@ -109,6 +109,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             outputs.dir(target.datagenDirectory)
         }
 
+        target.datagenDirectoryBuildDependencies.builtBy(data.runTask)
+
         project.withIdeaModule(target.sourceSet) {
             it.resourceDirs.add(target.datagenDirectory.get().asFile)
         }
@@ -165,6 +167,8 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             outputs.cacheIf { true }
             outputs.dir(target.datagenClientDirectory)
         }
+
+        target.datagenClientDirectoryBuildDependencies.builtBy(clientData.runTask)
 
         project.withIdeaModule(target.sourceSet) {
             it.resourceDirs.add(target.datagenClientDirectory.get().asFile)
