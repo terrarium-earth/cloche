@@ -77,14 +77,3 @@ val RepositoryHandler.cloche: ClocheRepositoriesExtension
 
 fun RepositoryHandler.cloche(action: Action<ClocheRepositoriesExtension>) =
     action.execute(cloche)
-
-@Suppress("unused")
-class RepositoryHandlerGroovyExtensions {
-    fun getCloche(repositoryHandler: RepositoryHandler) =
-        repositoryHandler.cloche
-
-    fun cloche(
-        repositoryHandler: RepositoryHandler,
-        configure: Action<ClocheRepositoriesExtension>,
-    ) = repositoryHandler.cloche(configure)
-}

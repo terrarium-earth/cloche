@@ -1,9 +1,6 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.api.target.ClocheTarget
-import earth.terrarium.cloche.target.REMAPPED_VARIANT_NAME
 import earth.terrarium.cloche.target.compilation.CommonCompilation
-import earth.terrarium.cloche.target.common.CommonTargetInternal
 import earth.terrarium.cloche.target.common.commonBucketConfigurationName
 import earth.terrarium.cloche.target.compilation.CompilationInternal
 import earth.terrarium.cloche.target.compilation.TargetCompilation
@@ -14,10 +11,10 @@ import earth.terrarium.cloche.target.compilation.localImplementationConfiguratio
 import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
 import earth.terrarium.cloche.target.compilation.modConfigurationName
 import earth.terrarium.cloche.util.CLASSES_AND_RESOURCES_VARIANT_NAME
-import earth.terrarium.cloche.util.isIdeaDetected
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationVariant
 import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.plugins.JavaPlugin
@@ -30,27 +27,37 @@ const val KOTLIN_MULTIPLATFORM_STUB_PLUGIN = "net.msrandom:kmp-actual-stubs-comp
 
 context(Project)
 private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolean) {
-    val apiBucket: String
-    val compileOnlyApiBucket: String
-    val implementationBucket: String
-    val compileOnlyBucket: String
+    val apiBucket = dependency.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)
+    val compileOnlyApiBucket = dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)
+    val implementationBucket = dependency.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)
+    val compileOnlyBucket = dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME)
 
     if (common) {
-        apiBucket = dependency.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME)
-        compileOnlyApiBucket = dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME)
-        implementationBucket = dependency.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME)
-        compileOnlyBucket = dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME)
-    } else {
-        apiBucket = dependency.apiConfigurationName
-        compileOnlyApiBucket = dependency.compileOnlyApiConfigurationName
-        implementationBucket = dependency.implementationConfigurationName
-        compileOnlyBucket = dependency.compileOnlyConfigurationName
-    }
+        project.extend(
+            dependency.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME),
+            apiBucket,
+        )
 
-    project.extend(apiConfigurationName, apiBucket)
-    project.extend(compileOnlyApiConfigurationName, compileOnlyApiBucket)
-    project.extend(implementationConfigurationName, implementationBucket)
-    project.extend(compileOnlyConfigurationName, compileOnlyBucket)
+        project.extend(
+            dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME),
+            compileOnlyApiBucket,
+        )
+
+        project.extend(
+            dependency.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME),
+            implementationBucket,
+        )
+
+        project.extend(
+            dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME),
+            compileOnlyBucket,
+        )
+    } else {
+        project.extend(apiConfigurationName, apiBucket)
+        project.extend(compileOnlyApiConfigurationName, compileOnlyApiBucket)
+        project.extend(implementationConfigurationName, implementationBucket)
+        project.extend(compileOnlyConfigurationName, compileOnlyBucket)
+    }
 
     project.extend(runtimeOnlyConfigurationName, dependency.runtimeOnlyConfigurationName)
 
@@ -104,15 +111,28 @@ context(Project)
 internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilation) {
     println("(classpath dependency) $this -> $dependency")
 
-    sourceSet.compileClasspath += dependency.sourceSet.output
+    dependencies.add(sourceSet.compileOnlyConfigurationName, project().apply {
+        capabilities {
+            if (dependency.capabilitySuffix.isPresent) {
+                requireFeature(dependency.capabilitySuffix)
+            }
+        }
+
+        attributes(dependency::baseAttributes)
+    })
 
     if (!isTest && !dependency.isTest) {
         artifacts {
             add(sourceSet.apiElementsConfigurationName, tasks.named(dependency.sourceSet.jarTaskName))
         }
-    }
 
-    sourceSet.extendConfigurations(dependency.sourceSet, true)
+        val dependencyProvider = configurations.named(dependency.sourceSet.apiElementsConfigurationName)
+
+        configurations.named(sourceSet.apiElementsConfigurationName) {
+            dependencies.addAllLater(dependencyProvider.map(Configuration::getAllDependencies))
+            dependencyConstraints.addAllLater(dependencyProvider.map(Configuration::getAllDependencyConstraints))
+        }
+    }
 
     accessWideners.from(dependency.accessWideners)
     mixins.from(dependency.mixins)
@@ -121,78 +141,22 @@ internal fun CommonCompilation.addClasspathDependency(dependency: CommonCompilat
 context(Project)
 private fun TargetCompilation<*>.extendFromDependency(dependency: TargetCompilation<*>) {
     if (!isTest && !dependency.isTest) {
-        artifacts {
-            add(sourceSet.apiElementsConfigurationName, dependency.includeJarTask!!)
-            add(sourceSet.runtimeElementsConfigurationName, dependency.includeJarTask)
-        }
-
         for (name in listOf(
-            sourceSet.apiElementsConfigurationName,
-            sourceSet.runtimeElementsConfigurationName
+            SourceSet::getApiElementsConfigurationName,
+            SourceSet::getRuntimeElementsConfigurationName
         )) {
-            configurations.named(name) {
-                outgoing.variants.named(REMAPPED_VARIANT_NAME) {
-                    artifact(tasks.named(dependency.sourceSet.jarTaskName))
-                }
+            val dependencyProvider = configurations.named(name(dependency.sourceSet))
+
+            configurations.named(name(sourceSet)) {
+                dependencies.addAllLater(dependencyProvider.map(Configuration::getAllDependencies))
+                dependencyConstraints.addAllLater(dependencyProvider.map(Configuration::getAllDependencyConstraints))
             }
         }
     }
 
     includeBucketConfiguration.configure {
-        extendsFrom(dependency.includeBucketConfiguration.get())
+        extendsFrom(dependency.includeBucketConfiguration)
     }
-
-    if (isIdeaDetected()) {
-        val modelDependencies = project.configurations.detachedConfiguration()
-
-        fun addCompilation(compilation: CommonCompilation) {
-            modelDependencies.dependencies.add(project.dependencies.create(compilation.sourceSet.output.classesDirs))
-        }
-
-        fun addDependsOn(target: ClocheTarget) {
-            target.dependsOn.configureEach {
-                this as CommonTargetInternal
-
-                modelDependencies.dependencies.add(project.dependencies.create(main.sourceSet.output.classesDirs))
-
-                when (this@extendFromDependency.name) {
-                    SourceSet.TEST_SOURCE_SET_NAME -> {
-                        test.onConfigured(::addCompilation)
-                    }
-
-                    ClochePlugin.DATA_COMPILATION_NAME -> {
-                        data.onConfigured(::addCompilation)
-                    }
-
-                    ClochePlugin.CLIENT_COMPILATION_NAME -> {
-                        client.onConfigured(::addCompilation)
-                    }
-
-                    ClochePlugin.CLIENT_TEST_COMPILATION_NAME -> {
-                        test.onConfigured(::addCompilation)
-
-                        client.onConfigured {
-                            it.test.onConfigured(::addCompilation)
-                        }
-                    }
-
-                    ClochePlugin.CLIENT_DATA_COMPILATION_NAME -> {
-                        data.onConfigured(::addCompilation)
-
-                        client.onConfigured {
-                            it.data.onConfigured(::addCompilation)
-                        }
-                    }
-                }
-            }
-        }
-
-        addDependsOn(dependency.target)
-
-        sourceSet.compileClasspath += modelDependencies
-    }
-
-    sourceSet.extendConfigurations(dependency.sourceSet, false)
 
     accessWideners.from(dependency.accessWideners)
     mixins.from(dependency.mixins)
@@ -205,47 +169,91 @@ context(Project)
 internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompilation<*>) {
     println("(classpath dependency) $this -> $dependency")
 
-    sourceSet.compileClasspath += dependency.sourceSet.output
-    sourceSet.runtimeClasspath += dependency.sourceSet.output
+    dependencies.add(sourceSet.localImplementationConfigurationName, project().apply {
+        capabilities {
+            if (dependency.capabilitySuffix.isPresent) {
+                requireFeature(dependency.capabilitySuffix)
+            }
+        }
 
-    val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
-        it.outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME)
+        attributes(dependency::baseAttributes)
+    })
+
+    val apiElementsClasses = configurations.named(dependency.sourceSet.apiElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.CLASSES)
     }
 
-    configurations.named(sourceSet.runtimeElementsConfigurationName) {
-        outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME) {
-            artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
+    val runtimeElementsClasses = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.CLASSES)
+    }
+
+    val runtimeElementsResources = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.RESOURCES)
+    }
+
+    configurations.named(sourceSet.apiElementsConfigurationName) {
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(apiElementsClasses.map(ConfigurationVariant::getArtifacts))
         }
     }
 
-    modOutputs.from(dependency.sourceSet.output)
+    configurations.named(sourceSet.runtimeElementsConfigurationName) {
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(runtimeElementsClasses.map(ConfigurationVariant::getArtifacts))
+        }
+
+        outgoing.variants.named(LibraryElements.RESOURCES) {
+            artifacts.addAllLater(runtimeElementsResources.map(ConfigurationVariant::getArtifacts))
+        }
+    }
 
     extendFromDependency(dependency)
 }
 
 context(Project)
 internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetCompilation<*>) {
-    println("(classpath dependency) $this -> $dependency")
+    println("(data classpath dependency) $this -> $dependency")
 
-    val configuration =
-        configurations.detachedConfiguration(dependencies.create(dependency.sourceSet.output.classesDirs))
+    dependencies.add(sourceSet.localImplementationConfigurationName, project().apply {
+        capabilities {
+            if (dependency.capabilitySuffix.isPresent) {
+                requireFeature(dependency.capabilitySuffix)
+            }
+        }
 
-    sourceSet.compileClasspath += configuration
-    sourceSet.runtimeClasspath += configuration
+        attributes {
+            attribute(WITHOUT_DATA_ATTRIBUTE, true)
+            dependency.baseAttributes(this)
+        }
+    })
 
-    sourceSet.resources.srcDir(dependency.sourceSet.resources)
-
-    val dependencyVariant = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+    val apiElementsClasses = configurations.named(dependency.sourceSet.apiElementsConfigurationName).flatMap {
         it.outgoing.variants.named(LibraryElements.CLASSES)
     }
 
-    configurations.named(sourceSet.runtimeElementsConfigurationName) {
-        outgoing.variants.named(CLASSES_AND_RESOURCES_VARIANT_NAME) {
-            artifacts.addAllLater(dependencyVariant.map(ConfigurationVariant::getArtifacts))
+    val runtimeElementsClasses = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.CLASSES)
+    }
+
+    val runtimeElementsResources = configurations.named(dependency.sourceSet.runtimeElementsConfigurationName).flatMap {
+        it.outgoing.variants.named(LibraryElements.RESOURCES)
+    }
+
+    configurations.named(sourceSet.apiElementsConfigurationName) {
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(apiElementsClasses.map(ConfigurationVariant::getArtifacts))
         }
     }
 
-    modOutputs.from(dependency.sourceSet.output.classesDirs)
+    configurations.named(sourceSet.runtimeElementsConfigurationName) {
+        outgoing.variants.named(LibraryElements.CLASSES) {
+            artifacts.addAllLater(runtimeElementsClasses.map(ConfigurationVariant::getArtifacts))
+        }
+
+        outgoing.variants.named(LibraryElements.RESOURCES) {
+            artifacts.addAllLater(runtimeElementsResources.map(ConfigurationVariant::getArtifacts))
+        }
+    }
 
     extendFromDependency(dependency)
 }
@@ -259,7 +267,7 @@ internal fun CompilationInternal.addSourceDependency(dependency: CommonCompilati
 
     sourceSet.extension<SourceSetStaticLinkageInfo>().link(dependency.sourceSet)
 
-    sourceSet.extendConfigurations(dependency.sourceSet, true)
+    sourceSet.extendConfigurations(dependency.sourceSet, this is CommonCompilation)
 
     project.dependencies.add(sourceSet.compileOnlyConfigurationName, JAVA_CLASS_EXTENSIONS_ANNOTATIONS)
     project.dependencies.add(sourceSet.annotationProcessorConfigurationName, JAVA_CLASS_EXTENSIONS_PROCESSOR)

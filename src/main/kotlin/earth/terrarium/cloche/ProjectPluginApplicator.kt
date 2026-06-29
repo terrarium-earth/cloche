@@ -2,6 +2,7 @@ package earth.terrarium.cloche
 
 import earth.terrarium.cloche.ClochePlugin.Companion.IDE_SYNC_TASK_NAME
 import earth.terrarium.cloche.ClochePlugin.Companion.WRITE_MOD_ID_TASK_NAME
+import earth.terrarium.cloche.api.attributes.ClocheAttributes
 import earth.terrarium.cloche.api.attributes.CommonTargetAttributes
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
@@ -106,6 +107,15 @@ fun applyToProject(target: Project) {
             disambiguationRules.add(DataDisambiguationRule::class)
         }
 
+        attribute(ClocheAttributes.CLOCHE_VERSION) {
+            compatibilityRules.add(ClocheVersionCompatibilityRule::class)
+            disambiguationRules.add(ClocheVersionDisambiguationRule::class)
+        }
+
+        attribute(WITHOUT_DATA_ATTRIBUTE) {
+            disambiguationRules.add(WithoutDataDisambiguationRule::class)
+        }
+
         attribute(TargetAttributes.MOD_LOADER)
         attribute(TargetAttributes.CLOCHE_MOD_LOADER)
         attribute(TargetAttributes.MINECRAFT_VERSION)
@@ -116,7 +126,6 @@ fun applyToProject(target: Project) {
 
         attribute(REMAPPED_ATTRIBUTE)
         attribute(NO_NAME_MAPPING_ATTRIBUTE)
-        attribute(INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE)
         attribute(IncludeTransformationStateAttribute.ATTRIBUTE)
     }
 

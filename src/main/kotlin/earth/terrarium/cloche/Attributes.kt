@@ -11,22 +11,29 @@ import org.gradle.api.attributes.MultipleCandidatesDetails
  * Indicates that the variant is fully remapped
  */
 @JvmField
-val REMAPPED_ATTRIBUTE: Attribute<Boolean> =
+internal val REMAPPED_ATTRIBUTE: Attribute<Boolean> =
     Attribute.of("earth.terrarium.cloche.remapped", Boolean::class.javaObjectType)
-
-/**
- * Indicates that the variant has includes fully resolved/handled
- */
-@JvmField
-val INCLUDE_TRANSFORMED_OUTPUT_ATTRIBUTE: Attribute<Boolean> =
-    Attribute.of("earth.terrarium.cloche.includeTransformedOutput", Boolean::class.javaObjectType)
 
 /**
  * Indicates that the forge mapping service has been stripped
  */
 @JvmField
-val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> =
+internal val NO_NAME_MAPPING_ATTRIBUTE: Attribute<Boolean> =
     Attribute.of("earth.terrarium.cloche.noNameMappingService", Boolean::class.javaObjectType)
+
+/**
+ * Used to disambiguate unpacked artifact sets (classes, resources, classesAndResources) over primary artifact sets
+ */
+@JvmField
+internal val MOD_CLASSPATH_PREFERABLE_ATTRIBUTE: Attribute<Boolean> =
+    Attribute.of("earth.terrarium.cloche.modclasspathpreferable", Boolean::class.javaObjectType)
+
+/**
+ * Indicates that the variant does not include datagen/generated metadata outputs
+ */
+@JvmField
+internal val WITHOUT_DATA_ATTRIBUTE: Attribute<Boolean> =
+    Attribute.of("earth.terrarium.cloche.withoutdata", Boolean::class.javaObjectType)
 
 class ClocheVersion(val versionName: String) : Comparable<ClocheVersion> {
     private val versionValue = run {
@@ -131,6 +138,14 @@ class DataDisambiguationRule : AttributeDisambiguationRule<Boolean> {
         if (details.consumerValue == true && true in details.candidateValues) {
             details.closestMatch(true)
         } else if (false in details.candidateValues) {
+            details.closestMatch(false)
+        }
+    }
+}
+
+class WithoutDataDisambiguationRule : AttributeDisambiguationRule<Boolean> {
+    override fun execute(details: MultipleCandidatesDetails<Boolean>) {
+        if (details.consumerValue != true && false in details.candidateValues) {
             details.closestMatch(false)
         }
     }

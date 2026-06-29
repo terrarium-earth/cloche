@@ -25,7 +25,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
         )
 
         target.data.onConfigured {
-            it.generateModJson.configure {
+            it.generateMetadataTask.configure {
                 clientMixinConfigs.from(data.mixins)
             }
         }
@@ -49,7 +49,7 @@ internal abstract class FabricClientSecondarySourceSets @Inject constructor(info
         )
 
         target.test.onConfigured {
-            it.generateModJson.configure {
+            it.generateMetadataTask.configure {
                 clientMixinConfigs.from(test.mixins)
             }
         }

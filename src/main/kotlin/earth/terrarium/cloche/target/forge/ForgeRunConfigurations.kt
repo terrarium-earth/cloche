@@ -27,7 +27,6 @@ import org.gradle.api.Action
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet
 import org.gradle.kotlin.dsl.named
-import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject constructor(val target: T) : RunConfigurations {
@@ -95,7 +94,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 minecraftVersion.set(target.minecraftVersion)
                 patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
                 mainResources.set(target.sourceSet.output.resourcesDir)
-                outputDirectory.set(target.datagenDirectory)
+                outputDirectory.set(project.provider { target.datagenDirectory.get() })
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
                 )
@@ -105,20 +104,9 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
 
-        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
-            from(target.datagenDirectory)
-            mustRunAfter(data.runTask)
-        }
-
-        project.tasks.named(target.sourceSet.jarTaskName) {
-            dependsOn(data.runTask)
-        }
-
-        target.test.onConfigured {
-            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                from(target.datagenDirectory)
-                mustRunAfter(data.runTask)
-            }
+        data.runTask.configure {
+            outputs.cacheIf { true }
+            outputs.dir(target.datagenDirectory)
         }
 
         project.withIdeaModule(target.sourceSet) {
@@ -160,7 +148,7 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
                 modId.set(project.modId)
                 minecraftVersion.set(target.minecraftVersion)
                 patches.from(project.configurations.named(target.sourceSet.patchesConfigurationName))
-                outputDirectory.set(target.datagenClientDirectory)
+                outputDirectory.set(project.provider { target.datagenClientDirectory.get() })
                 commonOutputDirectory.set(target.datagenDirectory)
                 downloadAssetsTask.set(
                     project.tasks.named<DownloadAssets>(target.sourceSet.downloadAssetsTaskName)
@@ -173,20 +161,9 @@ internal abstract class ForgeRunConfigurations<T : ForgeLikeTargetImpl> @Inject 
             }
         }.withCompilation(target, compilation) { quotedDescription(ForgeTarget::data.name) }
 
-        project.tasks.named<ProcessResources>(target.sourceSet.processResourcesTaskName) {
-            from(target.datagenClientDirectory)
-            mustRunAfter(clientData.runTask)
-        }
-
-        project.tasks.named(target.sourceSet.jarTaskName) {
-            dependsOn(clientData.runTask)
-        }
-
-        target.test.onConfigured {
-            project.tasks.named<ProcessResources>(it.sourceSet.processResourcesTaskName) {
-                from(target.datagenClientDirectory)
-                mustRunAfter(clientData.runTask)
-            }
+        clientData.runTask.configure {
+            outputs.cacheIf { true }
+            outputs.dir(target.datagenClientDirectory)
         }
 
         project.withIdeaModule(target.sourceSet) {

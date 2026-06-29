@@ -8,19 +8,20 @@ private val ComponentIdentifier.isMixin
     get() = "sponge" in displayName && "mixin" in displayName
 
 fun MinecraftRunConfiguration.addMixinJavaAgent(withMixinAgent: Property<Boolean>): MinecraftRunConfiguration {
+    val objects = project.objects
+    val empty = project.provider { emptyList<String>() }
+
     val args = sourceSet.flatMap {
-        project.configurations.named(it.runtimeClasspathConfigurationName).map { configuration ->
+        project.configurations.named(it.runtimeClasspathConfigurationName).flatMap { configuration ->
             configuration.incoming.artifactView {
                 componentFilter(ComponentIdentifier::isMixin)
-            }.files
+            }.files.elements
         }
     }.flatMap { mixins ->
-        compileArguments(mixins.map { mixinJar ->
-            compileArgument("-javaagent:", mixinJar)
+        MinecraftRunConfiguration.compileArguments(objects, mixins.map { mixinJar ->
+            MinecraftRunConfiguration.compileArgument(objects, "-javaagent:", mixinJar.asFile)
         })
     }
-
-    val empty = project.provider { emptyList<String>() }
 
     jvmArguments.addAll(withMixinAgent.flatMap {
         if (it) {

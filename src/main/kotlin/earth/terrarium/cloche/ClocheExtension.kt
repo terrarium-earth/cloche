@@ -179,10 +179,8 @@ open class ClocheExtension @Inject constructor(private val project: Project, obj
         }
 
         project.plugins.withType<BasePlugin> {
-            val libs = project.extension<BasePluginExtension>().libsDirectory
-
-            intermediateOutputsDirectory.convention(libs.dir("intermediates"))
-            finalOutputsDirectory.convention(libs)
+            intermediateOutputsDirectory.convention(project.layout.buildDirectory.dir("intermediate-libs"))
+            finalOutputsDirectory.convention(project.extension<BasePluginExtension>().libsDirectory)
         }
 
         onTargetTypeConfigured(FabricTarget::class.java) {
