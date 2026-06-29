@@ -396,7 +396,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
                         }
 
                         target.onClientIncluded {
-                            artifact(target.datagenClientDirectoryBuildDependencies) {
+                            artifact(target.datagenClientDirectory) {
                                 type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
 
                                 builtBy(target.datagenClientDirectoryBuildDependencies)
