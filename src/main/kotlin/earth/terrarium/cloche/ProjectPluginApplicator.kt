@@ -35,6 +35,7 @@ import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import org.gradle.kotlin.dsl.add
 import org.gradle.kotlin.dsl.apply
+import org.gradle.kotlin.dsl.artifacts
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.withType
 import org.gradle.kotlin.dsl.named
@@ -143,10 +144,12 @@ fun applyToProject(target: Project) {
         outputFile.set(target.layout.buildDirectory.file("modId.txt"))
     }
 
-    target.configurations.consumable("modId") {
+    val modIdVariant = target.configurations.consumable("modId") {
         attributes.attribute(Category.CATEGORY_ATTRIBUTE, target.objects.named(MOD_ID_CATEGORY))
+    }
 
-        outgoing.artifact(writeModId.flatMap(WriteModId::outputFile)) {
+    target.artifacts {
+        add(modIdVariant.name, writeModId.flatMap(WriteModId::outputFile)) {
             builtBy(writeModId)
         }
     }

@@ -39,7 +39,7 @@ abstract class GenerateFabricModJson : DefaultTask() {
         @OutputFile get
 
     abstract val modId: Property<String>
-        @Internal get
+        @Input get
 
     abstract val metadata: Property<FabricMetadata>
         @Nested get
@@ -62,8 +62,8 @@ abstract class GenerateFabricModJson : DefaultTask() {
     }
 
     init {
-        modId.convention(project.modId)
-        modVersion.convention(project.provider { project.version.toString() })
+        modId.set(project.modId)
+        modVersion.set(project.provider { project.version.toString() })
     }
 
     fun withJson(action: Action<MetadataFileProvider<JsonObject>>) {

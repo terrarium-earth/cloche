@@ -38,7 +38,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         @OutputFile get
 
     abstract val modId: Property<String>
-        @Internal get
+        @Input get
 
     abstract val metadata: Property<ForgeMetadata>
         @Nested get
@@ -58,8 +58,8 @@ abstract class GenerateForgeModsToml : DefaultTask() {
         @Input get
 
     init {
-        modId.convention(project.modId)
-        modVersion.convention(project.provider { project.version.toString() })
+        modId.set(project.modId)
+        modVersion.set(project.provider { project.version.toString() })
     }
 
     fun withToml(action: Action<MetadataFileProvider<TomlTable>>) {
