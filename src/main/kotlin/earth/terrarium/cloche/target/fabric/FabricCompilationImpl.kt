@@ -67,18 +67,6 @@ internal class FabricCompilationInfo(
 
 internal abstract class FabricCompilationImpl @Inject constructor(override val info: FabricCompilationInfo) :
     TargetCompilation<FabricTargetImpl>(info), FabricCompilation {
-    val commonMinecraftFile get() =
-        info.finalCommonJar
-
-    val clientMinecraftFile get() =
-        info.client.flatMap {
-            if (it) {
-                setupFiles.libraryArtifact
-            } else {
-                null
-            }
-        }
-
     override val generateMetadataTask = project.tasks.register<GenerateFabricModJson>(
         lowerCamelCaseGradleName("generate", target.featureName, featureName, "modJson"),
     ) {

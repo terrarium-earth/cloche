@@ -13,7 +13,6 @@ import earth.terrarium.cloche.api.target.targetName
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.target.ClocheTargetInternal
 import earth.terrarium.cloche.target.MinecraftTargetInternal
-import earth.terrarium.cloche.util.withIdeaModel
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import org.gradle.api.Action

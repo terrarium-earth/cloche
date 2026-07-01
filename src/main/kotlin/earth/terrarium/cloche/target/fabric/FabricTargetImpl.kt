@@ -292,6 +292,18 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
             extendsFrom(clientLibrariesConfiguration)
         }
 
+        client.data.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(clientLibrariesConfiguration)
+            }
+        }
+
+        client.test.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(clientLibrariesConfiguration)
+            }
+        }
+
         main.generateMetadataTask.configure {
             clientMixinConfigs.from(client.mixins)
         }
@@ -309,6 +321,18 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
             extendsFrom(clientLibrariesConfiguration)
+        }
+
+        data.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(clientLibrariesConfiguration)
+            }
+        }
+
+        test.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(clientLibrariesConfiguration)
+            }
         }
 
         project.objects.newInstance<FabricIncludedClient>()
@@ -377,12 +401,24 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
 
-        sourceSet.runtimeClasspath += project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile))
+        project.dependencies.add(sourceSet.implementationConfigurationName, project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
 
         commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
         project.configurations.named(sourceSet.localImplementationConfigurationName) {
             extendsFrom(commonLibrariesConfiguration)
+        }
+
+        data.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(commonLibrariesConfiguration)
+            }
+        }
+
+        test.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(commonLibrariesConfiguration)
+            }
         }
 
         mappings.fabricIntermediary()
@@ -409,7 +445,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
         }
 
         main.dependencies {
-            implementation.add(fabricLoader)
+            api.add(fabricLoader)
         }
     }
 

@@ -1,16 +1,7 @@
 package earth.terrarium.cloche
 
-import earth.terrarium.cloche.target.compilation.CommonCompilation
 import earth.terrarium.cloche.target.common.commonBucketConfigurationName
-import earth.terrarium.cloche.target.compilation.CompilationInternal
-import earth.terrarium.cloche.target.compilation.TargetCompilation
-import earth.terrarium.cloche.target.compilation.externalApiConfigurationName
-import earth.terrarium.cloche.target.compilation.externalCompileConfigurationName
-import earth.terrarium.cloche.target.compilation.externalRuntimeConfigurationName
-import earth.terrarium.cloche.target.compilation.localImplementationConfigurationName
-import earth.terrarium.cloche.target.compilation.localRuntimeConfigurationName
-import earth.terrarium.cloche.target.compilation.modConfigurationName
-import earth.terrarium.cloche.util.CLASSES_AND_RESOURCES_VARIANT_NAME
+import earth.terrarium.cloche.target.compilation.*
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.virtualsourcesets.SourceSetStaticLinkageInfo
 import org.gradle.api.Project
@@ -169,7 +160,7 @@ context(Project)
 internal fun TargetCompilation<*>.addClasspathDependency(dependency: TargetCompilation<*>) {
     println("(classpath dependency) $this -> $dependency")
 
-    dependencies.add(sourceSet.localImplementationConfigurationName, project().apply {
+    dependencies.add(modConfigurationName(sourceSet.localImplementationConfigurationName), project().apply {
         capabilities {
             if (dependency.capabilitySuffix.isPresent) {
                 requireFeature(dependency.capabilitySuffix)
@@ -214,7 +205,7 @@ context(Project)
 internal fun TargetCompilation<*>.addDataClasspathDependency(dependency: TargetCompilation<*>) {
     println("(data classpath dependency) $this -> $dependency")
 
-    dependencies.add(sourceSet.localImplementationConfigurationName, project().apply {
+    dependencies.add(modConfigurationName(sourceSet.localImplementationConfigurationName), project().apply {
         capabilities {
             if (dependency.capabilitySuffix.isPresent) {
                 requireFeature(dependency.capabilitySuffix)
