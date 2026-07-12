@@ -25,22 +25,22 @@ private fun SourceSet.extendConfigurations(dependency: SourceSet, common: Boolea
 
     if (common) {
         project.extend(
-            dependency.commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME),
+            commonBucketConfigurationName(JavaPlugin.API_CONFIGURATION_NAME),
             apiBucket,
         )
 
         project.extend(
-            dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME),
+            commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_API_CONFIGURATION_NAME),
             compileOnlyApiBucket,
         )
 
         project.extend(
-            dependency.commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME),
+            commonBucketConfigurationName(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME),
             implementationBucket,
         )
 
         project.extend(
-            dependency.commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME),
+            commonBucketConfigurationName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME),
             compileOnlyBucket,
         )
     } else {
