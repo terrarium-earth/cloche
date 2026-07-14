@@ -401,7 +401,7 @@ internal abstract class FabricTargetImpl @Inject constructor(name: String) :
 
         main = registerCommonCompilation(SourceSet.MAIN_SOURCE_SET_NAME)
 
-        project.dependencies.add(sourceSet.implementationConfigurationName, project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
+        project.dependencies.add(sourceSet.runtimeOnlyConfigurationName, project.files(generateMappingsArtifact.flatMap(Zip::getArchiveFile)))
 
         commonLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
