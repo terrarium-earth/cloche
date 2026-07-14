@@ -193,8 +193,20 @@ internal abstract class ForgeLikeTargetImpl @Inject constructor(name: String) :
 
         minecraftLibrariesConfiguration.shouldResolveConsistentlyWith(project.configurations.getByName(sourceSet.runtimeClasspathConfigurationName))
 
-        project.configurations.named(sourceSet.apiConfigurationName::equals).configureEach {
+        project.configurations.named(sourceSet.localImplementationConfigurationName) {
             extendsFrom(minecraftLibrariesConfiguration)
+        }
+
+        data.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(minecraftLibrariesConfiguration)
+            }
+        }
+
+        test.onConfigured {
+            project.configurations.named(it.sourceSet.localImplementationConfigurationName) {
+                extendsFrom(minecraftLibrariesConfiguration)
+            }
         }
 
         main.dependencyHandler.implementation(clientExtra)

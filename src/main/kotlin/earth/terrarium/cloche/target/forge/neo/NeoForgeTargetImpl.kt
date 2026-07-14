@@ -71,7 +71,9 @@ internal abstract class NeoForgeTargetImpl @Inject constructor(name: String) : F
 
         val emptyList = project.provider { emptyList<Dependency>() }
 
-        project.configurations.named(sourceSet.localImplementationConfigurationName) {
+        project.configurations.named(sourceSet.apiConfigurationName::equals).configureEach {
+            extendsFrom(minecraftLibrariesConfiguration)
+
             dependencies.addAllLater(minecraftVersion.flatMap {
                 if (isUnobfuscatedVersion(it)) {
                     (forgeDependency {}).map(::listOf)
