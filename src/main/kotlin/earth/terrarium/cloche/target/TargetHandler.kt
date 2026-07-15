@@ -377,6 +377,10 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
         main.sourceSet.output.dir(mapOf("builtBy" to target.datagenDirectoryBuildDependencies), target.datagenDirectory)
 
+        target.onClientIncluded {
+            main.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenClientDirectory)
+        }
+
         configurations.named(target.main.sourceSet.runtimeElementsConfigurationName) {
             outgoing {
                 variants {
@@ -443,6 +447,10 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         it.addClasspathDependency(target.main)
 
         it.sourceSet.output.dir(mapOf("builtBy" to target.datagenDirectoryBuildDependencies), target.datagenDirectory)
+
+        target.onClientIncluded {
+            it.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenClientDirectory)
+        }
     }
 
     if (target is FabricTargetImpl) {
@@ -452,7 +460,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
 
             configureMainForData(client)
 
-            client.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenDirectory)
+            client.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenClientDirectory)
 
             configurations.named(target.main.sourceSet.runtimeElementsConfigurationName) {
                 outgoing {
