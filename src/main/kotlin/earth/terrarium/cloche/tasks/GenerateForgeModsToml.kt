@@ -157,10 +157,6 @@ abstract class GenerateForgeModsToml : DefaultTask() {
             "Contributors: ${it.joinToString(transform = ::convertPerson)}"
         }
 
-        val modProperties = (metadata.custom.get() + metadata.modProperties.get()).mapValues { (_, value) ->
-            convertToTomlFromSerializable(value)
-        }
-
         val mod = ForgeMod(
             modId = modId,
             version = modVersion.get(),
@@ -170,7 +166,6 @@ abstract class GenerateForgeModsToml : DefaultTask() {
             displayURL = metadata.url.orNull,
             credits = credits,
             authors = authors,
-            modproperties = modProperties,
         )
 
         if (neoforge.get()) {
@@ -185,6 +180,10 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 )
             }
 
+            val modProperties = (metadata.custom.get() + metadata.modProperties.get()).mapValues { (_, value) ->
+                convertToTomlFromSerializable(value)
+            }.map { mapOf(it.toPair()) }
+
             val mods = NeoForgeMods(
                 modLoader = metadata.modLoader.get(),
                 loaderVersion = loaderVersionRange,
@@ -196,6 +195,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 mods = listOf(mod),
                 dependencies = mapOf(modId to dependencies),
                 logoBlur = metadata.blurLogo.orNull,
+                modproperties = mapOf(modId to modProperties)
             )
 
             output.outputStream().use {
@@ -212,6 +212,10 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 )
             }
 
+            val modProperties = (metadata.custom.get() + metadata.modProperties.get()).mapValues { (_, value) ->
+                convertToTomlFromSerializable(value)
+            }
+
             val mods = ForgeMods(
                 modLoader = metadata.modLoader.get(),
                 loaderVersion = loaderVersionRange,
@@ -220,6 +224,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 mods = listOf(mod),
                 dependencies = mapOf(modId to dependencies),
                 logoBlur = metadata.blurLogo.orNull,
+                modproperties = mapOf(modId to modProperties)
             )
 
             output.outputStream().use {
