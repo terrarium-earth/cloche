@@ -16,7 +16,7 @@ data class NeoForgeMods(
     val issueTrackerURL: String? = null,
     val mods: List<ForgeMod>,
     val logoBlur: Boolean? = null,
-    val modproperties: Map<String, List<Map<String, TomlElement>>> = emptyMap()
+    val modproperties: Map<String, Map<String, TomlElement>> = emptyMap()
 ) {
     @Serializable
     data class AccessTransformer(

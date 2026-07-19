@@ -157,6 +157,10 @@ abstract class GenerateForgeModsToml : DefaultTask() {
             "Contributors: ${it.joinToString(transform = ::convertPerson)}"
         }
 
+        val modProperties = (metadata.custom.get() + metadata.modProperties.get()).mapValues { (_, value) ->
+            convertToTomlFromSerializable(value)
+        }
+
         val mod = ForgeMod(
             modId = modId,
             version = modVersion.get(),
@@ -179,10 +183,6 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                     side = it.environment.getOrElse(CommonMetadata.Environment.Both),
                 )
             }
-
-            val modProperties = (metadata.custom.get() + metadata.modProperties.get()).mapValues { (_, value) ->
-                convertToTomlFromSerializable(value)
-            }.map { mapOf(it.toPair()) }
 
             val mods = NeoForgeMods(
                 modLoader = metadata.modLoader.get(),
@@ -210,10 +210,6 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                     ordering = it.ordering.getOrElse(CommonMetadata.Dependency.Ordering.None),
                     side = it.environment.getOrElse(CommonMetadata.Environment.Both),
                 )
-            }
-
-            val modProperties = (metadata.custom.get() + metadata.modProperties.get()).mapValues { (_, value) ->
-                convertToTomlFromSerializable(value)
             }
 
             val mods = ForgeMods(
