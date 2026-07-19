@@ -3,6 +3,7 @@ package earth.terrarium.cloche.tasks.data
 import earth.terrarium.cloche.api.metadata.CommonMetadata
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.peanuuutz.tomlkt.TomlElement
 
 @Serializable
 data class NeoForgeMods(
@@ -15,6 +16,7 @@ data class NeoForgeMods(
     val issueTrackerURL: String? = null,
     val mods: List<ForgeMod>,
     val logoBlur: Boolean? = null,
+    val modproperties: Map<String, Map<String, TomlElement>> = emptyMap()
 ) {
     @Serializable
     data class AccessTransformer(
