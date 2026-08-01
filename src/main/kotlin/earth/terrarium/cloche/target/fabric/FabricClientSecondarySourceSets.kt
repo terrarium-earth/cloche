@@ -9,6 +9,12 @@ import org.gradle.kotlin.dsl.newInstance
 import javax.inject.Inject
 
 internal abstract class FabricClientSecondarySourceSets @Inject constructor(info: FabricCompilationInfo) : TargetCompilation<FabricTargetImpl>(info), FabricSecondarySourceSets {
+    override val metadataDirectory
+        get() = target.main.metadataDirectory
+
+    override val generateMetadataTask
+        get() = target.main.generateMetadataTask
+
     override val data: LazyConfigurableInternal<FabricCompilationImpl> = project.lazyConfigurable {
         val data = project.objects.newInstance<FabricCompilationImpl>(
             FabricCompilationInfo(

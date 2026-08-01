@@ -25,6 +25,28 @@ internal fun Project.createCompilationVariants(
         if (compilation.withSources) {
             java.withSourcesJar()
         }
+
+        val baseCapabilityName = compilation.target.capabilitySuffix?.let {
+            "${project.name}-$it"
+        } ?: project.name
+
+        val compilationCapability = compilation.capabilitySuffix.map {
+            "${project.group}:$baseCapabilityName-$it:${project.version}"
+        }.orElse("${project.group}:$baseCapabilityName:${project.version}")
+
+        configurations.named(sourceSet.apiElementsConfigurationName) {
+            outgoing {
+                capability("${project.group}:${project.name}:${project.version}")
+                capability(compilationCapability)
+            }
+        }
+
+        configurations.named(sourceSet.runtimeElementsConfigurationName) {
+            outgoing {
+                capability("${project.group}:${project.name}:${project.version}")
+                capability(compilationCapability)
+            }
+        }
     } else {
         requireGroup()
 
@@ -68,7 +90,7 @@ internal fun Project.createCompilationVariants(
             attributes {
                 attribute(TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE, objects.named(TargetJvmEnvironment.STANDARD_JVM))
 
-                plugins.withId(ClochePlugin.Companion.KOTLIN_JVM_PLUGIN_ID) {
+                plugins.withId(ClochePlugin.KOTLIN_JVM_PLUGIN_ID) {
                     attribute(KotlinPlatformType.attribute, KotlinPlatformType.jvm)
                 }
             }

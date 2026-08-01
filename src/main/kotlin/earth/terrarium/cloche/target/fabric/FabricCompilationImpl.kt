@@ -17,9 +17,7 @@ import org.gradle.api.Action
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
-import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
-import org.gradle.language.jvm.tasks.ProcessResources
 import javax.inject.Inject
 
 private fun clientClasspath(client: Provider<Boolean>, commonJar: Provider<RegularFile>) = client.zip(commonJar) { isClient, common ->

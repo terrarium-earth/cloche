@@ -372,7 +372,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
         }
     }
 
-    fun configureMainForData(main: TargetCompilation<*>) {
+    fun configureMainForData(main: TargetCompilation<*>, addGenerated: Boolean) {
         val runtimeElements = configurations.named(main.sourceSet.runtimeElementsConfigurationName)
 
         main.sourceSet.output.dir(mapOf("builtBy" to target.datagenDirectoryBuildDependencies), target.datagenDirectory)
@@ -381,22 +381,25 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             main.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenClientDirectory)
         }
 
-        configurations.named(target.main.sourceSet.runtimeElementsConfigurationName) {
+        configurations.named(main.sourceSet.runtimeElementsConfigurationName) {
             outgoing {
                 variants {
                     val resourcesWithoutDataVariantName = withoutDataName(LibraryElements.RESOURCES)
 
                     named(LibraryElements.RESOURCES) {
-                        artifact(main.metadataDirectory) {
-                            type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
+                        if (addGenerated) {
+                            // TODO This doesn't seem fully correct because data/test will inherit it
+                            artifact(main.metadataDirectory) {
+                                type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
 
-                            builtBy(main.generateMetadataTask)
-                        }
+                                builtBy(main.generateMetadataTask)
+                            }
 
-                        artifact(target.datagenDirectory) {
-                            type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
+                            artifact(target.datagenDirectory) {
+                                type = ArtifactTypeDefinition.JVM_RESOURCES_DIRECTORY
 
-                            builtBy(target.datagenDirectoryBuildDependencies)
+                                builtBy(target.datagenDirectoryBuildDependencies)
+                            }
                         }
 
                         target.onClientIncluded {
@@ -435,7 +438,7 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
     }
 
     addCompilation(target.main, SourceSet.TEST_SOURCE_SET_NAME)
-    configureMainForData(target.main)
+    configureMainForData(target.main, true)
 
     target.data.onConfigured {
         addCompilation(it)
@@ -458,11 +461,11 @@ internal fun handleTarget(target: MinecraftTargetInternal) {
             addCompilation(client, ClochePlugin.CLIENT_TEST_COMPILATION_NAME)
             client.addClasspathDependency(target.main)
 
-            configureMainForData(client)
+            configureMainForData(client, false)
 
             client.sourceSet.output.dir(mapOf("builtBy" to target.datagenClientDirectoryBuildDependencies), target.datagenClientDirectory)
 
-            configurations.named(target.main.sourceSet.runtimeElementsConfigurationName) {
+            configurations.named(client.sourceSet.runtimeElementsConfigurationName) {
                 outgoing {
                     variants {
                         named(LibraryElements.RESOURCES) {

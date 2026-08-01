@@ -53,6 +53,7 @@ internal fun Project.configureClassesAndResourcesVariant(
 ): ConfigurationVariant {
     val classesAndResourcesVariants =
         configuration.outgoing.variants.named { it == LibraryElements.CLASSES || it == resourcesVariantName }
+
     val providers = providers
 
     return configuration.outgoing.variants.create(name).also { classesAndResourcesVariant ->

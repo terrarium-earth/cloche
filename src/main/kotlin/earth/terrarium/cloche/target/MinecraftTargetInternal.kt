@@ -105,7 +105,7 @@ internal abstract class MinecraftTargetInternal(
         }
 
         datagenDirectory.convention(project.layout.buildDirectory.dir("generated").map {
-            it.dir("resources").optionalDir(target.featureName)
+            it.dir("resources").dir(target.featureName ?: "main")
         })
 
         datagenClientDirectory.convention(project.layout.buildDirectory.dir("generated").map {

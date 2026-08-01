@@ -275,9 +275,11 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         _info.extraClasspathFiles,
     )
 
-    val metadataDirectory: Provider<Directory>
+    open val metadataDirectory: Provider<Directory>
         @Internal
-        get() = project.layout.buildDirectory.dir("generated").map { it.dir("metadata").optionalDir(target.featureName).dir(namePath) }
+        get() = project.layout.buildDirectory.dir("generated").map {
+            it.dir("metadata").optionalDir(target.featureName).dir(namePath)
+        }
 
     abstract val generateMetadataTask: TaskProvider<out Task>
 
