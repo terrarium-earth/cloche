@@ -108,6 +108,10 @@ fun applyToProject(target: Project) {
             disambiguationRules.add(DataDisambiguationRule::class)
         }
 
+        attribute(ClocheTargetAttribute.ATTRIBUTE) {
+            compatibilityRules.add(ClocheTargetAttribute.CompatibilityRule::class)
+        }
+
         attribute(ClocheAttributes.CLOCHE_VERSION) {
             compatibilityRules.add(ClocheVersionCompatibilityRule::class)
             disambiguationRules.add(ClocheVersionDisambiguationRule::class)
@@ -136,6 +140,7 @@ fun applyToProject(target: Project) {
                 .attribute(REMAPPED_ATTRIBUTE, false)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
+                .attribute(ClocheTargetAttribute.ATTRIBUTE, ClocheTargetAttribute.INITIAL)
         }
     }
 

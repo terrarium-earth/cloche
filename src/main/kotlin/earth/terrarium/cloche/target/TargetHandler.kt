@@ -235,6 +235,10 @@ private fun TargetCompilation<*>.addDependencies() {
         extendsFrom(project.configurations.named(sourceSet.externalRuntimeConfigurationName))
         extendsFrom(project.configurations.named(sourceSet.externalApiConfigurationName))
     }
+
+    project.configurations.named(remapClasspathConfiguration.name) {
+        addCollectedDependencies(dependencyHandler.remapClasspath)
+    }
 }
 
 context(Project)
