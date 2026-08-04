@@ -7,6 +7,7 @@ import earth.terrarium.cloche.REMAP_SOURCE_NAMESPACE_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
 import earth.terrarium.cloche.api.attributes.ModDistribution
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.MappingNamespaces
 import earth.terrarium.cloche.api.target.ClocheTarget
 import earth.terrarium.cloche.cloche
 import earth.terrarium.cloche.target.MinecraftTargetInternal
@@ -20,7 +21,6 @@ import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
 import net.msrandom.minecraftcodev.includes.IncludesJar
-import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.RemapAction
 import net.msrandom.minecraftcodev.remapper.task.LoadMappings
 import net.msrandom.minecraftcodev.remapper.task.RemapJar
@@ -153,7 +153,7 @@ private fun validateMappings(
     }
 
     val view: MappingTreeView = tree
-    val targetNamespace = MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE
+    val targetNamespace = MappingNamespaces.NAMED
     selectedNamespaces.forEach { (component, namespaces) ->
         namespaces.forEach { sourceNamespace ->
             check(
@@ -208,7 +208,7 @@ internal fun registerCompilationTransformations(
         group = "minecraft-transforms"
 
         inputFile.set(namedMinecraftFile)
-        namespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+        namespace.set(MappingNamespaces.NAMED)
 
         namedSource.set(target.minecraftVersion.map(::isUnobfuscatedVersion))
 
@@ -310,7 +310,7 @@ val selectedNamespaces = linkedMapOf<String, MutableSet<String>>()
                 mappings.set(validatedMappingOutput)
 
                 this.sourceNamespace.set(sourceNamespace)
-                targetNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+                targetNamespace.set(MappingNamespaces.NAMED)
 
                 extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
                 extraClasspath.from(compileClasspath)
@@ -321,7 +321,7 @@ val selectedNamespaces = linkedMapOf<String, MutableSet<String>>()
                     getGlobalCacheDirectory(project)
                         .resolve("remap-namespaces")
                         .resolve(namespaceCacheSegment(sourceNamespace))
-                        .resolve(namespaceCacheSegment(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE))
+                        .resolve(namespaceCacheSegment(MappingNamespaces.NAMED))
                 }))
 
                 nonModFiles.from(nonModCompileClasspath)
@@ -456,7 +456,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
 
             destinationDirectory.set(project.cloche.intermediateOutputsDirectory)
             input.set(jarFile)
-            sourceNamespace.set(MinecraftCodevRemapperPlugin.NAMED_MAPPINGS_NAMESPACE)
+            sourceNamespace.set(MappingNamespaces.NAMED)
             targetNamespace.set(target.modRemapNamespace)
             classpath.from(sourceSet.compileClasspath)
 

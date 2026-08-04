@@ -2,6 +2,7 @@ package earth.terrarium.cloche.api.target.compilation
 
 import earth.terrarium.cloche.REMAP_SOURCE_NAMESPACE_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.IncludeTransformationStateAttribute
+import earth.terrarium.cloche.api.attributes.MappingNamespaces
 import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.dsl.DependencyCollector
@@ -72,7 +73,7 @@ abstract class ClocheDependencyHandler @Inject constructor(private val minecraft
         require(sourceNamespace.isNotBlank()) {
             "remapFrom source namespace must not be blank"
         }
-        require(sourceNamespace != "named") {
+        require(sourceNamespace != MappingNamespaces.NAMED) {
             "remapFrom(\"named\") is a no-op; declare the dependency without remapFrom instead"
         }
 

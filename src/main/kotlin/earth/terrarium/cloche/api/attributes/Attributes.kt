@@ -8,6 +8,13 @@ object ClocheAttributes {
     val CLOCHE_VERSION = Attribute.of("earth.terrarium.cloche.version", String::class.java)
 }
 
+object MappingNamespaces {
+    const val NAMED = "named"
+    const val OFFICIAL = "official"
+    const val INTERMEDIARY = "intermediary"
+    const val SRG = "srg"
+}
+
 object CompilationAttributes {
     @JvmField
     val DISTRIBUTION: Attribute<ModDistribution> =
