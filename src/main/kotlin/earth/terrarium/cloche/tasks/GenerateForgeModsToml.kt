@@ -170,7 +170,6 @@ abstract class GenerateForgeModsToml : DefaultTask() {
             displayURL = metadata.url.orNull,
             credits = credits,
             authors = authors,
-            modproperties = modProperties,
         )
 
         if (neoforge.get()) {
@@ -196,6 +195,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 mods = listOf(mod),
                 dependencies = mapOf(modId to dependencies),
                 logoBlur = metadata.blurLogo.orNull,
+                modproperties = mapOf(modId to modProperties)
             )
 
             output.outputStream().use {
@@ -220,6 +220,7 @@ abstract class GenerateForgeModsToml : DefaultTask() {
                 mods = listOf(mod),
                 dependencies = mapOf(modId to dependencies),
                 logoBlur = metadata.blurLogo.orNull,
+                modproperties = mapOf(modId to modProperties)
             )
 
             output.outputStream().use {

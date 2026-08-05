@@ -26,6 +26,7 @@ data class ForgeMods(
     val issueTrackerURL: String? = null,
     val mods: List<ForgeMod>,
     val logoBlur: Boolean? = null,
+    val modproperties: Map<String, Map<String, TomlElement>> = emptyMap()
 ) {
     @Serializable
     data class Dependency(
@@ -59,8 +60,7 @@ data class ForgeMod(
     val logoFile: String? = null,
     val displayURL: String? = null,
     val credits: String? = null,
-    val authors: String? = null,
-    val modproperties: Map<String, TomlElement> = emptyMap(),
+    val authors: String? = null
 )
 
 inline fun <reified T> Toml.decodeFromStream(stream: InputStream) =
