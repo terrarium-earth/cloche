@@ -16,7 +16,6 @@ import earth.terrarium.cloche.util.fromJars
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
-import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
@@ -57,7 +56,6 @@ import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
 import javax.inject.Inject
 import kotlin.io.path.reader
-import java.util.Base64
 
 private fun Project.getUnmappedModFiles(configurationName: String) =
     filteredClasspathFiles(configurationName, resolvableModConfigurationName(configurationName))
@@ -170,9 +168,6 @@ private fun validateMappings(
     mappings
 }
 
-private fun namespaceCacheSegment(namespace: String): String =
-    Base64.getUrlEncoder().withoutPadding().encodeToString(namespace.toByteArray())
-
 data class FinalJarTasks(
     val accessWidenTask: TaskProvider<AccessWiden>,
     val decompileTask: TaskProvider<Decompile>,
@@ -258,7 +253,7 @@ private fun setupModTransformationPipeline(
     target: MinecraftTargetInternal,
     compilation: TargetCompilation<*>,
 ) {
-val selectedNamespaces = linkedMapOf<String, MutableSet<String>>()
+    val selectedNamespaces = linkedMapOf<String, MutableSet<String>>()
     val mappingOutput = target.loadMappingsTask.flatMap(LoadMappings::output)
     collectSelectedRemapRequests(
         project.configurations.getByName(compilation.sourceSet.compileClasspathConfigurationName),
@@ -270,7 +265,7 @@ val selectedNamespaces = linkedMapOf<String, MutableSet<String>>()
     )
     val validatedMappingOutput = validateMappings(mappingOutput, selectedNamespaces)
 
-    fun registerNamespace(sourceNamespace: String, explicit: Boolean) {
+    fun registerNamespace(sourceNamespace: String) {
         project.dependencies.registerTransform(RemapAction::class) {
             from
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
@@ -317,13 +312,6 @@ val selectedNamespaces = linkedMapOf<String, MutableSet<String>>()
                 extraClasspath.from(runtimeClasspath)
                 extraClasspath.from(compilation.remapClasspathConfiguration)
 
-                cacheDirectory.set(project.layout.dir(project.provider {
-                    getGlobalCacheDirectory(project)
-                        .resolve("remap-namespaces")
-                        .resolve(namespaceCacheSegment(sourceNamespace))
-                        .resolve(namespaceCacheSegment(MappingNamespaces.NAMED))
-                }))
-
                 nonModFiles.from(nonModCompileClasspath)
                 nonModFiles.from(nonModRuntimeClasspath)
 
@@ -338,12 +326,12 @@ val selectedNamespaces = linkedMapOf<String, MutableSet<String>>()
     project.afterEvaluate {
         val defaultNamespace = target.modRemapNamespace.get()
         if (defaultNamespace.isNotEmpty()) {
-            registerNamespace(defaultNamespace, explicit = false)
+            registerNamespace(defaultNamespace)
         }
 
         compilation.dependencyHandler.remapSourceNamespaces.forEach { sourceNamespace ->
             if (sourceNamespace != defaultNamespace) {
-                registerNamespace(sourceNamespace, explicit = true)
+                registerNamespace(sourceNamespace)
             }
         }
     }
