@@ -1,5 +1,6 @@
 package earth.terrarium.cloche
 
+import earth.terrarium.cloche.api.attributes.MinecraftModLoader
 import earth.terrarium.cloche.api.attributes.ModDistribution
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeCompatibilityRule
@@ -147,6 +148,16 @@ class WithoutDataDisambiguationRule : AttributeDisambiguationRule<Boolean> {
     override fun execute(details: MultipleCandidatesDetails<Boolean>) {
         if (details.consumerValue != true && false in details.candidateValues) {
             details.closestMatch(false)
+        }
+    }
+}
+
+class ModLoaderCompatibilityRule : AttributeCompatibilityRule<MinecraftModLoader> {
+    override fun execute(checkData: CompatibilityCheckDetails<MinecraftModLoader>) {
+        if (checkData.producerValue == MinecraftModLoader.common) {
+            checkData.compatible()
+        } else {
+            checkData.incompatible()
         }
     }
 }
