@@ -16,6 +16,7 @@ import earth.terrarium.cloche.util.fromJars
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
 import net.msrandom.minecraftcodev.core.utils.extension
+import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
 import net.msrandom.minecraftcodev.core.utils.lowerCamelCaseGradleName
 import net.msrandom.minecraftcodev.decompiler.task.Decompile
@@ -303,6 +304,7 @@ private fun setupModTransformationPipeline(
                     project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
 
                 mappings.set(validatedMappingOutput)
+                cacheDirectory.set(getGlobalCacheDirectory(project))
 
                 this.sourceNamespace.set(sourceNamespace)
                 targetNamespace.set(MappingNamespaces.NAMED)

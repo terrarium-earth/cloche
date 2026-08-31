@@ -1,5 +1,6 @@
 import earth.terrarium.cloche.api.attributes.MappingNamespaces
 import java.util.jar.JarFile
+import groovy.xml.XmlParser
 
 import static earth.terrarium.cloche.api.target.DependencyHandlerExtensionsKt.forgeMinecraft
 
@@ -260,7 +261,7 @@ cloche {
 configurations.configureEach {
     if (canBeResolved) {
         resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-        resolutionStrategy.cacheDynamicVersionsFor 0, 'seconds'
+        resolutionStrategy.cacheDynamicVersionsFor(gradle.startParameter.configurationCacheRequested ? 1 : 0, gradle.startParameter.configurationCacheRequested ? 'minutes' : 'seconds')
     }
 }
 
