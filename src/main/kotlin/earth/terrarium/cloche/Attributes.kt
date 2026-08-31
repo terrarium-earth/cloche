@@ -15,6 +15,13 @@ internal val REMAPPED_ATTRIBUTE: Attribute<Boolean> =
     Attribute.of("earth.terrarium.cloche.remapped", Boolean::class.javaObjectType)
 
 /**
+ * Indicates that the variant is fully AccessWidened
+ */
+@JvmField
+internal val ACCESSWIDENED_ATTRIBUTE: Attribute<Boolean> =
+    Attribute.of("earth.terrarium.cloche.aw", Boolean::class.javaObjectType)
+
+/**
  * Indicates that the forge mapping service has been stripped
  */
 @JvmField
