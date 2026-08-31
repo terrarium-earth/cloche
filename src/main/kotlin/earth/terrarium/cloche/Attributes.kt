@@ -15,6 +15,14 @@ internal val REMAPPED_ATTRIBUTE: Attribute<Boolean> =
     Attribute.of("earth.terrarium.cloche.remapped", Boolean::class.javaObjectType)
 
 /**
+ * The exact source namespace a dependency is explicitly requested to be remapped from
+ */
+@JvmField
+internal val REMAP_SOURCE_NAMESPACE_ATTRIBUTE: Attribute<String> =
+    Attribute.of("earth.terrarium.cloche.remapSourceNamespace", String::class.java)
+
+
+/**
  * Indicates that the forge mapping service has been stripped
  */
 @JvmField
@@ -88,6 +96,18 @@ class ClocheVersionDisambiguationRule : AttributeDisambiguationRule<String> {
         }
 
         details.closestMatch(closestVersion.versionName)
+    }
+}
+object ClocheTargetAttribute {
+    val ATTRIBUTE = Attribute.of("earth.terrarium.cloche.target", String::class.java)
+    const val INITIAL = "none"
+
+    class CompatibilityRule : AttributeCompatibilityRule<String> {
+        override fun execute(details: CompatibilityCheckDetails<String>) {
+            if (details.producerValue == INITIAL || details.consumerValue == INITIAL) {
+                details.compatible()
+            }
+        }
     }
 }
 

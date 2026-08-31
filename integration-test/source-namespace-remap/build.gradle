@@ -1,0 +1,839 @@
+import earth.terrarium.cloche.api.attributes.MappingNamespaces
+import java.util.jar.JarFile
+import groovy.xml.XmlParser
+
+import static earth.terrarium.cloche.api.target.DependencyHandlerExtensionsKt.forgeMinecraft
+
+plugins {
+    id 'earth.terrarium.cloche'
+}
+
+def fixtureVersion = '20260802.2-hierarchy'
+def forgePatchedVariant = providers.gradleProperty('snrForgePatchedVariant').orNull
+def forgePatchedFixtureVersion = "${fixtureVersion}-forge"
+group = 'earth.terrarium.cloche.snr.integration'
+version = fixtureVersion
+
+repositories {
+    maven { url = layout.buildDirectory.dir('fixture-repository') }
+    mavenCentral()
+    cloche.mavenFabric()
+    cloche.librariesMinecraft()
+    cloche.mavenForge()
+    cloche.main()
+}
+
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'maven-publish'
+
+    group = 'earth.terrarium.cloche.snr.t014'
+    version = fixtureVersion
+
+    repositories {
+        mavenCentral()
+        maven { url = 'https://maven.fabricmc.net/' }
+    }
+
+    java {
+        toolchain.languageVersion = JavaLanguageVersion.of(17)
+    }
+
+    publishing {
+        publications {
+            fixture(MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven { url = rootProject.layout.buildDirectory.dir('fixture-repository') }
+        }
+    }
+}
+
+project(':fixture-srg') {
+    dependencies {
+        api project(':fixture-child')
+
+        compileOnly 'net.fabricmc:fabric-loader:0.15.11'
+        compileOnly project(':fixture-ordinary-compile')
+        compileOnly project(':fixture-ordinary-runtime')
+        compileOnly project(':fixture-remap-root')
+    }
+}
+
+project(':fixture-remap-root') {
+    dependencies {
+        api project(':fixture-policy-helper')
+        compileOnly project(':fixture-ordinary-compile')
+    }
+}
+
+def invalidCase = providers.gradleProperty('snrInvalidCase').orNull
+def missingSource = providers.gradleProperty('snrMissingSource').orNull
+def ordinaryFixtureSrgDependency = "earth.terrarium.cloche.snr.t014:fixture-srg:${fixtureVersion}".toString()
+def forgePatchedFixtureSrgDependency = "earth.terrarium.cloche.snr.t014:fixture-srg:${forgePatchedFixtureVersion}".toString()
+def fixtureSrgDependency = forgePatchedVariant in ['without-helper', 'with-helper'] ? forgePatchedFixtureSrgDependency : ordinaryFixtureSrgDependency
+def forgePatchedMinecraftVersion = '1.20.1'
+def forgePatchedLoaderVersion = '47.2.0'
+def forgePatchedTypeName = 'net.minecraftforge.common.extensions.IForgeBlock'
+def forgePatchedTypeEntry = forgePatchedTypeName.replace('.', '/') + '.class'
+def forgePatchedMinecraftFiles = forgeMinecraft(project, forgePatchedMinecraftVersion, forgePatchedLoaderVersion)
+def generatedForgeIntermediateSourceDir = layout.buildDirectory.dir('generated/snrOverrideHierarchy/remap-root')
+def generatedOverrideSrgSourceDir = layout.buildDirectory.dir('generated/snrOverrideHierarchy/fixture-srg')
+def generatedForgePatchedSourceDir = layout.buildDirectory.dir('generated/snrForgePatchedFixture/source')
+
+def generateForgeIntermediateSource = tasks.register('generateForgeIntermediateSource') {
+    outputs.dir(generatedForgeIntermediateSourceDir)
+    doLast {
+        def sourceFile = generatedForgeIntermediateSourceDir.get().file('fixture/analysis/ForgeIntermediate.java').asFile
+        sourceFile.parentFile.mkdirs()
+        sourceFile.text = '''package fixture.analysis;
+
+public class ForgeIntermediate extends CompileOrdinary {
+}
+'''
+    }
+}
+
+def generateOverrideSrgSource = tasks.register('generateOverrideSrgSource') {
+    outputs.dir(generatedOverrideSrgSourceDir)
+    doLast {
+        def sourceFile = generatedOverrideSrgSourceDir.get().file('fixture/srg/OverrideSrg.java').asFile
+        sourceFile.parentFile.mkdirs()
+        sourceFile.text = '''package fixture.srg;
+
+public final class OverrideSrg extends fixture.analysis.ForgeIntermediate {
+    @Override
+    public String compileOrdinarySrg() {
+        return "snr-t022-override-srg";
+    }
+}
+'''
+    }
+}
+
+def generateForgePatchedFixtureSource = tasks.register('generateForgePatchedFixtureSource') {
+    outputs.dir(generatedForgePatchedSourceDir)
+    doLast {
+        def sourceFile = generatedForgePatchedSourceDir.get().file('fixture/srg/ForgePatchedMinecraftSrg.java').asFile
+        sourceFile.parentFile.mkdirs()
+        sourceFile.text = """package fixture.srg;
+
+public final class ForgePatchedMinecraftSrg {
+    private ${forgePatchedTypeName} forgeOnly;
+
+    public String forgePatchedReferenceSrg() {
+        return forgeOnly == null ? "snr-t022-forge-patched-reference" : forgeOnly.toString();
+    }
+}
+"""
+    }
+}
+
+project(':fixture-remap-root') {
+    sourceSets.main.java.srcDir(generatedForgeIntermediateSourceDir)
+    tasks.named('compileJava') {
+        dependsOn generateForgeIntermediateSource
+    }
+}
+
+project(':fixture-srg') {
+    sourceSets.main.java.srcDir(generatedOverrideSrgSourceDir)
+    tasks.named('compileJava') {
+        dependsOn generateOverrideSrgSource
+    }
+    tasks.named('jar') {
+        manifest.attributes('SNR-Missing-Source': missingSource ?: 'complete')
+    }
+    sourceSets {
+        forgePatched {
+            java.srcDir(generatedForgePatchedSourceDir)
+        }
+    }
+    sourceSets.forgePatched.compileClasspath += sourceSets.main.output
+    dependencies {
+        forgePatchedCompileOnly forgePatchedMinecraftFiles
+    }
+    def forgePatchedCompileJava = tasks.named('compileForgePatchedJava') {
+        dependsOn generateForgePatchedFixtureSource, forgePatchedMinecraftFiles
+    }
+    def forgePatchedJar = tasks.register('forgePatchedJar', Jar) {
+        archiveBaseName = project.name
+        archiveVersion = forgePatchedFixtureVersion
+        from(sourceSets.main.output)
+        from(sourceSets.forgePatched.output)
+        dependsOn forgePatchedCompileJava
+    }
+    def forgePatchedPomGroup = project.group.toString()
+    def forgePatchedPomArtifact = 'fixture-child'.toString()
+    def forgePatchedPomVersion = fixtureVersion.toString()
+    def forgePatchedPomScope = 'compile'.toString()
+    publishing {
+        publications {
+            forgePatched(MavenPublication) {
+                groupId = project.group
+                artifactId = project.name
+                version = forgePatchedFixtureVersion
+                artifact forgePatchedJar
+                pom.withXml {
+                    def dependenciesNode = asNode().appendNode('dependencies')
+                    def dependencyNode = dependenciesNode.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', forgePatchedPomGroup)
+                    dependencyNode.appendNode('artifactId', forgePatchedPomArtifact)
+                    dependencyNode.appendNode('version', forgePatchedPomVersion)
+                    dependencyNode.appendNode('scope', forgePatchedPomScope)
+                }
+            }
+        }
+    }
+}
+def targetADependencies
+
+cloche {
+    metadata {
+        modId = 'source_namespace_remap_fixture'
+    }
+    fabric('target-a') {
+        minecraftVersion = '1.20.3'
+        loaderVersion = '0.15.7'
+        mappings {
+            custom(dependencies.create(files('mappings/source-namespace-remap.tiny')))
+        }
+        dependencies { deps ->
+            targetADependencies = deps
+            modImplementation("earth.terrarium.cloche.snr.t014:fixture-default:${fixtureVersion}")
+            modImplementation(remapFrom(MappingNamespaces.SRG)(fixtureSrgDependency))
+            compileOnly("earth.terrarium.cloche.snr.t014:fixture-policy-helper:${fixtureVersion}")
+            if (missingSource != 'ordinary-compile') {
+                implementation("earth.terrarium.cloche.snr.t014:fixture-ordinary-compile:${fixtureVersion}")
+            }
+            if (missingSource != 'ordinary-runtime') {
+                runtimeOnly("earth.terrarium.cloche.snr.t014:fixture-ordinary-runtime:${fixtureVersion}")
+            }
+            if (missingSource != 'remap-classpath') {
+                remapClasspath("earth.terrarium.cloche.snr.t014:fixture-remap-root:${fixtureVersion}")
+            }
+            if (forgePatchedVariant == 'with-helper') {
+                remapClasspath(forgePatchedMinecraftFiles)
+            }
+            if (invalidCase == 'blank') {
+                modImplementation(remapFrom('   ')('invalid:blank:1'))
+            } else if (invalidCase == 'named') {
+                modImplementation(remapFrom('named')('invalid:named:1'))
+            } else if (invalidCase == 'project') {
+                modImplementation(remapFrom('srg')(project(':fixture-srg')))
+            } else if (invalidCase == 'file') {
+                modImplementation(remapFrom('srg')(files('mappings/source-namespace-remap.tiny')))
+            } else if (invalidCase == 'conflict') {
+                modImplementation(remapFrom('srg')(fixtureSrgDependency))
+                modImplementation(remapFrom('official')(fixtureSrgDependency))
+            } else if (invalidCase == 'missing-mapping') {
+                modImplementation(remapFrom('missing-source')("earth.terrarium.cloche.snr.t014:fixture-child:${fixtureVersion}"))
+            } else if (invalidCase == 'unresolved-remap-classpath') {
+                remapClasspath('earth.terrarium.cloche.snr.invalid:missing-remap-linkage:404')
+            }
+        }
+    }
+    fabric('target-b') {
+        minecraftVersion = '1.20.3'
+        loaderVersion = '0.15.11'
+        mappings {
+            custom(dependencies.create(files('mappings/source-namespace-remap.tiny')))
+        }
+        dependencies {
+            modImplementation("earth.terrarium.cloche.snr.t014:fixture-default:${fixtureVersion}")
+            modImplementation(remapFrom('srg')(ordinaryFixtureSrgDependency))
+            compileOnly("earth.terrarium.cloche.snr.t014:fixture-policy-helper:${fixtureVersion}")
+            if (missingSource != 'ordinary-compile') {
+                implementation("earth.terrarium.cloche.snr.t014:fixture-ordinary-compile:${fixtureVersion}")
+            }
+            if (missingSource != 'ordinary-runtime') {
+                runtimeOnly("earth.terrarium.cloche.snr.t014:fixture-ordinary-runtime:${fixtureVersion}")
+            }
+            if (missingSource != 'remap-classpath') {
+                remapClasspath("earth.terrarium.cloche.snr.t014:fixture-remap-root:${fixtureVersion}")
+            }
+        }
+    }
+}
+
+configurations.configureEach {
+    if (canBeResolved) {
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+        resolutionStrategy.cacheDynamicVersionsFor(gradle.startParameter.configurationCacheRequested ? 1 : 0, gradle.startParameter.configurationCacheRequested ? 'minutes' : 'seconds')
+    }
+}
+
+def mappingTasks = ['loadTargetAMappings', 'loadTargetBMappings'].collect { tasks.named(it) }
+def fixturePublicationTasks = subprojects.collect { it.tasks.named('publishFixturePublicationToMavenRepository') } + project(':fixture-srg').tasks.named('publishForgePatchedPublicationToMavenRepository')
+def environmentTasks = tasks.matching { task ->
+    def name = task.name.toLowerCase()
+    name.contains('mappings') || (name.contains('remap') && name.contains('minecraft') && name.contains('intermediary'))
+}
+def verificationGradle = rootDir.parentFile.parentFile.toPath().resolve(System.getProperty('os.name').toLowerCase().contains('windows') ? 'gradlew.bat' : 'gradlew').toFile()
+def standaloneProjectDir = layout.projectDirectory.asFile
+def targetConfiguration = { String targetName, String suffix ->
+    def prefix = targetName.split('-').collect { it.capitalize() }.join('')
+    configurations.getByName("${prefix.uncapitalize()}${suffix.capitalize()}")
+}
+def targetACompileClasspath = targetConfiguration('target-a', 'compileClasspath')
+def rawFixtureSrgJar = project(':fixture-srg').tasks.named('jar').flatMap { it.archiveFile }
+def runNested = { String taskName, Map properties, boolean expectFailure, List<String> required ->
+    def arguments = [verificationGradle.absolutePath, '-p', rootDir.absolutePath, taskName, '--no-configuration-cache', '--offline']
+    properties.each { key, value -> arguments << "-P${key}=${value}".toString() }
+    def command = (System.getProperty('os.name').toLowerCase().contains('windows') ? ['cmd', '/c'] + arguments : arguments)*.toString()
+    def process = new ProcessBuilder(command).directory(rootDir).redirectErrorStream(true).start()
+    def text = process.inputStream.getText('UTF-8')
+    def exitValue = process.waitFor()
+    assert (exitValue != 0) == expectFailure: "Unexpected isolated exit ${exitValue} for ${taskName}:\n${text}"
+    required.each { identifier ->
+        assert text.contains(identifier): "Missing diagnostic identifier '${identifier}' for ${taskName}:\n${text}"
+    }
+}
+def fixtureClassBytes = { Configuration configuration, String module, String entry ->
+    def artifact = fixtureModules(configuration).find { it.moduleVersion.id.name == module }
+    assert artifact: "Missing fixture artifact ${module} in ${configuration.name}"
+    new JarFile(artifact.file).withCloseable { jar ->
+        def classEntry = jar.getEntry(entry)
+        assert classEntry: "Missing ${entry} in ${artifact.file}"
+        jar.getInputStream(classEntry).bytes
+    }
+}
+def containsBytecodeName = { byte[] bytes, String value -> new String(bytes, 'ISO-8859-1').contains(value) }
+def assertDirectNamedBytecode = { Configuration configuration ->
+    def bytes = fixtureClassBytes(configuration, 'fixture-srg', 'fixture/named/DirectNamed.class')
+    ['compileOrdinaryNamed', 'runtimeOrdinaryNamed', 'remapLinkageNamed'].each { name ->
+        assert containsBytecodeName(bytes, name): "${configuration.name} DirectNamed.class lacks ${name}"
+    }
+    ['compileOrdinarySrg', 'runtimeOrdinarySrg', 'remapLinkageSrg'].each { name ->
+        assert !containsBytecodeName(bytes, name): "${configuration.name} DirectNamed.class retained stale ${name}"
+    }
+}
+
+def verifySourceNamespaceRemap = tasks.register('verifySourceNamespaceRemap') {
+    group = 'verification'
+    description = 'Publishes external fixtures and verifies mixed and edge-local source namespace remapping.'
+    dependsOn fixturePublicationTasks, environmentTasks
+
+    doLast {
+        def compileClasspath = targetConfiguration('target-a', 'compileClasspath')
+        def artifacts = compileClasspath.resolvedConfiguration.resolvedArtifacts
+        def fixtureArtifacts = artifacts.findAll { it.moduleVersion.id.group == 'earth.terrarium.cloche.snr.t014' }
+        def byName = fixtureArtifacts.collectEntries { [(it.moduleVersion.id.name): it.file] }
+        assert byName.keySet().containsAll(['fixture-default', 'fixture-srg', 'fixture-child']): "Expected all external fixture modules, got ${byName.keySet()}"
+        assert fixtureArtifacts.every { it.id.componentIdentifier instanceof ModuleComponentIdentifier }
+        def entries = byName.collectEntries { name, file -> [(name): new JarFile(file).withCloseable { jar -> jar.entries()*.name as Set }] }
+        assert 'fixture/named/DefaultNamed.class' in entries['fixture-default']
+        assert 'fixture/named/DirectNamed.class' in entries['fixture-srg']
+        assert 'fixture/srg/ForgePatchedMinecraftSrg.class' !in entries['fixture-srg']
+        assert 'fixture/named/ChildNamed.class' in entries['fixture-child']
+        assert 'fixture/srg/DirectSrg.class' !in entries['fixture-srg']
+        assert 'fixture/srg/ChildSrg.class' !in entries['fixture-child']
+        def srgAttribute = Attribute.of('earth.terrarium.cloche.remapSourceNamespace', String)
+        def directRequests = compileClasspath.incoming.resolutionResult.allDependencies.findAll { it instanceof ResolvedDependencyResult && it.requested instanceof ModuleComponentSelector && it.requested.group == 'earth.terrarium.cloche.snr.t014' }.collectEntries { dependency -> [(dependency.requested.module): dependency.requested.attributes.getAttribute(srgAttribute)] }
+        assert directRequests['fixture-srg'] == 'srg'
+        assert directRequests['fixture-default'] == null
+        assert directRequests['fixture-child'] == null
+        def loaderRequests = compileClasspath.incoming.resolutionResult.allDependencies.findAll { it instanceof ResolvedDependencyResult && it.requested instanceof ModuleComponentSelector && it.requested.group == 'net.fabricmc' && it.requested.module == 'fabric-loader' }
+        assert !loaderRequests.empty
+        assert loaderRequests.every { it.requested.attributes.getAttribute(srgAttribute) != 'srg' }
+    }
+}
+
+def fixtureModules(Configuration configuration) {
+    configuration.resolvedConfiguration.resolvedArtifacts.findAll {
+        it.moduleVersion.id.group == 'earth.terrarium.cloche.snr.t014'
+    }
+}
+
+def fixtureEntries(Configuration configuration) {
+    fixtureModules(configuration).collectEntries { artifact ->
+        [(artifact.moduleVersion.id.name): new JarFile(artifact.file).withCloseable { jar -> jar.entries()*.name as Set }]
+    }
+}
+
+def verifyNoAnalysisLeak(Configuration configuration) {
+    def names = fixtureModules(configuration)*.moduleVersion.id.name as Set
+    assert !names.contains('fixture-remap-root'):
+            "Analysis-only remapClasspath root leaked into ${configuration.name}: ${names}"
+}
+
+['verifyCompleteCompileInputs': 'targetACompileClasspath', 'verifyCompleteRuntimeInputs': 'targetARuntimeClasspath'].each { taskName, configurationName ->
+    tasks.register(taskName) {
+        group = 'verification'
+        dependsOn fixturePublicationTasks, environmentTasks
+        doLast {
+            def configuration = configurations.getByName(configurationName)
+            def entries = fixtureEntries(configuration)
+            assertDirectNamedBytecode(configuration)
+            assert 'fixture/analysis/CompileOrdinary.class' in entries['fixture-ordinary-compile']
+            if (configurationName.endsWith('RuntimeClasspath')) {
+                assert 'fixture/analysis/RuntimeOrdinary.class' in entries['fixture-ordinary-runtime']
+            }
+            verifyNoAnalysisLeak(configuration)
+        }
+    }
+}
+
+tasks.register('verifyRemapClasspathTransitivity') {
+    group = 'verification'
+    dependsOn fixturePublicationTasks
+    doLast {
+        def names = fixtureModules(targetConfiguration('target-a', 'remapClasspath'))*.moduleVersion.id.name as Set
+        assert names.containsAll(['fixture-remap-root', 'fixture-policy-helper']): "Expected transitive remapClasspath graph, got ${names}"
+    }
+}
+
+tasks.register('verifyCompileClasspathAlignment') {
+    group = 'verification'
+    dependsOn fixturePublicationTasks
+    doLast {
+        def compileVersion = fixtureModules(targetConfiguration('target-a', 'compileClasspath')).find { it.moduleVersion.id.name == 'fixture-policy-helper' }?.moduleVersion?.id?.version
+        def remapVersion = fixtureModules(targetConfiguration('target-a', 'remapClasspath')).find { it.moduleVersion.id.name == 'fixture-policy-helper' }?.moduleVersion?.id?.version
+        assert compileVersion == fixtureVersion && remapVersion == compileVersion: "Expected compile-aligned helper, compile=${compileVersion}, remap=${remapVersion}"
+    }
+}
+
+tasks.register('verifyDeclarationLocalPolicy') {
+    group = 'verification'
+    dependsOn fixturePublicationTasks
+    doLast {
+        def probe = configurations.detachedConfiguration(
+                dependencies.create("earth.terrarium.cloche.snr.t014:fixture-remap-root:${fixtureVersion}") { transitive = false },
+                dependencies.create("earth.terrarium.cloche.snr.t014:fixture-remap-root:${fixtureVersion}")
+        )
+        def names = fixtureModules(probe)*.moduleVersion.id.name as Set
+        assert names.containsAll(['fixture-remap-root', 'fixture-policy-helper']): "Narrow declaration interfered with sibling: ${names}"
+    }
+}
+
+tasks.register('verifyInputSelfExclusion') {
+    group = 'verification'
+    dependsOn tasks.named('verifyCompleteCompileInputs')
+    doLast {
+        def raw = project(':fixture-srg').tasks.named('jar').get().archiveFile.get().asFile.canonicalFile
+        def named = fixtureModules(targetConfiguration('target-a', 'compileClasspath')).find { it.moduleVersion.id.name == 'fixture-srg' }.file.canonicalFile
+        assert raw != named: "Remap input was consumed as its own named output: ${raw}"
+        assert !targetConfiguration('target-a', 'remapClasspath').files*.canonicalFile.contains(raw): "Remap input leaked into remapClasspath: ${raw}"
+    }
+}
+tasks.register('verifyMissingTargetEnvironmentRemovalBlocker') {
+    group = 'verification'
+    doLast {
+        throw new GradleException('SNR-T015 blocker: target-environment removal cannot be expressed in this standalone build.gradle without changing target authority')
+    }
+}
+
+tasks.register('verifyNamedConsumedForm') {
+    group = 'verification'
+    dependsOn tasks.named('verifyCompleteCompileInputs'), tasks.named('verifyCompleteRuntimeInputs')
+    doLast {
+        [targetConfiguration('target-a', 'compileClasspath'), targetConfiguration('target-a', 'runtimeClasspath')].each { configuration ->
+            def srg = fixtureModules(configuration).findAll { it.moduleVersion.id.name == 'fixture-srg' }
+            assert srg.size() == 1: "Expected one consumed fixture-srg form in ${configuration.name}: ${srg*.file}"
+            def entries = new JarFile(srg[0].file).withCloseable { jar -> jar.entries()*.name as Set }
+            assert 'fixture/named/DirectNamed.class' in entries && 'fixture/srg/DirectSrg.class' !in entries
+        }
+    }
+}
+
+tasks.register('verifyNoAnalysisOnlyLeakage') {
+    group = 'verification'
+    dependsOn tasks.named('verifyCompleteCompileInputs'), tasks.named('verifyCompleteRuntimeInputs')
+    doLast {
+        verifyNoAnalysisLeak(targetConfiguration('target-a', 'compileClasspath'))
+        verifyNoAnalysisLeak(targetConfiguration('target-a', 'runtimeClasspath'))
+        [configurations.targetAApiElements, configurations.targetARuntimeElements].each { configuration ->
+            assert configuration.allDependencies.every { dependency -> dependency.name !in ['fixture-remap-root', 'fixture-policy-helper'] }
+        }
+    }
+}
+
+
+tasks.register('verifyLateNamespaceFailure') {
+    group = 'verification'
+    dependsOn fixturePublicationTasks, environmentTasks
+    doLast {
+        targetConfiguration('target-a', 'compileClasspath').files
+        targetADependencies.modImplementation.add(targetADependencies.remapFrom('late-source')(fixtureSrgDependency))
+    }
+}
+
+tasks.register('verifyMissingAnalysisInputArtifact') {
+    group = 'verification'
+    dependsOn fixturePublicationTasks, mappingTasks, environmentTasks
+    doLast {
+        def expectedNames = [
+                'ordinary-compile': ['compileOrdinarySrg', 'compileOrdinaryNamed'],
+                'ordinary-runtime': ['runtimeOrdinarySrg', 'runtimeOrdinaryNamed'],
+                'remap-classpath' : ['remapLinkageSrg', 'remapLinkageNamed']
+        ][missingSource]
+        assert expectedNames: "Expected one controlled snrMissingSource variant, got ${missingSource}"
+        def configuration = targetConfiguration('target-a', missingSource == 'ordinary-runtime' ? 'runtimeClasspath' : 'compileClasspath')
+        def bytes = fixtureClassBytes(configuration, 'fixture-srg', 'fixture/named/DirectNamed.class')
+        assert containsBytecodeName(bytes, expectedNames[0]): "Missing ${missingSource} did not retain ${expectedNames[0]}"
+        assert !containsBytecodeName(bytes, expectedNames[1]): "Missing ${missingSource} unexpectedly produced ${expectedNames[1]}"
+    }
+}
+
+[
+        verifyMissingOrdinaryCompileInput: 'ordinary-compile',
+        verifyMissingOrdinaryRuntimeInput: 'ordinary-runtime',
+        verifyMissingRemapClasspathInput : 'remap-classpath'
+].each { taskName, source ->
+    tasks.register(taskName) {
+        group = 'verification'
+        doLast {
+            runNested('verifyMissingAnalysisInputArtifact', [snrMissingSource: source], false, ['BUILD SUCCESSFUL'])
+        }
+    }
+}
+
+def expectedInvalidCases = [
+        verifyBlankRemapFromFailure          : [caseName: 'blank', taskName: 'help', identifiers: ['remapFrom source namespace must not be blank']],
+        verifyNamedRemapFromFailure          : [caseName: 'named', taskName: 'help', identifiers: ['remapFrom("named") is a no-op']],
+        verifyProjectDependencyFailure       : [caseName: 'project', taskName: 'help', identifiers: ['only supports external module dependencies', 'DefaultProjectDependency', 'srg']],
+        verifyFileDependencyFailure          : [caseName: 'file', taskName: 'help', identifiers: ['Could not find method call()', 'file collection', 'RemapSourceNamespaceDependencyModifier']],
+        verifyConflictingNamespacesFailure   : [caseName: 'conflict', taskName: 'verifySourceNamespaceRemap', identifiers: ['Conflicting remapFrom namespaces', "fixture-srg:${fixtureVersion}", 'official', 'srg']],
+        verifyMissingMappingPathFailure      : [caseName: 'missing-mapping', taskName: 'verifySourceNamespaceRemap', identifiers: ['Missing remap mapping path', "fixture-child:${fixtureVersion}", 'missing-source -> named']],
+        verifyUnresolvedRemapClasspathFailure: [caseName: 'unresolved-remap-classpath', taskName: 'verifySourceNamespaceRemap', identifiers: [':targetARemapClasspath', 'earth.terrarium.cloche.snr.invalid:missing-remap-linkage:404']]
+]
+expectedInvalidCases.each { taskName, expected ->
+    tasks.register(taskName) {
+        group = 'verification'
+        doLast {
+            runNested(expected.taskName, [snrInvalidCase: expected.caseName], true, expected.identifiers)
+        }
+    }
+}
+
+tasks.register('verifyLateDeclarationFailure') {
+    group = 'verification'
+    doLast {
+        runNested('verifyLateNamespaceFailure', [:], true, ['late-source', 'Compilation :target-a:main', 'targetARuntimeClasspath', 'has begun resolving'])
+    }
+}
+
+tasks.register('verifyRepeatedEqualRequest') {
+    group = 'verification'
+    dependsOn fixturePublicationTasks, environmentTasks
+    doLast {
+        def requests = targetConfiguration('target-a', 'compileClasspath').incoming.resolutionResult.allDependencies.findAll {
+            it instanceof ResolvedDependencyResult &&
+                    it.requested instanceof ModuleComponentSelector &&
+                    it.requested.group == 'earth.terrarium.cloche.snr.t014' &&
+                    it.requested.module == 'fixture-srg'
+        }
+        def srgAttribute = Attribute.of('earth.terrarium.cloche.remapSourceNamespace', String)
+        assert requests && requests.every { it.requested.attributes.getAttribute(srgAttribute) == 'srg' }:
+                "Expected equal srg requests to stay compatible: ${requests*.requested}"
+        assert fixtureEntries(targetConfiguration('target-a', 'compileClasspath'))['fixture-srg'].contains('fixture/named/DirectNamed.class')
+    }
+}
+
+tasks.register('verifySourceNamespaceRemapT015') {
+    group = 'verification'
+    dependsOn 'verifyCompleteCompileInputs', 'verifyCompleteRuntimeInputs', 'verifyRemapClasspathTransitivity',
+            'verifyCompileClasspathAlignment', 'verifyDeclarationLocalPolicy', 'verifyInputSelfExclusion',
+            'verifyNamedConsumedForm', 'verifyNoAnalysisOnlyLeakage', 'verifyRepeatedEqualRequest',
+            'verifyMissingOrdinaryCompileInput', 'verifyMissingOrdinaryRuntimeInput', 'verifyMissingRemapClasspathInput',
+            'verifyBlankRemapFromFailure', 'verifyNamedRemapFromFailure', 'verifyProjectDependencyFailure',
+            'verifyFileDependencyFailure', 'verifyConflictingNamespacesFailure', 'verifyMissingMappingPathFailure',
+            'verifyUnresolvedRemapClasspathFailure', 'verifyLateDeclarationFailure'
+}
+
+tasks.register('verifySourceNamespaceRemapT014T015') {
+    group = 'verification'
+    dependsOn 'verifySourceNamespaceRemap', 'verifySourceNamespaceRemapT015', 'verifyOverrideHierarchyRemap'
+}
+def targetResolvableConfigurations = { String targetName ->
+    [targetConfiguration(targetName, 'compileClasspath'), targetConfiguration(targetName, 'runtimeClasspath')]
+}
+def targetLoaderArtifacts = { String targetName ->
+    targetResolvableConfigurations(targetName).collectMany { configuration -> configuration.resolvedConfiguration.resolvedArtifacts.findAll { it.moduleVersion.id.group == 'net.fabricmc' && it.moduleVersion.id.name == 'fabric-loader' } }.unique { it.file.canonicalPath }
+}
+def targetFixtureArtifacts = { String targetName ->
+    targetResolvableConfigurations(targetName).collectMany { configuration -> configuration.resolvedConfiguration.resolvedArtifacts.findAll { it.moduleVersion.id.group == 'earth.terrarium.cloche.snr.t014' } }.unique { it.file.canonicalPath }
+}
+def sha256 = { File file -> java.security.MessageDigest.getInstance('SHA-256').digest(file.bytes).encodeHex().toString() }
+def targetNamedOutputs = { String targetName -> targetFixtureArtifacts(targetName).findAll { artifact -> new JarFile(artifact.file).withCloseable { jar -> jar.getEntry('fixture/named/DirectNamed.class') != null } } }
+def targetAPackageTasks = ['targetAJar', 'targetAIncludeJar'].collect { tasks.named(it) }
+def forgePatchedPomFile = layout.buildDirectory.file("fixture-repository/earth/terrarium/cloche/snr/t014/fixture-srg/${forgePatchedFixtureVersion}/fixture-srg-${forgePatchedFixtureVersion}.pom")
+['accessWidenTargetACommonMinecraft', 'accessWidenTargetAMinecraft', 'compileTargetAJava', 'targetAJar', 'targetARemapJar', 'targetAIncludeJar'].each { taskName ->
+    tasks.named(taskName).configure { dependsOn fixturePublicationTasks }
+}
+def canonicalJarFiles = { Collection<File> files -> files.findAll { it.isFile() && it.name.endsWith('.jar') }.collect { it.canonicalFile }.unique { it.path } }
+def jarContainsEntry = { File file, String entry -> file.isFile() && file.name.endsWith('.jar') && new JarFile(file).withCloseable { jar -> jar.getEntry(entry) != null } }
+def assertNoJarContainsEntry = { Collection<File> files, String entry, String role ->
+    def hits = files.findAll { jarContainsEntry(it, entry) }
+    assert hits.empty: "Forge patched helper type leaked into ${role}: ${hits}"
+}
+def assertForgePatchedPom = {
+    def pomFile = forgePatchedPomFile.get().asFile
+    assert pomFile.isFile(): "Missing generated Forge publication POM: ${pomFile}"
+    def dependencies = new XmlParser(false, false).parse(pomFile).dependencies.dependency
+    assert dependencies.size() == 1: "Expected exactly one Forge publication POM dependency in ${pomFile}, got ${dependencies.size()}"
+    def dependency = dependencies[0]
+    def actual = [
+            groupId   : dependency.groupId.text(),
+            artifactId: dependency.artifactId.text(),
+            version   : dependency.version.text(),
+            scope     : dependency.scope.text()
+    ]
+    def expected = [
+            groupId   : 'earth.terrarium.cloche.snr.t014',
+            artifactId: 'fixture-child',
+            version   : fixtureVersion,
+            scope     : 'compile'
+    ]
+    assert actual == expected: "Unexpected Forge publication POM dependency in ${pomFile}: ${actual}"
+    println "SNR-T022 ${forgePatchedVariant} Forge publication POM dependency: ${actual}"
+}
+def ordinaryEnvironmentArtifactFiles = {
+    def configuration = targetConfiguration('target-a', 'compileClasspath')
+    canonicalJarFiles(configuration.resolvedConfiguration.resolvedArtifacts
+            .findAll { artifact -> artifact.moduleVersion.id.group != 'earth.terrarium.cloche.snr.t014' }*.file)
+}
+class ForgeScenarioOrchestrator implements org.gradle.api.Action<org.gradle.api.Task>, Serializable {
+    private static final long serialVersionUID = 1L
+    private final String gradlePath
+    private final String projectDirPath
+    private final boolean windows
+    private final String forgeTypeEntry
+    private final String forgeTypeName
+    private final String forgeFixtureDependency
+
+    ForgeScenarioOrchestrator(String gradlePath, String projectDirPath, boolean windows,
+                               String forgeTypeEntry, String forgeTypeName, String forgeFixtureDependency) {
+        this.gradlePath = gradlePath
+        this.projectDirPath = projectDirPath
+        this.windows = windows
+        this.forgeTypeEntry = forgeTypeEntry
+        this.forgeTypeName = forgeTypeName
+        this.forgeFixtureDependency = forgeFixtureDependency
+    }
+
+    @Override
+    void execute(org.gradle.api.Task ignored) {
+        System.out.println 'SNR-T022 Groovy callable: DependencyHandlerExtensionsKt.forgeMinecraft(project, ...) exercises the public Project helper API.'
+        System.out.println 'SNR-T022 nested Forge helper runs intentionally omit --offline because Forge userdev/helper artifacts may be uncached.'
+        run('without-helper')
+        run('with-helper')
+    }
+
+    private void run(String variant) {
+        def arguments = [gradlePath, '-p', projectDirPath, 'verifyForgePatchedMinecraftOutput', '--no-configuration-cache', '--refresh-dependencies', '--console=plain', "-PsnrForgePatchedVariant=${variant}".toString()]
+        def command = (windows ? ['cmd', '/c'] + arguments : arguments)*.toString()
+        def process = new ProcessBuilder(command).directory(new File(projectDirPath)).redirectErrorStream(true).start()
+        def text = process.inputStream.getText('UTF-8')
+        def exitValue = process.waitFor()
+        if (variant == 'without-helper') {
+            assert exitValue != 0: "Expected isolated Forge helper failure for ${variant}:\n${text}"
+            def hasForgeType = text.contains(forgeTypeEntry) || text.contains(forgeTypeName)
+            def hasForgeContext = text.contains(forgeFixtureDependency)
+            def invalidOutputRejected = text.contains('SNR-T022 without-helper invalid output rejected:') && hasForgeType && hasForgeContext
+            def remapFailureDiagnosed = hasForgeType && hasForgeContext && !text.contains('SNR-T022 without-helper invalid output rejected:')
+            assert invalidOutputRejected || remapFailureDiagnosed:
+                    "Missing validated ${forgeTypeName} remap failure or invalid-output rejection for ${variant}:\n${text}"
+            System.out.println "SNR-T022 without-helper expected negative: ${invalidOutputRejected ? 'invalid-output-rejection' : 'remap-failure'}; fixture=${forgeFixtureDependency}"
+        } else {
+            assert exitValue == 0: "Unexpected isolated Forge helper exit ${exitValue} for ${variant}:\n${text}"
+            ['SNR-T022 with-helper success', 'SNR-T022 containment passed'].each { identifier ->
+                assert text.contains(identifier): "Missing Forge helper evidence '${identifier}' for ${variant}:\n${text}"
+            }
+        }
+        text.readLines().findAll { it.contains('SNR-T022') }.each { System.out.println it }
+    }
+}
+
+tasks.register('verifyForgePatchedMinecraftOutput') {
+    group = 'verification'
+    description = 'Verifies one Forge patched Minecraft helper variant for SNR-T022.'
+    dependsOn fixturePublicationTasks, environmentTasks, targetAPackageTasks
+    inputs.file(forgePatchedPomFile).withPropertyName('forgePatchedPom')
+    doLast {
+        assert forgePatchedVariant in ['without-helper', 'with-helper']: "Set -PsnrForgePatchedVariant=without-helper or with-helper"
+        assertForgePatchedPom()
+
+        def helperFiles = canonicalJarFiles(forgePatchedMinecraftFiles.files)
+        assert helperFiles.size() == 1: "Expected exactly one Forge patched Minecraft helper JAR, got ${helperFiles}"
+        def helperJar = helperFiles[0]
+        assert jarContainsEntry(helperJar, forgePatchedTypeEntry): "${forgePatchedTypeEntry} missing from helper ${helperJar}"
+
+        def remapConfiguration = targetConfiguration('target-a', 'remapClasspath')
+        def remapFiles = canonicalJarFiles(remapConfiguration.files)
+        def remapTypeProviders = remapFiles.findAll { jarContainsEntry(it, forgePatchedTypeEntry) }
+        println "SNR-T022 ${forgePatchedVariant} remapClasspath artifacts: ${remapFiles*.absolutePath}"
+        println "SNR-T022 ${forgePatchedVariant} remapClasspath ${forgePatchedTypeEntry} providers: ${remapTypeProviders*.absolutePath}"
+        if (forgePatchedVariant == 'with-helper') {
+            assert remapFiles.contains(helperJar): "Helper JAR missing from remapClasspath: ${remapFiles}"
+            assert remapTypeProviders == [helperJar]: "Expected only helper to provide ${forgePatchedTypeEntry} on remapClasspath: ${remapTypeProviders}"
+        } else {
+            assert !remapFiles.contains(helperJar): "Helper JAR unexpectedly present without helper variant"
+            assert remapTypeProviders.empty: "Ordinary remapClasspath provided ${forgePatchedTypeEntry}: ${remapTypeProviders}"
+        }
+        def ordinaryEnvironmentFiles = ordinaryEnvironmentArtifactFiles()
+        println "SNR-T022 ordinary environment artifact set (targetACompileClasspath non-fixture resolved artifacts): ${ordinaryEnvironmentFiles*.absolutePath}"
+        assertNoJarContainsEntry(ordinaryEnvironmentFiles, forgePatchedTypeEntry, 'enumerated ordinary Fabric target environment')
+
+        def compileConfiguration = targetConfiguration('target-a', 'compileClasspath')
+        def fixtureArtifact = compileConfiguration.resolvedConfiguration.resolvedArtifacts.find {
+            it.moduleVersion.id.name == 'fixture-srg'
+        }
+        assert fixtureArtifact: "Missing fixture-srg artifact from target-a compile classpath"
+        assert fixtureArtifact.moduleVersion.id.version == forgePatchedFixtureVersion:
+                "target-a did not consume ${forgePatchedFixtureSrgDependency}: ${fixtureArtifact.moduleVersion.id}"
+        def fixtureBytes = new JarFile(fixtureArtifact.file).withCloseable { jar ->
+            def entry = jar.getEntry('fixture/srg/ForgePatchedMinecraftSrg.class')
+            assert entry: "Missing generated Forge-patched reference class in ${fixtureArtifact.file}"
+            jar.getInputStream(entry).bytes
+        }
+        def hasForgeReference = containsBytecodeName(fixtureBytes, forgePatchedTypeName.replace('.', '/'))
+        new JarFile(fixtureArtifact.file).withCloseable { jar ->
+            assert jar.getEntry('fixture/named/DirectNamed.class'):
+                    "Selected ${forgePatchedFixtureSrgDependency} was not remapped from srg to named"
+        }
+        assert hasForgeReference: "Selected ${forgePatchedFixtureSrgDependency} output does not reference ${forgePatchedTypeName}"
+
+        def runtimeConfiguration = targetConfiguration('target-a', 'runtimeClasspath')
+        def finalFiles = canonicalJarFiles(compileConfiguration.files + runtimeConfiguration.files)
+        assert !finalFiles.contains(helperJar): "Helper JAR leaked into final Fabric classpaths: ${helperJar}"
+        assertNoJarContainsEntry(finalFiles, forgePatchedTypeEntry, 'final Fabric compile/runtime classpaths')
+
+        if (forgePatchedVariant == 'without-helper') {
+            throw new GradleException("SNR-T022 without-helper invalid output rejected: type=${forgePatchedTypeEntry}; fixture=${forgePatchedFixtureSrgDependency}; unresolved reference remains in selected output")
+        }
+
+        def packageFiles = canonicalJarFiles(targetAPackageTasks.collect { it.get().archiveFile.get().asFile })
+        assert !packageFiles.contains(helperJar): "Helper JAR leaked into Fabric packaging: ${helperJar}"
+        assertNoJarContainsEntry(packageFiles, forgePatchedTypeEntry, 'Fabric packaging')
+
+        [configurations.targetAApiElements, configurations.targetARuntimeElements].each { configuration ->
+            assert configuration.allDependencies.every { dependency -> dependency.group != 'net.minecraftforge' && dependency.name != helperJar.name }:
+                    "Helper dependency leaked into publication metadata ${configuration.name}: ${configuration.allDependencies}"
+            def outgoingFiles = canonicalJarFiles(configuration.outgoing.artifacts.files.files)
+            assert !outgoingFiles.contains(helperJar): "Helper artifact leaked into publication outputs ${configuration.name}: ${outgoingFiles}"
+        }
+
+        def transformedFiles = canonicalJarFiles(targetFixtureArtifacts('target-a')*.file)
+        assert !transformedFiles.contains(helperJar): "Helper JAR was selected as a transformed output"
+        assertNoJarContainsEntry(transformedFiles, forgePatchedTypeEntry, 'transformed dependency outputs')
+        println "SNR-T022 with-helper success: type=${forgePatchedTypeEntry}; helper=${helperJar.name}; sha256=${sha256(helperJar)}"
+        println 'SNR-T022 containment passed: final classpaths, packaging, publication metadata, and transformed outputs exclude helper JAR'
+    }
+}
+
+tasks.register('verifyForgePatchedMinecraftRemap') {
+    group = 'verification'
+    description = 'Verifies MappingNamespaces.SRG with the Forge patched Minecraft Project helper on remapClasspath.'
+    doLast(new ForgeScenarioOrchestrator(
+            verificationGradle.absolutePath,
+            standaloneProjectDir.absolutePath,
+            System.getProperty('os.name').toLowerCase().contains('windows'),
+            forgePatchedTypeEntry,
+            forgePatchedTypeName,
+            forgePatchedFixtureSrgDependency))
+}
+
+def javap17 = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(17)
+}.map { launcher ->
+    new File(launcher.metadata.installationPath.asFile, "bin/javap${System.getProperty('os.name').toLowerCase().contains('windows') ? '.exe' : ''}")
+}
+def javapOutput = { File jar, String className ->
+    def process = new ProcessBuilder(javap17.get().absolutePath, '-p', '-classpath', jar.absolutePath, className)
+            .redirectErrorStream(true)
+            .start()
+    def output = process.inputStream.getText('UTF-8')
+    assert process.waitFor() == 0: "javap failed for ${className} in ${jar}: ${output}"
+    output
+}
+
+tasks.register('verifyOverrideHierarchyRemap') {
+    group = 'verification'
+    description = 'Verifies the generated three-level override hierarchy remaps its SRG override declaration.'
+    dependsOn fixturePublicationTasks, environmentTasks
+    inputs.file(rawFixtureSrgJar).withPropertyName('rawFixtureSrgJar')
+    inputs.files(targetACompileClasspath).withPropertyName('targetACompileClasspath')
+    doLast {
+        def rawFixture = rawFixtureSrgJar.get().asFile.canonicalFile
+        def compileClasspath = targetACompileClasspath
+        def transformedJar = compileClasspath.find { file ->
+            file.name.endsWith('.jar') && new JarFile(file).withCloseable { jar -> jar.getEntry('fixture/srg/OverrideSrg.class') }
+        }?.canonicalFile
+        assert transformedJar: "Missing named fixture-srg:${fixtureVersion} artifact on target-a compileClasspath"
+        assert transformedJar != rawFixture: "target-a selected the raw fixture-srg JAR: ${rawFixture}"
+        new JarFile(transformedJar).withCloseable { jar ->
+            assert jar.getEntry('fixture/srg/OverrideSrg.class'): "Missing OverrideSrg from transformed fixture: ${transformedJar}"
+        }
+
+        def raw = javapOutput(rawFixture, 'fixture.srg.OverrideSrg')
+        assert raw.contains('extends fixture.analysis.ForgeIntermediate')
+        assert raw.contains('java.lang.String compileOrdinarySrg();')
+        assert !raw.contains('compileOrdinaryNamed')
+
+        def transformed = javapOutput(transformedJar, 'fixture.srg.OverrideSrg')
+        assert transformed.contains('extends fixture.analysis.ForgeIntermediate')
+        assert transformed.contains('java.lang.String compileOrdinaryNamed();')
+        assert !transformed.contains('compileOrdinarySrg')
+    }
+}
+
+tasks.register('verifySourceNamespaceRemapT016') {
+    group = 'verification'
+    description = 'Verifies independent real Fabric loader environments and cache/output identity.'
+    dependsOn fixturePublicationTasks, environmentTasks
+    doLast {
+        def loadersA = targetLoaderArtifacts('target-a')
+        def loadersB = targetLoaderArtifacts('target-b')
+        assert loadersA && loadersA.every { it.moduleVersion.id.version == '0.15.7' }: "target-a loader mismatch: ${loadersA*.moduleVersion.id}"
+        assert loadersB && loadersB.every { it.moduleVersion.id.version == '0.15.11' }: "target-b loader mismatch: ${loadersB*.moduleVersion.id}"
+        def loaderHashesA = loadersA.collect { sha256(it.file) }.toSet()
+        def loaderHashesB = loadersB.collect { sha256(it.file) }.toSet()
+        assert loaderHashesA.size() == 1 && loaderHashesB.size() == 1 && loaderHashesA != loaderHashesB: 'Fabric loader artifacts must differ'
+        (loadersA + loadersB).each { artifact -> new JarFile(artifact.file).withCloseable { jar -> assert jar.getEntry('net/fabricmc/loader/api/FabricLoader.class') != null } }
+        def srgA = targetFixtureArtifacts('target-a').find { it.moduleVersion.id.name == 'fixture-srg' }
+        def srgB = targetFixtureArtifacts('target-b').find { it.moduleVersion.id.name == 'fixture-srg' }
+        assert srgA && srgB && srgA.moduleVersion.id == srgB.moduleVersion.id: 'Raw fixture identity changed between targets'
+        assert srgA.moduleVersion.id.version == fixtureVersion: "Target isolation must consume ordinary fixture-srg:${fixtureVersion}, got ${srgA.moduleVersion.id}"
+        def namespaceAttribute = Attribute.of('earth.terrarium.cloche.remapSourceNamespace', String)
+        ['target-a', 'target-b'].each { targetName ->
+            def requests = targetResolvableConfigurations(targetName).collectMany { it.incoming.resolutionResult.allDependencies }.findAll { it instanceof ResolvedDependencyResult && it.requested instanceof ModuleComponentSelector && it.requested.module == 'fixture-srg' }
+            assert requests && requests.every { it.requested.attributes.getAttribute(namespaceAttribute) == 'srg' }: "${targetName} namespace request mismatch"
+            assert targetNamedOutputs(targetName): "${targetName} has no named output"
+        }
+    }
+}
+
+tasks.register('verifySourceNamespaceRemapT016Cache') {
+    group = 'verification'
+    dependsOn tasks.named('verifySourceNamespaceRemapT016')
+    doLast {
+        def fingerprints = ['target-a', 'target-b'].collectEntries { name -> [(name): targetNamedOutputs(name).collect { "${it.file.canonicalPath}:${sha256(it.file)}" }.sort()] }
+        assert fingerprints.values().every { it } && fingerprints['target-a'] != fingerprints['target-b']: "Named output fingerprints are not distinct: ${fingerprints}"
+    }
+}
+
+tasks.register('verifySourceNamespaceRemapConfigurationCache') {
+    group = 'verification'
+    description = 'Configuration-cache smoke for the real-loader SNR graph.'
+    dependsOn fixturePublicationTasks, environmentTasks
+    inputs.files(targetConfiguration('target-a', 'compileClasspath')).withPropertyName('targetACompileClasspath')
+    inputs.files(targetConfiguration('target-b', 'compileClasspath')).withPropertyName('targetBCompileClasspath')
+    outputs.file(layout.buildDirectory.file('verification/source-namespace-remap-configuration-cache.txt'))
+    doLast {
+        outputs.files.singleFile.text = 'source-namespace-remap-configuration-cache-ok\n'
+    }
+}
+
+tasks.register('verifySourceNamespaceRemapT014T015T016') {
+    group = 'verification'
+    dependsOn 'verifySourceNamespaceRemapT014T015', 'verifySourceNamespaceRemapT016', 'verifySourceNamespaceRemapT016Cache', 'verifyForgePatchedMinecraftRemap'
+}
+
+tasks.configureEach {
+    if (name.startsWith('verify') && name != 'verifyMissingTargetEnvironmentRemovalBlocker') {
+        dependsOn mappingTasks
+    }
+}

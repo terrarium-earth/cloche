@@ -1,0 +1,15 @@
+tiny	2	0	official	intermediary	srg	named
+c	fixture/official/DefaultOfficial	fixture/intermediary/DefaultIntermediary	fixture/srg/DefaultSrg	fixture/named/DefaultNamed
+	m	()Ljava/lang/String;	defaultOfficial	defaultIntermediary	defaultSrg	defaultNamed
+c	fixture/official/DirectOfficial	fixture/intermediary/DirectIntermediary	fixture/srg/DirectSrg	fixture/named/DirectNamed
+	m	()Ljava/lang/String;	directOfficial	directIntermediary	directSrg	directNamed
+c	fixture/official/ChildOfficial	fixture/intermediary/ChildIntermediary	fixture/srg/ChildSrg	fixture/named/ChildNamed
+	m	()Ljava/lang/String;	childOfficial	childIntermediary	childSrg	childNamed
+c	fixture/official/CacheFromIntermediary	fixture/cache/SharedInput	fixture/srg/CacheIntermediaryPlaceholder	fixture/cache/FromIntermediary
+c	fixture/official/CacheFromSrg	fixture/intermediary/CacheSrgPlaceholder	fixture/cache/SharedInput	fixture/cache/FromSrg
+c	fixture/analysis/CompileOrdinary	fixture/analysis/CompileOrdinary	fixture/analysis/CompileOrdinary	fixture/analysis/CompileOrdinary
+	m	()Ljava/lang/String;	compileOrdinaryOfficial	compileOrdinaryIntermediary	compileOrdinarySrg	compileOrdinaryNamed
+c	fixture/analysis/RuntimeOrdinary	fixture/analysis/RuntimeOrdinary	fixture/analysis/RuntimeOrdinary	fixture/analysis/RuntimeOrdinary
+	m	()Ljava/lang/String;	runtimeOrdinaryOfficial	runtimeOrdinaryIntermediary	runtimeOrdinarySrg	runtimeOrdinaryNamed
+c	fixture/analysis/RemapLinkage	fixture/analysis/RemapLinkage	fixture/analysis/RemapLinkage	fixture/analysis/RemapLinkage
+	m	()Ljava/lang/String;	remapLinkageOfficial	remapLinkageIntermediary	remapLinkageSrg	remapLinkageNamed
