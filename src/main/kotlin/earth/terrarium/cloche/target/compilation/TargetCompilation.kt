@@ -1,5 +1,6 @@
 package earth.terrarium.cloche.target.compilation
 
+import earth.terrarium.cloche.ACCESSWIDENED_ATTRIBUTE
 import earth.terrarium.cloche.MOD_CLASSPATH_PREFERABLE_ATTRIBUTE
 import earth.terrarium.cloche.REMAPPED_ATTRIBUTE
 import earth.terrarium.cloche.api.attributes.CompilationAttributes
@@ -12,6 +13,7 @@ import earth.terrarium.cloche.target.addCollectedDependencies
 import earth.terrarium.cloche.util.fromJars
 import earth.terrarium.cloche.util.optionalDir
 import net.msrandom.minecraftcodev.accesswidener.AccessWiden
+import net.msrandom.minecraftcodev.accesswidener.AccessWidenerAction
 import net.msrandom.minecraftcodev.core.utils.extension
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectory
 import net.msrandom.minecraftcodev.core.utils.isUnobfuscatedVersion
@@ -49,6 +51,7 @@ import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
 import javax.inject.Inject
+import net.msrandom.minecraftcodev.core.utils.getLocalCacheDirectoryProvider
 
 private fun Project.getUnmappedModFiles(configurationName: String) =
     filteredClasspathFiles(configurationName, resolvableModConfigurationName(configurationName))
@@ -74,6 +77,7 @@ private fun Project.filteredClasspathFiles(configurationName: String, filterConf
 
             attributes {
                 attribute(REMAPPED_ATTRIBUTE, false)
+                attribute(ACCESSWIDENED_ATTRIBUTE, false)
             }
         }.artifacts.artifactFiles
     })
@@ -90,6 +94,7 @@ private fun Project.getUnmappedClasspath(configurationName: String): FileCollect
 
             attributes {
                 attribute(REMAPPED_ATTRIBUTE, false)
+                attribute(ACCESSWIDENED_ATTRIBUTE, false)
             }
         }.artifacts.artifactFiles
     })
@@ -183,57 +188,80 @@ private fun setupModTransformationPipeline(
     // afterEvaluate needed as the registration of a transform is dependent on a lazy provider
     //  this can potentially be changed to a no-op transform, but that's far slower
     project.afterEvaluate {
-        if (target.modRemapNamespace.get().isEmpty()) {
-            return@afterEvaluate
+        val compileClasspath =
+            project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
+
+        val runtimeClasspath =
+            project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
+
+        val nonModCompileClasspath =
+            project.getNonModFiles(compilation.sourceSet.compileClasspathConfigurationName)
+
+        val nonModRuntimeClasspath =
+            project.getNonModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
+
+        val modCompileClasspath =
+            project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
+
+        val modRuntimeClasspath =
+            project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
+
+        if (target.modRemapNamespace.get().isNotEmpty()) {
+            project.dependencies.registerTransform(RemapAction::class) {
+                from
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(REMAPPED_ATTRIBUTE, false)
+
+                to
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
+                    .attribute(REMAPPED_ATTRIBUTE, true)
+
+                // TODO Is the usage of the base attributes correct here?
+                compilation.baseAttributes(from)
+                compilation.baseAttributes(to)
+
+                parameters {
+                    mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
+
+                    sourceNamespace.set(target.modRemapNamespace.get())
+
+                    extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
+                    extraClasspath.from(compileClasspath)
+                    extraClasspath.from(runtimeClasspath)
+
+                    cacheDirectory.set(getGlobalCacheDirectory(project))
+
+                    nonModFiles.from(nonModCompileClasspath)
+                    nonModFiles.from(nonModRuntimeClasspath)
+
+                    modFiles.from(modCompileClasspath)
+                    modFiles.from(modRuntimeClasspath)
+                }
+            }
         }
 
-        project.dependencies.registerTransform(RemapAction::class) {
+        project.dependencies.registerTransform(AccessWidenerAction::class) {
             from
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(REMAPPED_ATTRIBUTE, false)
+                .attribute(ACCESSWIDENED_ATTRIBUTE, false)
 
             to
                 .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
-                .attribute(REMAPPED_ATTRIBUTE, true)
+                .attribute(ACCESSWIDENED_ATTRIBUTE, true)
 
             // TODO Is the usage of the base attributes correct here?
             compilation.baseAttributes(from)
             compilation.baseAttributes(to)
 
             parameters {
-                val compileClasspath =
-                    project.getUnmappedClasspath(compilation.sourceSet.compileClasspathConfigurationName)
+                cacheDirectory.set(getLocalCacheDirectoryProvider(project))
 
-                val runtimeClasspath =
-                    project.getUnmappedClasspath(compilation.sourceSet.runtimeClasspathConfigurationName)
+                accessWideners.from(target.accessWideners) //TODO support other mod's transitive?
 
-                val nonModCompileClasspath =
-                    project.getNonModFiles(compilation.sourceSet.compileClasspathConfigurationName)
-
-                val nonModRuntimeClasspath =
-                    project.getNonModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
-
-                val modCompileClasspath =
-                    project.getUnmappedModFiles(compilation.sourceSet.compileClasspathConfigurationName)
-
-                val modRuntimeClasspath =
-                    project.getUnmappedModFiles(compilation.sourceSet.runtimeClasspathConfigurationName)
-
-                mappings.set(target.loadMappingsTask.flatMap(LoadMappings::output))
-
-                sourceNamespace.set(target.modRemapNamespace.get())
-
-                extraClasspath.from(compilation.info.intermediaryMinecraftClasspath)
-                extraClasspath.from(compileClasspath)
-                extraClasspath.from(runtimeClasspath)
-
-                cacheDirectory.set(getGlobalCacheDirectory(project))
+                namedSource.set(true)
 
                 nonModFiles.from(nonModCompileClasspath)
                 nonModFiles.from(nonModRuntimeClasspath)
-
-                modFiles.from(modCompileClasspath)
-                modFiles.from(modRuntimeClasspath)
             }
         }
     }
@@ -384,6 +412,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         project.configurations.named(sourceSet.compileClasspathConfigurationName) {
             attributes.attribute(MOD_CLASSPATH_PREFERABLE_ATTRIBUTE, true)
             attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            attributes.attribute(ACCESSWIDENED_ATTRIBUTE, true)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
 
             extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)
@@ -392,6 +421,7 @@ internal abstract class TargetCompilation<T : MinecraftTargetInternal> @Inject c
         project.configurations.named(sourceSet.runtimeClasspathConfigurationName) {
             attributes.attribute(MOD_CLASSPATH_PREFERABLE_ATTRIBUTE, true)
             attributes.attributeProvider(REMAPPED_ATTRIBUTE, remapped)
+            attributes.attribute(ACCESSWIDENED_ATTRIBUTE, true)
             attributes.attribute(IncludeTransformationStateAttribute.ATTRIBUTE, _info.includeState)
 
             extendsFrom(target.mappingsBuildDependenciesHolder, minecraftBuildDependenciesHolder)

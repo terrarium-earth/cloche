@@ -126,6 +126,7 @@ fun applyToProject(target: Project) {
         attribute(CommonTargetAttributes.NAME)
 
         attribute(REMAPPED_ATTRIBUTE)
+        attribute(ACCESSWIDENED_ATTRIBUTE)
         attribute(NO_NAME_MAPPING_ATTRIBUTE)
         attribute(IncludeTransformationStateAttribute.ATTRIBUTE)
     }
@@ -134,6 +135,7 @@ fun applyToProject(target: Project) {
         named(ArtifactTypeDefinition.JAR_TYPE) {
             attributes
                 .attribute(REMAPPED_ATTRIBUTE, false)
+                .attribute(ACCESSWIDENED_ATTRIBUTE, false)
                 .attribute(NO_NAME_MAPPING_ATTRIBUTE, false)
                 .attribute(IncludeTransformationStateAttribute.ATTRIBUTE, IncludeTransformationStateAttribute.None)
         }
