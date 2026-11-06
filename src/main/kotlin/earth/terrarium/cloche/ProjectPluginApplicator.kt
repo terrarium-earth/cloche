@@ -117,7 +117,9 @@ fun applyToProject(target: Project) {
             disambiguationRules.add(WithoutDataDisambiguationRule::class)
         }
 
-        attribute(TargetAttributes.MOD_LOADER)
+        attribute(TargetAttributes.MOD_LOADER) {
+            compatibilityRules.add(ModLoaderCompatibilityRule::class)
+        }
         attribute(TargetAttributes.CLOCHE_MOD_LOADER)
         attribute(TargetAttributes.MINECRAFT_VERSION)
         attribute(TargetAttributes.CLOCHE_MINECRAFT_VERSION)
